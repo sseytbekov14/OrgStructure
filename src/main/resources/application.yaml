@@ -1,0 +1,62 @@
+spring:
+  profiles:
+    active: local
+  application:
+    name: cs-orgchart
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:OrgStructure}?ssl=true&sslmode=require
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  security:
+    oauth2:
+      client:
+        registration:
+          corporate-sso:
+            client-id: ${SSO_CLIENT_ID:}
+            client-secret: ${SSO_CLIENT_SECRET:}
+            scope: openid, profile, email
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+        provider:
+          corporate-sso:
+            issuer-uri: ${SSO_ISSUER_URI:}
+
+server:
+  port: 8080
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        secure: false # Переключить в true на PROD после подключения HTTPS
+        same-site: strict
+
+app:
+  data:
+    excel-path: c:/Projects/OrgStructure/data/result_new.xlsx
+    photos-path: c:/Projects/OrgStructure/photos
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health,prometheus"
+  endpoint:
+    health:
+      show-details: when_authorized
+      roles: "SYSTEM_ADMIN"
+    env:
+      enabled: false
+    heapdump:
+      enabled: false

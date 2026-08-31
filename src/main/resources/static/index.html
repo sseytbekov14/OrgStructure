@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CS OrgChart - Central Services</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1.0" />
+  <link rel="shortcut icon" href="/favicon.svg?v=1.0" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="header-left">
+        <div class="kpmg-logo">KPMG</div>
+        <div class="header-divider"></div>
+        <div>
+          <div class="header-title">Central Services</div>
+          <div class="header-subtitle" id="headerSubtitle">Organization Chart</div>
+        </div>
+      </div>
+      <div class="header-right">
+        <span class="header-sub">Organization Chart</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="search-bar">
+    <div class="search-inner">
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"></circle>
+          <path d="m21 21-4.35-4.35"></path>
+        </svg>
+        <input
+          id="searchInput"
+          class="search-input"
+          type="text"
+          placeholder="Search by name, job title, group..."
+          autocomplete="off"
+        />
+        <button class="search-clear" id="searchClear" style="display:none;">x</button>
+      </div>
+      <div class="search-toggle-container">
+        <label class="search-toggle-label" id="searchPmToggleLabel" for="searchPmToggle">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+            <circle cx="9" cy="7" r="4" />
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+            <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+          </svg>
+          <input type="checkbox" id="searchPmToggle" class="search-toggle-checkbox" autocomplete="off" />
+          <span>Search by PM</span>
+        </label>
+      </div>
+      <div class="search-count" id="empCount">Loading...</div>
+    </div>
+  </div>
+
+  <main class="main-content">
+    <section id="functionsSection">
+      <div class="functions-orbit-shell">
+        <div class="orbit-panel">
+          <svg class="orbit-links" id="orbitLinks" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+
+          <div class="central-node">
+            <span class="central-node-kicker">Central Services</span>
+            <h1 class="central-node-title">Organization Chart</h1>
+          </div>
+
+          <div class="func-orbit" id="funcOrbit"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="searchSection" style="display:none;">
+      <div class="section-header">
+        <span class="section-label" id="searchResultLabel">Results</span>
+      </div>
+      <div id="searchResults"></div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>KPMG Central Services (c) 2026</span>
+  </footer>
+
+  <script src="/js/favicon.js"></script>
+  <script src="/js/org-stream.js"></script>
+  <script src="/js/main.js"></script>
+</body>
+</html>

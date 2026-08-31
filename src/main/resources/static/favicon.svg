@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <title>Central Services Organization</title>
+  <defs>
+    <style>
+      @media (prefers-color-scheme: dark) {
+        .circle-top { fill: #378ADD; }
+        .circle-mid { fill: #85B7EB; }
+        .circle-bottom { fill: #B5D4F4; }
+        .line { stroke: #378ADD; }
+      }
+      @media (prefers-color-scheme: light) {
+        .circle-top { fill: #185FA5; }
+        .circle-mid { fill: #378ADD; }
+        .circle-bottom { fill: #85B7EB; }
+        .line { stroke: #185FA5; }
+      }
+    </style>
+  </defs>
+  
+  <!-- Level 0: HEAD -->
+  <circle class="circle-top" cx="128" cy="40" r="20"/>
+  
+  <!-- Connector from HEAD to Level 1 -->
+  <line class="line" x1="128" y1="60" x2="128" y2="90" stroke-width="2" fill="none"/>
+  
+  <!-- Level 1: Managers (3 circles) -->
+  <circle class="circle-mid" cx="80" cy="120" r="18"/>
+  <circle class="circle-mid" cx="128" cy="120" r="18"/>
+  <circle class="circle-mid" cx="176" cy="120" r="18"/>
+  
+  <!-- Connectors from Level 1 to Level 2 -->
+  <line class="line" x1="80" y1="138" x2="80" y2="160" stroke-width="2" fill="none"/>
+  <line class="line" x1="128" y1="138" x2="128" y2="160" stroke-width="2" fill="none"/>
+  <line class="line" x1="176" y1="138" x2="176" y2="160" stroke-width="2" fill="none"/>
+  
+  <!-- Horizontal lines for Level 2 branching -->
+  <line class="line" x1="60" y1="160" x2="100" y2="160" stroke-width="2" fill="none"/>
+  <line class="line" x1="156" y1="160" x2="196" y2="160" stroke-width="2" fill="none"/>
+  
+  <!-- Level 2: Supervisors/Teams (5 circles) -->
+  <circle class="circle-bottom" cx="50" cy="190" r="16"/>
+  <circle class="circle-bottom" cx="80" cy="190" r="16"/>
+  <circle class="circle-bottom" cx="128" cy="190" r="16"/>
+  <circle class="circle-bottom" cx="176" cy="190" r="16"/>
+  <circle class="circle-bottom" cx="206" cy="190" r="16"/>
+</svg>

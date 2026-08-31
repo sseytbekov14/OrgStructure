@@ -1,0 +1,32 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: csorgchart_db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=OrgStructure
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+
+  csorgchart:
+    container_name: csorgchart
+    image: csorgchart:latest
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8082}:8080"
+    volumes:
+      - ./data:/data:ro
+      - ./photos:/photos:ro
+    environment:
+      - APP_DATA_EXCEL_PATH=/data/result_new.xlsx
+      - APP_DATA_PHOTOS_PATH=/photos
+      - APP_DATA_WATCH_INTERVAL_MS=60000
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/OrgStructure
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+    depends_on:
+      - db

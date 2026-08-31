@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CS OrgChart — Function</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1.0" />
+  <link rel="shortcut icon" href="/favicon.svg?v=1.0" />
+  <link rel="stylesheet" href="/css/style.css" />
+</head>
+<body>
+
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="header-left">
+        <div class="kpmg-logo">KPMG</div>
+        <div class="header-divider"></div>
+        <span class="header-title">Central Services</span>
+      </div>
+      <div class="header-right">
+        <span class="header-sub">Organization Chart</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Function header -->
+  <div class="func-header-bar">
+    <div class="func-header-inner">
+      <a href="/" class="btn-back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M19 12H5M12 5l-7 7 7 7"/>
+        </svg>
+        Back
+      </a>
+      <div class="func-header-info">
+        <h1 class="func-page-title" id="funcTitle">Loading...</h1>
+        <span class="func-page-count" id="funcCount"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <main class="main-content">
+    <div id="faqBanner" class="faq-banner-container" style="display: none;"></div>
+    <div id="orgChart">
+      <!-- Rendered by JS -->
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <span>KPMG Central Services © 2026</span>
+  </footer>
+
+  <script src="/js/favicon.js"></script>
+  <script src="/js/org-stream.js"></script>
+  <script src="/js/function.js"></script>
+</body>
+</html>
