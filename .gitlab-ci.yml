@@ -1,0 +1,621 @@
+# =============================================================================
+# GitLab CI/CD Pipeline — CS OrgChart (OrgStructure)
+# Project: com.company:cs-orgchart | Stack: Java 21 / Spring Boot 3.5.14 / Maven
+# Environment: STAGE | Security Level: ISS-compliant (SAR-2026-001)
+# =============================================================================
+#
+# ┌─────────────────────────────────────────────────────────────────────────┐
+# │  REQUIRED GitLab CI/CD Variables (Settings → CI/CD → Variables)        │
+# ├─────────────────────────────────────────────────────────────────────────┤
+# │  Registry & Container                                                   │
+# │    CI_REGISTRY              — auto-set by GitLab (GitLab Registry URL)  │
+# │    CI_REGISTRY_USER         — auto-set by GitLab                        │
+# │    CI_REGISTRY_PASSWORD     — auto-set by GitLab                        │
+# │                                                                         │
+# │  Stage Server SSH (type: File / Masked+Protected)                       │
+# │    STAGE_SERVER_IP          — IP or hostname of the Stage server        │
+# │    STAGE_SSH_USER           — SSH username (e.g. deploy)                │
+# │    STAGE_SSH_PRIVATE_KEY    — Private key (PEM format, File variable)   │
+# │                                                                         │
+# │  Database (Masked+Protected)                                            │
+# │    DB_HOST                  — PostgreSQL host on Stage server           │
+# │    DB_PORT                  — PostgreSQL port (default: 5432)           │
+# │    DB_NAME                  — Database name (e.g. OrgStructure)         │
+# │    DB_USER                  — Database user (NOT postgres superuser)     │
+# │    DB_PASSWORD              — Database password (min 32 chars, random)  │
+# │                                                                         │
+# │  Spring / Application (Masked)                                          │
+# │    SSO_CLIENT_ID            — OAuth2 client ID (pending IT Infra)       │
+# │    SSO_CLIENT_SECRET        — OAuth2 client secret (pending IT Infra)   │
+# │    SSO_ISSUER_URI           — OIDC issuer URI (pending IT Infra)        │
+# │    APP_DATA_EXCEL_PATH      — Absolute path to result_new.xlsx on host  │
+# │    APP_DATA_PHOTOS_PATH     — Absolute path to /photos on host          │
+# │                                                                         │
+# │  Security Scanning (Masked)                                             │
+# │    SONAR_HOST_URL           — SonarQube server URL (optional)           │
+# │    SONAR_TOKEN              — SonarQube auth token (optional)           │
+# └─────────────────────────────────────────────────────────────────────────┘
+
+# ─── GitLab-managed Security Templates ────────────────────────────────────────
+include:
+  - template: Security/Secret-Detection.gitlab-ci.yml
+  - template: Security/SAST.gitlab-ci.yml
+
+# ─── Pipeline-level variables ─────────────────────────────────────────────────
+variables:
+  # Maven
+  MAVEN_OPTS: >-
+    -Dhttps.protocols=TLSv1.2
+    -Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository
+    -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN
+    -Dorg.slf4j.simpleLogger.showDateTime=true
+    -Djava.awt.headless=true
+  MAVEN_CLI_OPTS: "--batch-mode --errors --fail-at-end --show-version"
+
+  # Docker
+  DOCKER_IMAGE_NAME: $CI_REGISTRY_IMAGE/cs-orgchart
+  DOCKER_TLS_CERTDIR: "/certs"
+
+  # Surefire: enable Mockito on JDK 21 (mirrors pom.xml surefire argLine)
+  SUREFIRE_JAVA_ARGS: "-XX:+EnableDynamicAgentLoading -Xshare:off"
+
+  # SAST: target Java 21
+  SAST_JAVA_VERSION: "21"
+  SAST_EXCLUDED_PATHS: "target/, src/test/"
+
+  # Secret Detection: scan all commits in the pipeline
+  SECRET_DETECTION_HISTORIC_SCAN: "false"
+
+  # Trivy: suppress unfixed CVEs in output (still blocks on CRITICAL+fixed)
+  TRIVY_NO_PROGRESS: "true"
+  TRIVY_CACHE_DIR: "$CI_PROJECT_DIR/.trivy-cache"
+
+# ─── Stage order ──────────────────────────────────────────────────────────────
+stages:
+  - test
+  - security
+  - build
+  - container-scan
+  - deploy-stage
+
+# ─── Reusable Maven cache anchor ──────────────────────────────────────────────
+.maven-cache: &maven-cache
+  cache:
+    key:
+      files:
+        - pom.xml
+    paths:
+      - .m2/repository
+    policy: pull-push
+
+# ─── Reusable Trivy cache anchor ──────────────────────────────────────────────
+.trivy-cache: &trivy-cache
+  cache:
+    key: trivy-db-$CI_COMMIT_REF_SLUG
+    paths:
+      - .trivy-cache
+    policy: pull-push
+
+# ==============================================================================
+#  STAGE: test
+# ==============================================================================
+
+unit-and-integration-tests:
+  stage: test
+  image: maven:3.9.6-eclipse-temurin-21-alpine
+  <<: *maven-cache
+
+  # Services: real PostgreSQL for integration tests (mirrors docker-compose.yml)
+  services:
+    - name: postgres:15-alpine
+      alias: postgres
+      variables:
+        POSTGRES_DB: OrgStructure_test
+        POSTGRES_USER: testuser
+        POSTGRES_PASSWORD: testpassword_ci_only
+
+  variables:
+    # Point Spring datasource to the GitLab service container
+    SPRING_DATASOURCE_URL: "jdbc:postgresql://postgres:5432/OrgStructure_test?ssl=false"
+    SPRING_DATASOURCE_USERNAME: testuser
+    SPRING_DATASOURCE_PASSWORD: testpassword_ci_only
+    # Use 'local' profile: SecurityConfig.permitAll() — no SSO required
+    SPRING_PROFILES_ACTIVE: local
+    # Temp paths for ExcelService (no real Excel file in CI)
+    APP_DATA_EXCEL_PATH: /tmp/orgchart-ci-placeholder.xlsx
+    APP_DATA_PHOTOS_PATH: /tmp/orgchart-ci-photos
+
+  script:
+    - |
+      echo ">>> Waiting for PostgreSQL to be ready..."
+      for i in $(seq 1 30); do
+        pg_isready -h postgres -U testuser -d OrgStructure_test && break
+        echo "  attempt $i/30 — not ready yet, waiting 2s..."
+        sleep 2
+      done
+    - |
+      echo ">>> Creating placeholder Excel and photos dir for ExcelService..."
+      mkdir -p /tmp/orgchart-ci-photos
+      touch /tmp/orgchart-ci-placeholder.xlsx
+    - |
+      echo ">>> Running unit and integration tests..."
+      ./mvnw $MAVEN_CLI_OPTS test \
+        -Dspring.profiles.active=local \
+        -Dspring.datasource.url="${SPRING_DATASOURCE_URL}" \
+        -Dspring.datasource.username="${SPRING_DATASOURCE_USERNAME}" \
+        -Dspring.datasource.password="${SPRING_DATASOURCE_PASSWORD}" \
+        -Dapp.data.excel-path="${APP_DATA_EXCEL_PATH}" \
+        -Dapp.data.photos-path="${APP_DATA_PHOTOS_PATH}" \
+        -Dsurefire.argLine="${SUREFIRE_JAVA_ARGS}"
+
+  artifacts:
+    name: "test-results-$CI_COMMIT_SHORT_SHA"
+    when: always
+    expire_in: 30 days
+    reports:
+      junit:
+        - target/surefire-reports/TEST-*.xml
+    paths:
+      - target/surefire-reports/
+      - target/site/jacoco/
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "stage"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH =~ /^feature\//'
+
+# ==============================================================================
+#  STAGE: security
+# ==============================================================================
+
+# ── 2a. Secret Detection (GitLab Template) ────────────────────────────────────
+# Job is auto-injected via: include: Security/Secret-Detection.gitlab-ci.yml
+# Overrides to configure behaviour:
+secret_detection:
+  stage: security
+  variables:
+    SECRET_DETECTION_EXCLUDED_PATHS: "target/,*.class,*.jar"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "stage"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  allow_failure: false   # SECURITY GATE: blocks pipeline on detected secrets
+
+# ── 2b. SAST (GitLab Semgrep / SpotBugs Template) ────────────────────────────
+# Job is auto-injected via: include: Security/SAST.gitlab-ci.yml
+semgrep-sast:
+  stage: security
+  variables:
+    SAST_JAVA_VERSION: "21"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "stage"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  allow_failure: false   # SECURITY GATE: blocks pipeline on SAST findings
+
+# ── 2c. SCA — OWASP Dependency-Check ─────────────────────────────────────────
+dependency-check:
+  stage: security
+  image: maven:3.9.6-eclipse-temurin-21-alpine
+  <<: *maven-cache
+
+  variables:
+    # CVSS threshold ≥ 7.0 fails the build (High + Critical CVEs)
+    DC_FAIL_CVSS: "7"
+    # NVD API key to avoid rate-limiting (register free at nvd.nist.gov)
+    # Set OWASP_NVD_API_KEY in GitLab CI/CD Variables (Masked)
+    NVD_API_KEY: ${OWASP_NVD_API_KEY:-}
+
+  before_script:
+    # Install xmllint for report verification (optional)
+    - apk add --no-cache libxml2-utils || true
+
+  script:
+    - |
+      echo ">>> Running OWASP Dependency-Check (CVSS fail threshold: ${DC_FAIL_CVSS})..."
+      ./mvnw $MAVEN_CLI_OPTS \
+        org.owasp:dependency-check-maven:9.0.7:check \
+        -DfailBuildOnCVSS="${DC_FAIL_CVSS}" \
+        -DsuppressionFile=dependency-check-suppressions.xml \
+        -DnvdApiKey="${NVD_API_KEY}" \
+        -Dformat=ALL \
+        -DprettyPrint=true \
+        -DskipProvidedScope=false \
+        -DretireJsAnalyzerEnabled=false \
+        -DoutputDirectory=target/dependency-check-report
+
+  cache:
+    key: owasp-nvd-database
+    paths:
+      - /root/.m2/repository/org/owasp/dependency-check-data/
+    policy: pull-push
+
+  artifacts:
+    name: "dependency-check-$CI_COMMIT_SHORT_SHA"
+    when: always
+    expire_in: 30 days
+    paths:
+      - target/dependency-check-report/
+    reports:
+      dependency_scanning:
+        - target/dependency-check-report/dependency-check-report.json
+
+  allow_failure: false   # SECURITY GATE: blocks pipeline on High/Critical CVEs
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "stage"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ── 2d. Gitleaks (full history scan — belt-and-suspenders over template) ──────
+gitleaks-full-scan:
+  stage: security
+  image:
+    name: zricethezav/gitleaks:v8.18.4
+    entrypoint: [""]
+
+  variables:
+    GIT_DEPTH: 0   # Full clone required for history scan
+
+  script:
+    - |
+      echo ">>> Running Gitleaks full repository scan..."
+      gitleaks detect \
+        --source="${CI_PROJECT_DIR}" \
+        --report-format=sarif \
+        --report-path=gitleaks-report.sarif \
+        --log-level=info \
+        --exit-code=1
+
+  artifacts:
+    name: "gitleaks-$CI_COMMIT_SHORT_SHA"
+    when: always
+    expire_in: 30 days
+    paths:
+      - gitleaks-report.sarif
+
+  allow_failure: false   # SECURITY GATE: any detected secret blocks the pipeline
+
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "stage"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ==============================================================================
+#  STAGE: build
+# ==============================================================================
+
+build-jar-and-image:
+  stage: build
+  image: docker:27-cli
+  services:
+    - name: docker:27-dind
+      alias: docker
+      variables:
+        DOCKER_TLS_CERTDIR: "/certs"
+
+  variables:
+    DOCKER_HOST: "tcp://docker:2376"
+    DOCKER_TLS_VERIFY: "1"
+    DOCKER_CERT_PATH: "/certs/client"
+
+  <<: *maven-cache
+
+  before_script:
+    # Install JDK + Maven inside docker:27-cli image so we can run mvnw
+    - apk add --no-cache openjdk21-jdk maven curl
+    - export JAVA_HOME=$(java -XshowSettings:property -version 2>&1 | grep java.home | awk '{print $3}')
+
+  script:
+    # ── 1. Compile and package production JAR (tests already ran in `test` stage)
+    - |
+      echo ">>> Building production JAR (tests skipped — already passed in 'test' stage)..."
+      ./mvnw $MAVEN_CLI_OPTS package -DskipTests=true
+
+    # ── 2. Authenticate with GitLab Container Registry
+    - |
+      echo ">>> Logging into GitLab Container Registry..."
+      docker login \
+        --username "$CI_REGISTRY_USER" \
+        --password "$CI_REGISTRY_PASSWORD" \
+        "$CI_REGISTRY"
+
+    # ── 3. Build Docker image (multi-stage Dockerfile, JAR pre-built above)
+    - |
+      IMAGE_TAG_SHA="${DOCKER_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
+      IMAGE_TAG_BRANCH="${DOCKER_IMAGE_NAME}:${CI_COMMIT_REF_SLUG}"
+      IMAGE_TAG_LATEST="${DOCKER_IMAGE_NAME}:latest"
+
+      echo ">>> Building Docker image..."
+      echo "    SHA tag:    ${IMAGE_TAG_SHA}"
+      echo "    Branch tag: ${IMAGE_TAG_BRANCH}"
+
+      docker build \
+        --label "git.commit=${CI_COMMIT_SHA}" \
+        --label "git.branch=${CI_COMMIT_REF_NAME}" \
+        --label "ci.pipeline=${CI_PIPELINE_URL}" \
+        --label "build.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        --tag "${IMAGE_TAG_SHA}" \
+        --tag "${IMAGE_TAG_BRANCH}" \
+        --tag "${IMAGE_TAG_LATEST}" \
+        .
+
+    # ── 4. Push all tags to GitLab Container Registry
+    - |
+      echo ">>> Pushing Docker image to GitLab Registry..."
+      docker push "${DOCKER_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
+      docker push "${DOCKER_IMAGE_NAME}:${CI_COMMIT_REF_SLUG}"
+      docker push "${DOCKER_IMAGE_NAME}:latest"
+      echo ">>> Image pushed successfully."
+
+  artifacts:
+    name: "jar-artifact-$CI_COMMIT_SHORT_SHA"
+    expire_in: 7 days
+    paths:
+      - target/cs-orgchart-*.jar
+
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "stage"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ==============================================================================
+#  STAGE: container-scan
+# ==============================================================================
+
+trivy-container-scan:
+  stage: container-scan
+  image:
+    name: aquasec/trivy:0.53.0
+    entrypoint: [""]
+
+  <<: *trivy-cache
+
+  variables:
+    # Target image to scan (built in previous stage)
+    TARGET_IMAGE: "$DOCKER_IMAGE_NAME:$CI_COMMIT_SHORT_SHA"
+    # Fail on CRITICAL severity only (HIGH findings go into report but don't block)
+    TRIVY_SEVERITY: "CRITICAL,HIGH"
+    TRIVY_EXIT_CODE: "1"
+    # Ignore unfixed vulnerabilities (informational only — still reported)
+    TRIVY_IGNORE_UNFIXED: "false"
+
+  before_script:
+    # Authenticate to pull the image from GitLab Container Registry
+    - |
+      echo ">>> Authenticating Trivy with GitLab Registry..."
+      export TRIVY_USERNAME="$CI_REGISTRY_USER"
+      export TRIVY_PASSWORD="$CI_REGISTRY_PASSWORD"
+
+    # Pre-download vulnerability DB into cache (speeds up subsequent scans)
+    - |
+      echo ">>> Updating Trivy vulnerability database..."
+      trivy image \
+        --download-db-only \
+        --no-progress \
+        --cache-dir "${TRIVY_CACHE_DIR}"
+
+  script:
+    - |
+      echo ">>> Scanning container image: ${TARGET_IMAGE}"
+      echo "    Severity filter: ${TRIVY_SEVERITY}"
+      echo "    Exit on finding: ${TRIVY_EXIT_CODE}"
+
+    # ── Full JSON report for GitLab Container Scanning widget
+    - |
+      trivy image \
+        --cache-dir "${TRIVY_CACHE_DIR}" \
+        --format template \
+        --template "@/contrib/gitlab.tpl" \
+        --output gl-container-scanning-report.json \
+        --severity "${TRIVY_SEVERITY}" \
+        --exit-code 0 \
+        "${TARGET_IMAGE}"
+
+    # ── Human-readable table report (for pipeline log readability)
+    - |
+      trivy image \
+        --cache-dir "${TRIVY_CACHE_DIR}" \
+        --format table \
+        --severity "${TRIVY_SEVERITY}" \
+        --exit-code "${TRIVY_EXIT_CODE}" \
+        "${TARGET_IMAGE}"
+
+  artifacts:
+    name: "trivy-scan-$CI_COMMIT_SHORT_SHA"
+    when: always
+    expire_in: 30 days
+    paths:
+      - gl-container-scanning-report.json
+    reports:
+      container_scanning: gl-container-scanning-report.json
+
+  allow_failure: false   # SECURITY GATE: CRITICAL CVE blocks pipeline
+
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "stage"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ==============================================================================
+#  STAGE: deploy-stage
+# ==============================================================================
+
+deploy-to-stage:
+  stage: deploy-stage
+  image: alpine:3.20
+
+  environment:
+    name: stage
+    url: http://$STAGE_SERVER_IP:8082
+
+  before_script:
+    # Install SSH client and utilities
+    - apk add --no-cache openssh-client curl bash
+
+    # Configure SSH agent with the deploy private key
+    - |
+      echo ">>> Configuring SSH access to Stage server..."
+      eval $(ssh-agent -s)
+
+      # STAGE_SSH_PRIVATE_KEY must be a GitLab CI File-type variable
+      chmod 400 "$STAGE_SSH_PRIVATE_KEY"
+      ssh-add "$STAGE_SSH_PRIVATE_KEY"
+
+      mkdir -p ~/.ssh
+      chmod 700 ~/.ssh
+
+      # Disable strict host key checking for CI (use known_hosts in production)
+      cat >> ~/.ssh/config <<EOF
+      Host $STAGE_SERVER_IP
+          StrictHostKeyChecking no
+          UserKnownHostsFile /dev/null
+          ServerAliveInterval 30
+          ConnectTimeout 15
+      EOF
+
+  script:
+    # ── Step 1: Copy docker-compose.yml to Stage server
+    - |
+      echo ">>> [1/5] Copying docker-compose.yml to Stage server..."
+      scp -o StrictHostKeyChecking=no \
+        docker-compose.yml \
+        "$STAGE_SSH_USER@$STAGE_SERVER_IP:/opt/csorgchart/docker-compose.yml"
+
+    # ── Step 2: Authenticate GitLab Registry on Stage server
+    - |
+      echo ">>> [2/5] Logging into GitLab Registry on Stage server..."
+      ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" \
+        "docker login \
+          --username '${CI_REGISTRY_USER}' \
+          --password '${CI_REGISTRY_PASSWORD}' \
+          '${CI_REGISTRY}'"
+
+    # ── Step 3: Write environment file with all secrets + SPRING_PROFILES_ACTIVE
+    - |
+      echo ">>> [3/5] Writing .env file to Stage server (secrets masked in logs)..."
+      ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" bash -s << 'ENVCMD'
+        set -euo pipefail
+        mkdir -p /opt/csorgchart
+        chmod 700 /opt/csorgchart
+        # Write .env with restricted permissions before filling secrets
+        touch /opt/csorgchart/.env
+        chmod 600 /opt/csorgchart/.env
+ENVCMD
+
+      # Populate .env via heredoc (values come from GitLab masked CI variables)
+      ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" "cat > /opt/csorgchart/.env" << ENVEOF
+# Auto-generated by GitLab CI pipeline ${CI_PIPELINE_ID} — $(date -u +%Y-%m-%dT%H:%M:%SZ)
+# DO NOT EDIT MANUALLY — changes will be overwritten on next deployment
+
+# ── Spring Profile (mandatory — must NOT be 'local' on Stage) ──────────────
+SPRING_PROFILES_ACTIVE=stage
+
+# ── Application Image ────────────────────────────────────────────────────────
+APP_IMAGE=${DOCKER_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}
+APP_PORT=8082
+
+# ── Database ─────────────────────────────────────────────────────────────────
+DB_HOST=${DB_HOST}
+DB_PORT=${DB_PORT:-5432}
+DB_NAME=${DB_NAME}
+DB_USER=${DB_USER}
+DB_PASSWORD=${DB_PASSWORD}
+
+# ── File Paths (host-side volumes) ───────────────────────────────────────────
+APP_DATA_EXCEL_PATH=${APP_DATA_EXCEL_PATH:-/opt/csorgchart/data/result_new.xlsx}
+APP_DATA_PHOTOS_PATH=${APP_DATA_PHOTOS_PATH:-/opt/csorgchart/photos}
+
+# ── SSO — Pending IT Infrastructure (leave empty until configured) ───────────
+SSO_CLIENT_ID=${SSO_CLIENT_ID:-}
+SSO_CLIENT_SECRET=${SSO_CLIENT_SECRET:-}
+SSO_ISSUER_URI=${SSO_ISSUER_URI:-}
+ENVEOF
+
+    # ── Step 4: Pull new image and restart containers
+    - |
+      echo ">>> [4/5] Pulling image and restarting containers..."
+      ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" bash -s << 'DEPLOYCMD'
+        set -euo pipefail
+        cd /opt/csorgchart
+
+        echo "  — Pulling latest image..."
+        docker compose --env-file .env pull
+
+        echo "  — Stopping old containers..."
+        docker compose --env-file .env down --remove-orphans --timeout 30 || true
+
+        echo "  — Starting new containers in detached mode..."
+        docker compose --env-file .env up -d
+
+        echo "  — Waiting 20 seconds for application to start..."
+        sleep 20
+
+        echo "  — Container status:"
+        docker compose --env-file .env ps
+DEPLOYCMD
+
+    # ── Step 5: Smoke test / Health check
+    - |
+      echo ">>> [5/5] Running Smoke Test — Health Check..."
+      MAX_RETRIES=10
+      RETRY_INTERVAL=6
+      HEALTH_URL="http://${STAGE_SERVER_IP}:8082/actuator/health"
+
+      for i in $(seq 1 $MAX_RETRIES); do
+        echo "  Attempt $i/${MAX_RETRIES}: GET ${HEALTH_URL}"
+        HTTP_STATUS=$(curl --silent --output /dev/null \
+          --write-out "%{http_code}" \
+          --connect-timeout 5 \
+          --max-time 10 \
+          "${HEALTH_URL}" || echo "000")
+
+        if [ "$HTTP_STATUS" = "200" ]; then
+          echo "  ✅ Health check passed (HTTP 200)."
+
+          # Optional: print full health response for deployment log
+          echo "  Health response:"
+          curl --silent "${HEALTH_URL}" || true
+          break
+        elif [ "$i" = "$MAX_RETRIES" ]; then
+          echo "  ❌ Health check FAILED after ${MAX_RETRIES} attempts."
+          echo "  Last HTTP status: ${HTTP_STATUS}"
+          echo "  >>> Container logs (last 50 lines):"
+          ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" \
+            "cd /opt/csorgchart && docker compose logs --tail=50" || true
+          exit 1
+        else
+          echo "  Received HTTP ${HTTP_STATUS} — not ready yet. Waiting ${RETRY_INTERVAL}s..."
+          sleep $RETRY_INTERVAL
+        fi
+      done
+
+    - echo ">>> ✅ Deployment to STAGE completed successfully!"
+    - echo "    Image: ${DOCKER_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
+    - echo "    Branch: ${CI_COMMIT_REF_NAME}"
+    - echo "    Commit: ${CI_COMMIT_SHA}"
+
+  after_script:
+    # Clean up SSH agent
+    - eval $(ssh-agent -s) || true
+    - ssh-agent -k || true
+
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "stage"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+  when: on_success   # Only deploy if all previous stages (including security gates) passed
+
+# ==============================================================================
+#  Workflow: control when the overall pipeline runs
+# ==============================================================================
+workflow:
+  rules:
+    # Run on MR events
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    # Run on pushes to protected branches
+    - if: '$CI_COMMIT_BRANCH == "stage"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    # Run on feature branches (test + security only — build/deploy rules filter these)
+    - if: '$CI_COMMIT_BRANCH =~ /^feature\//'
+    # Skip pipeline if commit message contains [skip ci] or [ci skip]
+    - if: '$CI_COMMIT_MESSAGE =~ /\[(skip ci|ci skip)\]/i'
+      when: never

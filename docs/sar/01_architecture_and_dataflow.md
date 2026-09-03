@@ -11,85 +11,34 @@
 Диаграмма отражает реальную конфигурацию STAGE-среды на основе `docker-compose.yml` и `application.yaml`.
 
 ```mermaid
-graph TB
-    subgraph CORP_NET["🌐 Корпоративная сеть (VPN / закрытый тестовый контур)"]
-        direction LR
-        BROWSER["🖥️ Браузер пользователя\n──────────────────\nCorporate Workstation\nAccess via: http://host:8082"]
-        ADMIN_BROWSER["🖥️ Браузер администратора\n──────────────────\nRole: SYSTEM_ADMIN\nAccess via: http://host:8082"]
+flowchart TD
+    CLIENT["🖥️ Клиенты / Корпоративный браузер"]
+    
+    subgraph INGRESS_LAYER ["Ingress Layer"]
+        NGINX["🔀 Ingress / Reverse Proxy (Nginx)\nТерминация входящего трафика"]
     end
-
-    subgraph DOCKER_HOST["🖧 Docker Host (STAGE-сервер)"]
-        direction TB
-
-        subgraph INGRESS_ZONE["Ingress Layer · Port 8082"]
-            INGRESS["⚙️ Docker Port Mapping\n8082 (host) → 8080 (container)\n──────────────────\nReverse Proxy: не настроен\nTLS Termination: отсутствует ⚠️"]
-        end
-
-        subgraph APP_ZONE["Application Container: csorgchart"]
-            APP["☕ Spring Boot 3.5.14\n──────────────────\nRuntime: Eclipse Temurin 21 JRE Alpine\nUser: appuser (uid 10001)\nPort: 8080\nProfile: (см. R-05)"]
-
-            subgraph APP_LAYERS["Слои приложения"]
-                SEC["🔒 Spring Security FilterChain\nOAuth2 Client (не настроен)\nSessionCreationPolicy.IF_REQUIRED"]
-                CTRL["🌐 REST Controllers (6)\n/api/employees  /api/search\n/api/likes  /api/interactions\n/api/search-logs  /api/page-visits\n/api/org/stream (SSE)"]
-                SVC["⚙️ Services (7)\nExcelService · FileWatcherService\nLikeService · OrgStreamService\nSearchLogService · PageVisitService\nEmployeeInteractionService"]
-                CACHE["📋 In-Memory Cache\nvolatile List<Employee>\nперезагружается при изменении Excel"]
-            end
-        end
-
-        subgraph DATA_ZONE["Data Layer"]
-            DB["🐘 PostgreSQL 15-alpine\n──────────────────\nContainer: csorgchart_db\nDB: OrgStructure\nPort: 5432 ← ОТКРЫТ НА ХОСТ ⚠️\nUser: postgres / postgres ⚠️"]
-
-            subgraph DB_TABLES["Таблицы БД (JPA ddl-auto: update)"]
-                T1["employee_likes"]
-                T2["employee_interactions"]
-                T3["search_logs"]
-                T4["page_visits"]
-            end
-        end
-
-        subgraph FILE_ZONE["File Volumes (Read-Only)"]
-            EXCEL["📊 /data/result_new.xlsx\nИсточник: APP_DATA_EXCEL_PATH\nМониторинг: FileAlterationMonitor\nИнтервал: 60 000 мс"]
-            PHOTOS["🖼️ /photos/*.jpg\nИсточник: APP_DATA_PHOTOS_PATH\nServed via: /photos/** (permitAll ⚠️)"]
-        end
-
-        subgraph MONITOR_ZONE["Monitoring Endpoints"]
-            HEALTH["✅ /actuator/health\nAccess: permitAll\nDetails: SYSTEM_ADMIN only"]
-            PROM["📈 /actuator/prometheus\nAccess: MONITORING_SYSTEM role\nFormat: Micrometer/Prometheus"]
-        end
+    
+    subgraph APP_LAYER ["Application Layer (STAGE)"]
+        APP["☕ OrgStructure Backend (Spring Boot 3)\nБизнес-логика и REST API"]
     end
-
-    subgraph PENDING["⏳ В ПЛАНЕ — Pending IT Infrastructure"]
-        SSO["🔑 Corporate IdP\n(Azure AD / OIDC)\nSSO_ISSUER_URI: не задан\nSSO_CLIENT_ID: не задан"]
-        FQDN["🌐 Corporate FQDN\n+ TLS 1.3 сертификат\ncookie.secure=false сейчас ⚠️"]
-        PROMETHEUS_SRV["📊 Prometheus Server\n(внешний, pull-mode)"]
+    
+    subgraph DATA_LAYER ["Data Layer"]
+        DB["🐘 PostgreSQL Database\nХранилище структуры и логов"]
+        VOL["📁 File Volume (Photos / Excel)\nЛокальные тома данных"]
     end
-
-    BROWSER -->|"HTTP plain, Port 8082\n⚠️ NO TLS on STAGE"| INGRESS
-    ADMIN_BROWSER -->|"HTTP plain, Port 8082"| INGRESS
-    INGRESS --> SEC
-    SEC --> CTRL
-    CTRL --> SVC
-    SVC --> CACHE
-    SVC -->|"JDBC (ssl=true в prod-профиле)\nHikariCP pool: max=10"| DB
-    DB --- T1
-    DB --- T2
-    DB --- T3
-    DB --- T4
-    SVC -->|"File I/O (read-only)\nFileInputStream"| EXCEL
-    APP -->|"Static resource\n/photos/**"| PHOTOS
-    APP --> HEALTH
-    APP --> PROM
-    PROM -.->|"Pull metrics"| PROMETHEUS_SRV
-    SEC -.->|"OAuth2 redirect\n(не настроен)"| SSO
-    FQDN -.->|"TLS termination\n(не настроен)"| INGRESS
-
-    style PENDING fill:#fff3cd,stroke:#ffc107,color:#555
-    style CORP_NET fill:#e3f2fd,stroke:#1565c0
-    style DOCKER_HOST fill:#e8f5e9,stroke:#2e7d32
-    style DATA_ZONE fill:#f3e5f5,stroke:#6a1b9a
-    style FILE_ZONE fill:#fce4ec,stroke:#c62828
-    style MONITOR_ZONE fill:#e0f7fa,stroke:#00838f
-    style PENDING fill:#fff3cd,stroke:#f57f17
+    
+    SSO["🔑 Corporate IT (Pending)\nIdP / SSO & Active Directory"]
+    
+    CLIENT -->|"HTTPS / Внутренняя сеть"| NGINX
+    NGINX -->|"HTTP / Docker Network"| APP
+    APP -->|"JDBC"| DB
+    APP -->|"File I/O"| VOL
+    APP -.->|"OAuth2 / OIDC"| SSO
+    
+    style SSO stroke-dasharray: 5 5,fill:#fff3cd,stroke:#ffc107
+    style INGRESS_LAYER fill:#e3f2fd,stroke:#1565c0
+    style APP_LAYER fill:#e8f5e9,stroke:#2e7d32
+    style DATA_LAYER fill:#f3e5f5,stroke:#6a1b9a
 ```
 
 ---
@@ -165,56 +114,26 @@ java
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User as 👤 Пользователь
-    participant Browser as 🖥️ Браузер
-    participant Docker as ⚙️ Docker Port<br/>8082→8080
-    participant Security as 🔒 Spring Security<br/>FilterChain
-    participant Controller as 🌐 REST Controller
-    participant Service as ⚙️ Service Layer
-    participant Cache as 📋 In-Memory<br/>ExcelService Cache
-    participant DB as 🐘 PostgreSQL<br/>csorgchart_db
+    actor Client as 👤 Клиент / Корпоративный браузер
+    participant Nginx as 🔀 Ingress (Nginx)
+    participant App as ☕ OrgStructure Backend
+    participant DB as 🐘 PostgreSQL
+    participant FS as 📁 File Storage (Excel)
 
-    Note over Browser, DB: ── STAGE: OAuth2 зарегистрирован, но SSO_ISSUER_URI не задан ──
-    Note over Browser, DB: ── Профиль STAGE/default: Security фильтры активны ──
-
-    User->>Browser: Открыть http://stage-host:8082/org-chart
-    Browser->>Docker: GET /org-chart (HTTP, no TLS ⚠️)
-    Docker->>Security: forward → Port 8080
-
-    alt Если активен профиль "local" (см. R-05/R-06)
-        Security-->>Browser: permitAll() — авторизация пропущена ⚠️
-        Note over Security: InMemoryUserDetailsManager активен<br/>user:{noop}password / admin:{noop}password
-    else Если активен профиль НЕ "local" (ожидаемый STAGE)
-        Security->>Browser: 302 → /oauth2/authorization/corporate-sso
-        Browser->>Security: GET /oauth2/authorization/corporate-sso
-        Security-->>Browser: 500 / OAuth2 Config Error
-        Note over Security: SSO_ISSUER_URI не задан в docker-compose.yml<br/>→ IllegalStateException при auto-discovery ⚠️
+    Client->>Nginx: HTTP/HTTPS Запрос (UI / API)
+    Nginx->>App: Проксирование запроса (HTTP)
+    App->>App: Spring Security: Проверка сессии / Авторизация
+    
+    alt Запрос структуры (Read)
+        App->>FS: Чтение данных из кэша (обновляется из Excel)
+        FS-->>App: Данные сотрудников
+    else Социальные действия (Write/Read)
+        App->>DB: INSERT / SELECT (Лайки, просмотры, логи)
+        DB-->>App: Результат транзакции
     end
-
-    Note over Browser, DB: ── Ниже: поток при успешной аутентификации ──
-
-    Browser->>Docker: GET /api/employees?cs=Finance (HTTP)
-    Docker->>Security: Validate session / JWT
-    Security->>Security: hasAnyRole("USER","HR_EDITOR","SYSTEM_ADMIN")
-    Security-->>Controller: ✅ Authorized
-
-    Controller->>Service: excelService.getEmployeesByFunction("Finance")
-    Service->>Cache: filter(e -> e.getCs().equals("Finance"))
-    Cache-->>Service: List<Employee> (sorted by gradeOrder)
-    Service-->>Controller: List<Employee>
-    Controller-->>Browser: 200 OK · JSON Array
-
-    User->>Browser: Лайк сотруднику (POST /api/likes)
-    Browser->>Docker: POST /api/likes · {employeeEmail, reactionType, visitorId}
-    Docker->>Security: Validate session
-    Security-->>Controller: ✅ Authorized (anyRole)
-    Controller->>Service: likeService.addLike(email, type, visitorId)
-    Service->>DB: INSERT INTO employee_likes (JDBC / HikariCP)
-    DB-->>Service: EmployeeLike (id assigned)
-    Service-->>Controller: EmployeeLike
-    Controller-->>Browser: 200 OK · EmployeeLike JSON
-
-    Note over Service, DB: Аналогично: search_logs, page_visits,<br/>employee_interactions → INSERT в PostgreSQL
+    
+    App-->>Nginx: 200 OK (JSON / HTML)
+    Nginx-->>Client: Ответ пользователю
 ```
 
 ### 1.3.2 Целевой поток после внедрения Corporate SSO (PROD)

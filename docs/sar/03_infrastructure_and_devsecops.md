@@ -168,69 +168,28 @@ graph TB
 
 ## 3.3 CI/CD Pipeline — GitLab CI с Security Gates
 
-> **Текущее состояние:** `.gitlab-ci.yml` в репозитории **отсутствует**. Схема ниже описывает целевой pipeline.
+> **Текущее состояние:** Полноценный файл `.gitlab-ci.yml` **уже добавлен** и настроен в корне репозитория.
 
 ```mermaid
 flowchart LR
-    subgraph TRIGGER["Триггер"]
-        PUSH["git push\nfeature/* или MR"]
-    end
+    TRIGGER["Push / MR"]
+    TEST["Test & Linter\n(JUnit, JaCoCo, Cache)"]
+    SEC["Security Scan\n(SAST, Secret Detection, SCA)"]
+    BUILD["Docker Build & Registry\n(mvn package, dind)"]
+    DEPLOY["Deploy to Stage\n(SSH, Docker Compose)"]
+    HEALTH["Health Check\n(/actuator/health)"]
 
-    subgraph STAGE_VALIDATE["Stage: validate"]
-        S1A["🔍 Checkstyle\nmvn checkstyle:check"]
-        S1B["🔑 Gitleaks\nSecret Detection\n(вся история git)"]
-    end
+    TRIGGER --> TEST
+    TEST --> SEC
+    SEC --> BUILD
+    BUILD --> DEPLOY
+    DEPLOY --> HEALTH
 
-    subgraph STAGE_SECURITY["Stage: security-scan"]
-        S2A["🛡️ GitLab SAST\n(SpotBugs / Semgrep)\nдля Java 21"]
-        S2B["📦 OWASP Dep-Check\nmvn dependency-check:check\nCVSS >= 7 → fail"]
-        S2C["☁️ SonarQube\nQuality Gate:\n0 Critical Hotspots"]
-    end
-
-    subgraph STAGE_BUILD["Stage: build"]
-        S3A["🔨 Maven Build\nmvn clean package\n-DskipTests=false"]
-        S3B["🧪 Unit Tests\nJUnit 5\nJaCoCo Coverage >= 70%"]
-    end
-
-    subgraph STAGE_PACKAGE["Stage: package"]
-        S4A["🐳 Docker Build\nmulti-stage\nDockerfile"]
-        S4B["🔬 Trivy Scan\nSeverity: HIGH,CRITICAL\nExit code 1 при нахождении"]
-    end
-
-    subgraph STAGE_DEPLOY_STAGE["Stage: deploy-stage"]
-        S5A["👤 Manual Approval\nDevOps Engineer"]
-        S5B["🚀 Deploy STAGE\ndocker-compose up -d\n--force-recreate"]
-        S5C["✅ Smoke Test\nGET /actuator/health\n→ {status: UP}"]
-    end
-
-    subgraph STAGE_PROD["Stage: deploy-prod (future)"]
-        S6A["🔐 ISS Gate\nISS Approval Required\n(SAR sign-off)"]
-        S6B["🏭 Deploy PROD\nCorporate FQDN + TLS"]
-    end
-
-    PUSH --> S1A
-    PUSH --> S1B
-    S1A --> S2A
-    S1B --> S2A
-    S2A --> S2B
-    S2A --> S2C
-    S2B --> S3A
-    S2C --> S3A
-    S3A --> S3B
-    S3B --> S4A
-    S4A --> S4B
-    S4B --> S5A
-    S5A --> S5B
-    S5B --> S5C
-    S5C --> S6A
-    S6A --> S6B
-
-    style STAGE_VALIDATE fill:#e3f2fd,stroke:#1565c0
-    style STAGE_SECURITY fill:#fce4ec,stroke:#c62828
-    style STAGE_BUILD fill:#e8f5e9,stroke:#2e7d32
-    style STAGE_PACKAGE fill:#f3e5f5,stroke:#6a1b9a
-    style STAGE_DEPLOY_STAGE fill:#fff8e1,stroke:#f57f17
-    style STAGE_PROD fill:#e0f7fa,stroke:#006064
+    style TEST fill:#e3f2fd,stroke:#1565c0
+    style SEC fill:#fce4ec,stroke:#c62828
+    style BUILD fill:#e8f5e9,stroke:#2e7d32
+    style DEPLOY fill:#fff8e1,stroke:#f57f17
+    style HEALTH fill:#e0f7fa,stroke:#006064
 ```
 
 ### 3.3.1 Security Gates — критерии блокировки
