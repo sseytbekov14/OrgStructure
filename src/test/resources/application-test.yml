@@ -1,0 +1,21 @@
+spring:
+  jpa:
+    open-in-view: false
+    show-sql: false
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/OrgStructure?ssl=false
+    username: ${DB_USER:postgres}
+    password: ${DB_PASSWORD:postgres}
+
+# Increase file watcher interval so it does not interfere with test teardown
+app:
+  data:
+    watch-interval-ms: 3600000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: "health"
+
