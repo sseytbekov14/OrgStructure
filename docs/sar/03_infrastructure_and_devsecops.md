@@ -135,8 +135,8 @@ graph TB
         APP2 -->|"JDBC + TLS\n?ssl=true&sslmode=require\nserver cert validation"| DB2["🐘 PostgreSQL\n(SSL enabled)"]
     end
 
-    style CURRENT fill:#ffebee,stroke:#c62828
-    style TARGET fill:#e8f5e9,stroke:#2e7d32
+    style CURRENT fill:#ffebee,stroke:#c62828,color:#0f172a,stroke-width:2px,font-weight:bold
+    style TARGET fill:#e8f5e9,stroke:#2e7d32,color:#0f172a,stroke-width:2px,font-weight:bold
 ```
 
 | Канал | STAGE (текущее) | PROD (целевое) | Источник конфигурации |
@@ -185,11 +185,11 @@ flowchart LR
     BUILD --> DEPLOY
     DEPLOY --> HEALTH
 
-    style TEST fill:#e3f2fd,stroke:#1565c0
-    style SEC fill:#fce4ec,stroke:#c62828
-    style BUILD fill:#e8f5e9,stroke:#2e7d32
-    style DEPLOY fill:#fff8e1,stroke:#f57f17
-    style HEALTH fill:#e0f7fa,stroke:#006064
+    style TEST fill:#e3f2fd,stroke:#1565c0,color:#0f172a,stroke-width:2px,font-weight:bold
+    style SEC fill:#fce4ec,stroke:#c62828,color:#0f172a,stroke-width:2px,font-weight:bold
+    style BUILD fill:#e8f5e9,stroke:#2e7d32,color:#0f172a,stroke-width:2px,font-weight:bold
+    style DEPLOY fill:#fff8e1,stroke:#f57f17,color:#0f172a,stroke-width:2px,font-weight:bold
+    style HEALTH fill:#e0f7fa,stroke:#006064,color:#0f172a,stroke-width:2px,font-weight:bold
 ```
 
 ### 3.3.1 Security Gates — критерии блокировки

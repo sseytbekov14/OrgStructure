@@ -178,11 +178,11 @@ flowchart TD
     C6 --> D1
     D1 --> E1
 
-    style NOW fill:#e8f5e9,stroke:#2e7d32
-    style IT_INFRA fill:#fff3cd,stroke:#f57f17
-    style PRE_PROD fill:#e3f2fd,stroke:#1565c0
-    style ISS_GATE fill:#fce4ec,stroke:#c62828
-    style PROD fill:#f3e5f5,stroke:#6a1b9a
+    style NOW fill:#e8f5e9,stroke:#2e7d32,color:#0f172a,stroke-width:2px,font-weight:bold
+    style IT_INFRA fill:#fff3cd,stroke:#f57f17,color:#0f172a,stroke-width:2px,font-weight:bold
+    style PRE_PROD fill:#e3f2fd,stroke:#1565c0,color:#0f172a,stroke-width:2px,font-weight:bold
+    style ISS_GATE fill:#fce4ec,stroke:#c62828,color:#0f172a,stroke-width:2px,font-weight:bold
+    style PROD fill:#f3e5f5,stroke:#6a1b9a,color:#0f172a,stroke-width:2px,font-weight:bold
 ```
 
 ---

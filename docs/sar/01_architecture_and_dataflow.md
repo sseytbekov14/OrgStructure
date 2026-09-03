@@ -35,10 +35,10 @@ flowchart TD
     APP -->|"File I/O"| VOL
     APP -.->|"OAuth2 / OIDC"| SSO
     
-    style SSO stroke-dasharray: 5 5,fill:#fff3cd,stroke:#ffc107
-    style INGRESS_LAYER fill:#e3f2fd,stroke:#1565c0
-    style APP_LAYER fill:#e8f5e9,stroke:#2e7d32
-    style DATA_LAYER fill:#f3e5f5,stroke:#6a1b9a
+    style SSO stroke-dasharray: 5 5,fill:#fff3cd,stroke:#ffc107,color:#0f172a,stroke-width:2px,font-weight:bold
+    style INGRESS_LAYER fill:#e3f2fd,stroke:#1565c0,color:#0f172a,stroke-width:2px,font-weight:bold
+    style APP_LAYER fill:#e8f5e9,stroke:#2e7d32,color:#0f172a,stroke-width:2px,font-weight:bold
+    style DATA_LAYER fill:#f3e5f5,stroke:#6a1b9a,color:#0f172a,stroke-width:2px,font-weight:bold
 ```
 
 ---
@@ -216,9 +216,9 @@ graph LR
     USERS -->|"POST /api/search-logs"| SL
     USERS -->|"POST /api/page-visits"| PV
 
-    style SOURCES fill:#fff3e0,stroke:#e65100
-    style APP_MEMORY fill:#e3f2fd,stroke:#1565c0
-    style POSTGRESQL fill:#f3e5f5,stroke:#6a1b9a
+    style SOURCES fill:#fff3e0,stroke:#e65100,color:#0f172a,stroke-width:2px,font-weight:bold
+    style APP_MEMORY fill:#e3f2fd,stroke:#1565c0,color:#0f172a,stroke-width:2px,font-weight:bold
+    style POSTGRESQL fill:#f3e5f5,stroke:#6a1b9a,color:#0f172a,stroke-width:2px,font-weight:bold
 ```
 
 > **Важно:** Данные из Excel (`result_new.xlsx`) хранятся **исключительно в оперативной памяти** приложения и не записываются в PostgreSQL. В БД хранится только поведенческая аналитика. Основной источник ПД сотрудников — Excel-файл на файловой системе хоста (том `/data`).

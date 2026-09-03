@@ -112,9 +112,9 @@ flowchart TD
     NO_ENV --> LOCAL_EFFECT
     YES_ENV --> PROD_EFFECT
 
-    style LOCAL_EFFECT fill:#ffebee,stroke:#c62828
-    style PROD_EFFECT fill:#fff8e1,stroke:#f57f17
-    style NO_ENV fill:#ffcdd2,stroke:#c62828
+    style LOCAL_EFFECT fill:#ffebee,stroke:#c62828,color:#0f172a,stroke-width:2px,font-weight:bold
+    style PROD_EFFECT fill:#fff8e1,stroke:#f57f17,color:#0f172a,stroke-width:2px,font-weight:bold
+    style NO_ENV fill:#ffcdd2,stroke:#c62828,color:#0f172a,stroke-width:2px,font-weight:bold
 ```
 
 > **Вывод для ISS:** В `docker-compose.yml` отсутствует переменная `SPRING_PROFILES_ACTIVE`. При текущей конфигурации Docker-деплой активирует профиль `local`, что полностью отключает все механизмы безопасности.

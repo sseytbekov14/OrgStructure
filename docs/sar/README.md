@@ -63,9 +63,9 @@ graph LR
     APP -.->|"Not configured"| SSO
     TLS -.->|"Not configured"| APP
 
-    style PENDING fill:#fff3cd,stroke:#ffc107
-    style STAGE fill:#e8f5e9,stroke:#388e3c
-    style CORP fill:#e3f2fd,stroke:#1565c0
+    style PENDING fill:#fff3cd,stroke:#ffc107,color:#0f172a,stroke-width:2px,font-weight:bold
+    style STAGE fill:#e8f5e9,stroke:#388e3c,color:#0f172a,stroke-width:2px,font-weight:bold
+    style CORP fill:#e3f2fd,stroke:#1565c0,color:#0f172a,stroke-width:2px,font-weight:bold
 ```
 
 ---
