@@ -308,14 +308,11 @@ build-jar-and-image:
     - export JAVA_HOME=$(java -XshowSettings:property -version 2>&1 | grep java.home | awk '{print $3}')
 
   script:
-    # ── Step 1: Copy docker-compose.yml to Stage server
     - |
       echo ">>> [1/5] Copying docker-compose.yml to Stage server..."
       scp -o StrictHostKeyChecking=no \
         docker-compose.yml \
         "$STAGE_SSH_USER@$STAGE_SERVER_IP:/opt/csorgchart/docker-compose.yml"
-
-    # ── Step 2: Authenticate GitLab Registry on Stage server
     - |
       echo ">>> [2/5] Logging into GitLab Registry on Stage server..."
       ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" \
@@ -323,8 +320,6 @@ build-jar-and-image:
           --username '${CI_REGISTRY_USER}' \
           --password '${CI_REGISTRY_PASSWORD}' \
           '${CI_REGISTRY}'"
-
-    # ── Step 3: Write environment file safely avoiding YAML/Bash heredoc conflicts
     - |
       echo ">>> [3/5] Generating .env file locally and sending to Stage server..."
       {
@@ -347,8 +342,6 @@ build-jar-and-image:
       ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" "mkdir -p /opt/csorgchart && chmod 700 /opt/csorgchart"
       scp -o StrictHostKeyChecking=no .env.deploy "$STAGE_SSH_USER@$STAGE_SERVER_IP:/opt/csorgchart/.env"
       ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" "chmod 600 /opt/csorgchart/.env"
-
-    # ── Step 4: Pull new image and restart containers using inline SSH commands
     - |
       echo ">>> [4/5] Pulling image and restarting containers..."
       ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" "
@@ -365,8 +358,6 @@ build-jar-and-image:
         echo '  — Container status:'
         docker compose --env-file .env ps
       "
-
-    # ── Step 5: Smoke test / Health check
     - |
       echo ">>> [5/5] Running Smoke Test — Health Check..."
       MAX_RETRIES=10
@@ -397,7 +388,6 @@ build-jar-and-image:
           sleep $RETRY_INTERVAL
         fi
       done
-
     - echo ">>> ✅ Deployment to STAGE completed successfully!"
     - echo "    Image: ${DOCKER_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
     - echo "    Branch: ${CI_COMMIT_REF_NAME}"
