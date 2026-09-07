@@ -66,6 +66,18 @@ class ExcelServicePhotoTest {
         registry.add("app.data.photos-path",   () -> photosDir.toAbsolutePath().toString());
         // Disable file watcher polling in tests to avoid thread interference
         registry.add("app.data.watch-interval-ms", () -> "3600000");
+
+        // OAuth2ClientProperties.afterPropertiesSet() validates that client-id is non-empty.
+        // In CI the SSO_CLIENT_ID env var is absent, leaving an empty string from application.yaml.
+        // This fresh context (keyed separately from CsOrgchartApplicationTests due to
+        // @DynamicPropertySource) fails before @MockitoBean can replace the repository bean.
+        // Override with harmless dummy values so auto-configuration can complete.
+        registry.add("spring.security.oauth2.client.registration.corporate-sso.client-id",
+                () -> "test-client-id");
+        registry.add("spring.security.oauth2.client.registration.corporate-sso.client-secret",
+                () -> "test-client-secret");
+        registry.add("spring.security.oauth2.client.provider.corporate-sso.issuer-uri",
+                () -> "https://test.example.com");
     }
 
     @BeforeEach

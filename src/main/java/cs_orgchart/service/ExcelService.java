@@ -44,6 +44,16 @@ public class ExcelService {
     }
 
     public synchronized void reloadData() {
+        File file = new File(excelPath);
+        if (!file.exists()) {
+            log.warn("Excel file not found, skipping load: {}", excelPath);
+            return;
+        }
+        if (file.length() == 0) {
+            log.warn("Excel file is empty (0 bytes), skipping load: {}", excelPath);
+            return;
+        }
+
         try {
             Map<String, String> photoFilesMap = new HashMap<>();
             File photosDir = new File(photosPath);
@@ -59,7 +69,7 @@ public class ExcelService {
             List<Employee> loadedEmployees = readEmployeesFromExcel(photoFilesMap);
             employees = List.copyOf(loadedEmployees);
             log.info("Loaded {} employees from Excel file", employees.size());
-        } catch (IOException e) {
+        } catch (Exception e) {
             log.error("Error loading Excel file: {}", e.getMessage(), e);
         }
     }

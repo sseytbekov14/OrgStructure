@@ -1,0 +1,24 @@
+# Local development profile overrides.
+# This file lives in src/main/resources and is loaded automatically
+# when spring.profiles.active=local (the default in application.yaml).
+#
+# Key differences from production:
+#   - DB URL without SSL (local PostgreSQL typically does not support SSL)
+#   - OAuth2 client auto-configuration excluded: SecurityConfig skips oauth2Login()
+#     in local mode, so the entire OAuth2 client stack is unnecessary.
+#     Excluding it also prevents the OIDC discovery HTTP request that fires
+#     when issuer-uri is set but the IdP is not reachable locally.
+#   - Excel/photos paths point to the local project checkout
+
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:OrgStructure}?ssl=false
+
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.security.oauth2.client.OAuth2ClientAutoConfiguration
+
+app:
+  data:
+    excel-path: ${EXCEL_PATH:c:/Projects/OrgStructure/data/result_new.xlsx}
+    photos-path: ${PHOTOS_PATH:c:/Projects/OrgStructure/photos}

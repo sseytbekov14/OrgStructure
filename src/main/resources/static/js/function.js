@@ -89,6 +89,18 @@ const FUNCTION_FAQ = {
       "Submit Sentinel code checks for review before distributing proposals.",
       "Contact QRM immediately if potential conflicts of interest are identified."
     ]
+  },
+  "F&O": {
+    emails: [
+      { label: "Finance & Operations General Queries", email: "fo@kpmg.kz" },
+      { label: "Accounts Payable & Vendor Invoices", email: "ap@kpmg.kz" },
+      { label: "Travel & Business Expense Claims", email: "travel@kpmg.kz" }
+    ],
+    rules: [
+      "Submit all expense claims and reimbursement requests before the 25th of the current month.",
+      "All vendor invoices must include a valid Purchase Order (PO) number to be processed.",
+      "Use the F&O SharePoint portal for current templates, forms, and approval workflows."
+    ]
   }
 };
 
