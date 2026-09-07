@@ -133,7 +133,7 @@ unit-and-integration-tests:
       echo ">>> Waiting for PostgreSQL to be ready..."
       for i in $(seq 1 30); do
         pg_isready -h postgres -U testuser -d OrgStructure_test && break
-        echo "  attempt $i/30 — not ready yet, waiting 2s..."
+        echo "  attempt $i/30 - not ready yet, waiting 2s..."
         sleep 2
       done
     - |
@@ -201,7 +201,7 @@ semgrep-sast:
     - if: '$CI_COMMIT_BRANCH == "main"'
   allow_failure: false   # SECURITY GATE: blocks pipeline on SAST findings
 
-# ── 2c. SCA — OWASP Dependency-Check ─────────────────────────────────────────
+# ── 2c. SCA - OWASP Dependency-Check
 dependency-check:
   stage: security
   image: maven:3.9.6-eclipse-temurin-21-alpine
@@ -217,11 +217,10 @@ dependency-check:
     NVD_API_KEY: ${OWASP_NVD_API_KEY:-}
 
   before_script:
-    # Install xmllint for report verification (optional)
     - apk add --no-cache libxml2-utils || true
+    - chmod +x mvnw
 
   script:
-    - chmod +x mvnw
     - |
       echo ">>> Running OWASP Dependency-Check (CVSS fail threshold: ${DC_FAIL_CVSS})..."
       ./mvnw $MAVEN_CLI_OPTS \
