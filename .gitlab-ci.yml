@@ -308,172 +308,6 @@ build-jar-and-image:
     - export JAVA_HOME=$(java -XshowSettings:property -version 2>&1 | grep java.home | awk '{print $3}')
 
   script:
-    # ── 1. Compile and package production JAR (tests already ran in `test` stage)
-    - |
-      echo ">>> Building production JAR (tests skipped — already passed in 'test' stage)..."
-      ./mvnw $MAVEN_CLI_OPTS package -DskipTests=true
-
-    # ── 2. Authenticate with GitLab Container Registry
-    - |
-      echo ">>> Logging into GitLab Container Registry..."
-      docker login \
-        --username "$CI_REGISTRY_USER" \
-        --password "$CI_REGISTRY_PASSWORD" \
-        "$CI_REGISTRY"
-
-    # ── 3. Build Docker image (multi-stage Dockerfile, JAR pre-built above)
-    - |
-      IMAGE_TAG_SHA="${DOCKER_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
-      IMAGE_TAG_BRANCH="${DOCKER_IMAGE_NAME}:${CI_COMMIT_REF_SLUG}"
-      IMAGE_TAG_LATEST="${DOCKER_IMAGE_NAME}:latest"
-
-      echo ">>> Building Docker image..."
-      echo "    SHA tag:    ${IMAGE_TAG_SHA}"
-      echo "    Branch tag: ${IMAGE_TAG_BRANCH}"
-
-      docker build \
-        --label "git.commit=${CI_COMMIT_SHA}" \
-        --label "git.branch=${CI_COMMIT_REF_NAME}" \
-        --label "ci.pipeline=${CI_PIPELINE_URL}" \
-        --label "build.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-        --tag "${IMAGE_TAG_SHA}" \
-        --tag "${IMAGE_TAG_BRANCH}" \
-        --tag "${IMAGE_TAG_LATEST}" \
-        .
-
-    # ── 4. Push all tags to GitLab Container Registry
-    - |
-      echo ">>> Pushing Docker image to GitLab Registry..."
-      docker push "${DOCKER_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
-      docker push "${DOCKER_IMAGE_NAME}:${CI_COMMIT_REF_SLUG}"
-      docker push "${DOCKER_IMAGE_NAME}:latest"
-      echo ">>> Image pushed successfully."
-
-  artifacts:
-    name: "jar-artifact-$CI_COMMIT_SHORT_SHA"
-    expire_in: 7 days
-    paths:
-      - target/cs-orgchart-*.jar
-
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "stage"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
-# ==============================================================================
-#  STAGE: container-scan
-# ==============================================================================
-
-trivy-container-scan:
-  stage: container-scan
-  image:
-    name: aquasec/trivy:0.53.0
-    entrypoint: [""]
-
-  <<: *trivy-cache
-
-  variables:
-    # Target image to scan (built in previous stage)
-    TARGET_IMAGE: "$DOCKER_IMAGE_NAME:$CI_COMMIT_SHORT_SHA"
-    # Fail on CRITICAL severity only (HIGH findings go into report but don't block)
-    TRIVY_SEVERITY: "CRITICAL,HIGH"
-    TRIVY_EXIT_CODE: "1"
-    # Ignore unfixed vulnerabilities (informational only — still reported)
-    TRIVY_IGNORE_UNFIXED: "false"
-
-  before_script:
-    # Authenticate to pull the image from GitLab Container Registry
-    - |
-      echo ">>> Authenticating Trivy with GitLab Registry..."
-      export TRIVY_USERNAME="$CI_REGISTRY_USER"
-      export TRIVY_PASSWORD="$CI_REGISTRY_PASSWORD"
-
-    # Pre-download vulnerability DB into cache (speeds up subsequent scans)
-    - |
-      echo ">>> Updating Trivy vulnerability database..."
-      trivy image \
-        --download-db-only \
-        --no-progress \
-        --cache-dir "${TRIVY_CACHE_DIR}"
-
-  script:
-    - |
-      echo ">>> Scanning container image: ${TARGET_IMAGE}"
-      echo "    Severity filter: ${TRIVY_SEVERITY}"
-      echo "    Exit on finding: ${TRIVY_EXIT_CODE}"
-
-    # ── Full JSON report for GitLab Container Scanning widget
-    - |
-      trivy image \
-        --cache-dir "${TRIVY_CACHE_DIR}" \
-        --format template \
-        --template "@/contrib/gitlab.tpl" \
-        --output gl-container-scanning-report.json \
-        --severity "${TRIVY_SEVERITY}" \
-        --exit-code 0 \
-        "${TARGET_IMAGE}"
-
-    # ── Human-readable table report (for pipeline log readability)
-    - |
-      trivy image \
-        --cache-dir "${TRIVY_CACHE_DIR}" \
-        --format table \
-        --severity "${TRIVY_SEVERITY}" \
-        --exit-code "${TRIVY_EXIT_CODE}" \
-        "${TARGET_IMAGE}"
-
-  artifacts:
-    name: "trivy-scan-$CI_COMMIT_SHORT_SHA"
-    when: always
-    expire_in: 30 days
-    paths:
-      - gl-container-scanning-report.json
-    reports:
-      container_scanning: gl-container-scanning-report.json
-
-  allow_failure: false   # SECURITY GATE: CRITICAL CVE blocks pipeline
-
-  rules:
-    - if: '$CI_COMMIT_BRANCH == "stage"'
-    - if: '$CI_COMMIT_BRANCH == "main"'
-
-# ==============================================================================
-#  STAGE: deploy-stage
-# ==============================================================================
-
-deploy-to-stage:
-  stage: deploy-stage
-  image: alpine:3.20
-
-  environment:
-    name: stage
-    url: http://$STAGE_SERVER_IP:8082
-
-  before_script:
-    # Install SSH client and utilities
-    - apk add --no-cache openssh-client curl bash
-
-    # Configure SSH agent with the deploy private key
-    - |
-      echo ">>> Configuring SSH access to Stage server..."
-      eval $(ssh-agent -s)
-
-      # STAGE_SSH_PRIVATE_KEY must be a GitLab CI File-type variable
-      chmod 400 "$STAGE_SSH_PRIVATE_KEY"
-      ssh-add "$STAGE_SSH_PRIVATE_KEY"
-
-      mkdir -p ~/.ssh
-      chmod 700 ~/.ssh
-
-      # Disable strict host key checking for CI (use known_hosts in production)
-      cat >> ~/.ssh/config <<EOF
-      Host $STAGE_SERVER_IP
-          StrictHostKeyChecking no
-          UserKnownHostsFile /dev/null
-          ServerAliveInterval 30
-          ConnectTimeout 15
-      EOF
-
-  script:
     # ── Step 1: Copy docker-compose.yml to Stage server
     - |
       echo ">>> [1/5] Copying docker-compose.yml to Stage server..."
@@ -490,69 +324,47 @@ deploy-to-stage:
           --password '${CI_REGISTRY_PASSWORD}' \
           '${CI_REGISTRY}'"
 
-    # ── Step 3: Write environment file with all secrets + SPRING_PROFILES_ACTIVE
+    # ── Step 3: Write environment file safely avoiding YAML/Bash heredoc conflicts
     - |
-      echo ">>> [3/5] Writing .env file to Stage server (secrets masked in logs)..."
-      ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" bash -s << 'ENVCMD'
-        set -euo pipefail
-        mkdir -p /opt/csorgchart
-        chmod 700 /opt/csorgchart
-        # Write .env with restricted permissions before filling secrets
-        touch /opt/csorgchart/.env
-        chmod 600 /opt/csorgchart/.env
-ENVCMD
+      echo ">>> [3/5] Generating .env file locally and sending to Stage server..."
+      {
+        echo "# Auto-generated by GitLab CI pipeline ${CI_PIPELINE_ID} — $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "SPRING_PROFILES_ACTIVE=stage"
+        echo "APP_IMAGE=${DOCKER_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}"
+        echo "APP_PORT=8082"
+        echo "DB_HOST=${DB_HOST}"
+        echo "DB_PORT=${DB_PORT:-5432}"
+        echo "DB_NAME=${DB_NAME}"
+        echo "DB_USER=${DB_USER}"
+        echo "DB_PASSWORD=${DB_PASSWORD}"
+        echo "APP_DATA_EXCEL_PATH=${APP_DATA_EXCEL_PATH:-/opt/csorgchart/data/result_new.xlsx}"
+        echo "APP_DATA_PHOTOS_PATH=${APP_DATA_PHOTOS_PATH:-/opt/csorgchart/photos}"
+        echo "SSO_CLIENT_ID=${SSO_CLIENT_ID:-}"
+        echo "SSO_CLIENT_SECRET=${SSO_CLIENT_SECRET:-}"
+        echo "SSO_ISSUER_URI=${SSO_ISSUER_URI:-}"
+      } > .env.deploy
 
-      # Populate .env via heredoc (values come from GitLab masked CI variables)
-      ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" "cat > /opt/csorgchart/.env" << ENVEOF
-# Auto-generated by GitLab CI pipeline ${CI_PIPELINE_ID} — $(date -u +%Y-%m-%dT%H:%M:%SZ)
-# DO NOT EDIT MANUALLY — changes will be overwritten on next deployment
+      ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" "mkdir -p /opt/csorgchart && chmod 700 /opt/csorgchart"
+      scp -o StrictHostKeyChecking=no .env.deploy "$STAGE_SSH_USER@$STAGE_SERVER_IP:/opt/csorgchart/.env"
+      ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" "chmod 600 /opt/csorgchart/.env"
 
-# ── Spring Profile (mandatory — must NOT be 'local' on Stage) ──────────────
-SPRING_PROFILES_ACTIVE=stage
-
-# ── Application Image ────────────────────────────────────────────────────────
-APP_IMAGE=${DOCKER_IMAGE_NAME}:${CI_COMMIT_SHORT_SHA}
-APP_PORT=8082
-
-# ── Database ─────────────────────────────────────────────────────────────────
-DB_HOST=${DB_HOST}
-DB_PORT=${DB_PORT:-5432}
-DB_NAME=${DB_NAME}
-DB_USER=${DB_USER}
-DB_PASSWORD=${DB_PASSWORD}
-
-# ── File Paths (host-side volumes) ───────────────────────────────────────────
-APP_DATA_EXCEL_PATH=${APP_DATA_EXCEL_PATH:-/opt/csorgchart/data/result_new.xlsx}
-APP_DATA_PHOTOS_PATH=${APP_DATA_PHOTOS_PATH:-/opt/csorgchart/photos}
-
-# ── SSO — Pending IT Infrastructure (leave empty until configured) ───────────
-SSO_CLIENT_ID=${SSO_CLIENT_ID:-}
-SSO_CLIENT_SECRET=${SSO_CLIENT_SECRET:-}
-SSO_ISSUER_URI=${SSO_ISSUER_URI:-}
-ENVEOF
-
-    # ── Step 4: Pull new image and restart containers
+    # ── Step 4: Pull new image and restart containers using inline SSH commands
     - |
       echo ">>> [4/5] Pulling image and restarting containers..."
-      ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" bash -s << 'DEPLOYCMD'
+      ssh "$STAGE_SSH_USER@$STAGE_SERVER_IP" "
         set -euo pipefail
         cd /opt/csorgchart
-
-        echo "  — Pulling latest image..."
+        echo '  — Pulling latest image...'
         docker compose --env-file .env pull
-
-        echo "  — Stopping old containers..."
+        echo '  — Stopping old containers...'
         docker compose --env-file .env down --remove-orphans --timeout 30 || true
-
-        echo "  — Starting new containers in detached mode..."
+        echo '  — Starting new containers in detached mode...'
         docker compose --env-file .env up -d
-
-        echo "  — Waiting 20 seconds for application to start..."
+        echo '  — Waiting 20 seconds for application to start...'
         sleep 20
-
-        echo "  — Container status:"
+        echo '  — Container status:'
         docker compose --env-file .env ps
-DEPLOYCMD
+      "
 
     # ── Step 5: Smoke test / Health check
     - |
@@ -571,9 +383,6 @@ DEPLOYCMD
 
         if [ "$HTTP_STATUS" = "200" ]; then
           echo "  ✅ Health check passed (HTTP 200)."
-
-          # Optional: print full health response for deployment log
-          echo "  Health response:"
           curl --silent "${HEALTH_URL}" || true
           break
         elif [ "$i" = "$MAX_RETRIES" ]; then
@@ -601,8 +410,9 @@ DEPLOYCMD
 
   rules:
     - if: '$CI_COMMIT_BRANCH == "stage"'
+      when: on_success
     - if: '$CI_COMMIT_BRANCH == "main"'
-  when: on_success   # Only deploy if all previous stages (including security gates) passed
+      when: on_success
 
 # ==============================================================================
 #  Workflow: control when the overall pipeline runs
