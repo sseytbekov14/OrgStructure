@@ -104,6 +104,8 @@ unit-and-integration-tests:
   stage: test
   image: maven:3.9.6-eclipse-temurin-21-alpine
   <<: *maven-cache
+  tags:
+    - gitlab-runner-kubernetes
 
   # Services: real PostgreSQL for integration tests (mirrors docker-compose.yml)
   services:
@@ -126,6 +128,7 @@ unit-and-integration-tests:
     APP_DATA_PHOTOS_PATH: /tmp/orgchart-ci-photos
 
   script:
+    - chmod +x mvnw
     - |
       echo ">>> Waiting for PostgreSQL to be ready..."
       for i in $(seq 1 30); do
@@ -174,6 +177,8 @@ unit-and-integration-tests:
 # Overrides to configure behaviour:
 secret_detection:
   stage: security
+  tags:
+    - gitlab-runner-kubernetes
   variables:
     SECRET_DETECTION_EXCLUDED_PATHS: "target/,*.class,*.jar"
   rules:
@@ -186,6 +191,8 @@ secret_detection:
 # Job is auto-injected via: include: Security/SAST.gitlab-ci.yml
 semgrep-sast:
   stage: security
+  tags:
+    - gitlab-runner-kubernetes
   variables:
     SAST_JAVA_VERSION: "21"
   rules:
@@ -199,6 +206,8 @@ dependency-check:
   stage: security
   image: maven:3.9.6-eclipse-temurin-21-alpine
   <<: *maven-cache
+  tags:
+    - gitlab-runner-kubernetes
 
   variables:
     # CVSS threshold ≥ 7.0 fails the build (High + Critical CVEs)
@@ -212,6 +221,7 @@ dependency-check:
     - apk add --no-cache libxml2-utils || true
 
   script:
+    - chmod +x mvnw
     - |
       echo ">>> Running OWASP Dependency-Check (CVSS fail threshold: ${DC_FAIL_CVSS})..."
       ./mvnw $MAVEN_CLI_OPTS \
@@ -251,6 +261,8 @@ dependency-check:
 # ── 2d. Gitleaks (full history scan — belt-and-suspenders over template) ──────
 gitleaks-full-scan:
   stage: security
+  tags:
+    - gitlab-runner-kubernetes
   image:
     name: zricethezav/gitleaks:v8.18.4
     entrypoint: [""]
@@ -288,6 +300,8 @@ gitleaks-full-scan:
 
 build-jar-and-image:
   stage: build
+  tags:
+    - gitlab-runner-kubernetes
   image: docker:27-cli
   services:
     - name: docker:27-dind
