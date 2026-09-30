@@ -10,6 +10,10 @@ import java.util.List;
 @Repository
 public interface EmployeeLikeRepository extends JpaRepository<EmployeeLike, Long> {
 
+    boolean existsByEmployeeEmailAndReactionTypeAndVisitorId(String employeeEmail, String reactionType, String visitorId);
+
+    long deleteByEmployeeEmailAndReactionTypeAndVisitorId(String employeeEmail, String reactionType, String visitorId);
+
     @Query("SELECT e.employeeEmail, " +
            "SUM(CASE WHEN e.reactionType = 'SOLVED' THEN 1 ELSE 0 END), " +
            "SUM(CASE WHEN e.reactionType = 'EXCEEDED' THEN 1 ELSE 0 END) " +

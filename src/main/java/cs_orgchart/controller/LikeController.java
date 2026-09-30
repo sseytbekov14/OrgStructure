@@ -5,6 +5,7 @@ import cs_orgchart.model.LikeSummary;
 import cs_orgchart.service.LikeService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,6 +34,26 @@ public class LikeController {
         try {
             EmployeeLike saved = likeService.addLike(email, type, visitorId);
             return ResponseEntity.ok(saved);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().build();
+        } catch (IllegalStateException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).build();
+        }
+    }
+
+    /**
+     * DELETE /api/likes?employeeEmail=user@kpmg.kz&reactionType=SOLVED&visitorId=...
+     * Takes back the visitor's own reaction
+     */
+    @DeleteMapping
+    public ResponseEntity<Void> removeLike(@RequestParam String employeeEmail,
+                                           @RequestParam String reactionType,
+                                           @RequestParam String visitorId) {
+        log.info("DELETE /api/likes  email={} type={} visitor={}", employeeEmail, reactionType, visitorId);
+
+        try {
+            boolean removed = likeService.removeLike(employeeEmail, reactionType, visitorId);
+            return removed ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().build();
         }

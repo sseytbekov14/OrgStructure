@@ -6,7 +6,7 @@
   <title>CS OrgChart — Function</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1.0" />
   <link rel="shortcut icon" href="/favicon.svg?v=1.0" />
-  <link rel="stylesheet" href="/css/style.css" />
+  <link rel="stylesheet" href="/css/style.css?v=2.6" />
 </head>
 <body>
 
@@ -28,7 +28,7 @@
   <div class="func-header-bar">
     <div class="func-header-inner">
       <a href="/" class="btn-back">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16" aria-hidden="true">
           <path d="M19 12H5M12 5l-7 7 7 7"/>
         </svg>
         Back
@@ -36,6 +36,35 @@
       <div class="func-header-info">
         <h1 class="func-page-title" id="funcTitle">Loading...</h1>
         <span class="func-page-count" id="funcCount"></span>
+      </div>
+
+      <div class="func-header-tools">
+        <label class="func-search" for="funcSearch">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+          </svg>
+          <input id="funcSearch" type="search" placeholder="Find in this function" autocomplete="off" aria-label="Find a person in this function" />
+          <span class="func-search-nav">
+            <span class="func-search-count" id="funcSearchCount" aria-live="polite"></span>
+            <button type="button" class="icon-btn" id="funcSearchPrev" aria-label="Previous match" disabled>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg>
+            </button>
+            <button type="button" class="icon-btn" id="funcSearchNext" aria-label="Next match" disabled>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+          </span>
+        </label>
+
+        <div class="view-toggle" role="group" aria-label="View">
+          <button type="button" data-view="tree" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="2" width="6" height="5" rx="1"/><rect x="2" y="17" width="6" height="5" rx="1"/><rect x="16" y="17" width="6" height="5" rx="1"/><path d="M12 7v5M5 17v-5h14v5"/></svg>
+            Tree
+          </button>
+          <button type="button" data-view="groups" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="18" rx="1"/><rect x="14" y="3" width="7" height="11" rx="1"/></svg>
+            Groups
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -54,6 +83,7 @@
 
   <script src="/js/favicon.js"></script>
   <script src="/js/org-stream.js"></script>
-  <script src="/js/function.js"></script>
+  <script src="/js/common.js?v=2.6"></script>
+  <script src="/js/function.js?v=2.6"></script>
 </body>
 </html>

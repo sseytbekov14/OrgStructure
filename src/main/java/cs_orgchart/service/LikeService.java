@@ -6,6 +6,7 @@ import cs_orgchart.repository.EmployeeLikeRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -27,8 +28,14 @@ public class LikeService {
             throw new IllegalArgumentException("Reaction type must be SOLVED or EXCEEDED");
         }
 
+        String normalizedEmail = employeeEmail.trim().toLowerCase();
+        if (visitorId != null && !visitorId.isBlank()
+                && repository.existsByEmployeeEmailAndReactionTypeAndVisitorId(normalizedEmail, reactionType, visitorId)) {
+            throw new IllegalStateException("Visitor already sent this reaction");
+        }
+
         EmployeeLike like = EmployeeLike.builder()
-                .employeeEmail(employeeEmail.trim().toLowerCase())
+                .employeeEmail(normalizedEmail)
                 .reactionType(reactionType)
                 .visitorId(visitorId)
                 .createdAt(LocalDateTime.now())
@@ -37,6 +44,21 @@ public class LikeService {
         EmployeeLike saved = repository.save(like);
         log.info("Like added: {} → {} (id={})", employeeEmail, reactionType, saved.getId());
         return saved;
+    }
+
+    @Transactional
+    public boolean removeLike(String employeeEmail, String reactionType, String visitorId) {
+        if (employeeEmail == null || employeeEmail.isBlank() || visitorId == null || visitorId.isBlank()) {
+            throw new IllegalArgumentException("Employee email and visitor id are required");
+        }
+        if (!"SOLVED".equals(reactionType) && !"EXCEEDED".equals(reactionType)) {
+            throw new IllegalArgumentException("Reaction type must be SOLVED or EXCEEDED");
+        }
+
+        long removed = repository.deleteByEmployeeEmailAndReactionTypeAndVisitorId(
+                employeeEmail.trim().toLowerCase(), reactionType, visitorId);
+        log.info("Like removed: {} → {} by {} (rows={})", employeeEmail, reactionType, visitorId, removed);
+        return removed > 0;
     }
 
     public Map<String, LikeSummary> getAllSummaries() {
