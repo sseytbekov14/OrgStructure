@@ -25,14 +25,16 @@ spring:
 
 server:
   port: 8080
+  # Whether to trust X-Forwarded-* (scheme, host, client address) from an HTTP proxy in front of the app. On the
+  # server there is none: a TCP port forward (netsh portproxy 443 -> 8082) and TLS ends in the app itself
+  # (server.ssl), so the request already carries the real scheme and host, and the headers must not be trusted
+  # (anyone could send them). native (or framework) only behind a reverse proxy that ends TLS (docs/SSO.md).
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
   servlet:
     session:
       # Signed out after this long without a request (every request starts it again)
       timeout: ${SESSION_TIMEOUT:8h}
-      cookie:
-        http-only: true
-        secure: false # Переключить в true на PROD после подключения HTTPS
-        same-site: strict
+      # The session cookie (SameSite, Secure, HttpOnly) follows the sign-in mode: SessionCookieDefaults
 
 app:
   data:
@@ -44,6 +46,13 @@ app:
 auth:
   sso:
     enabled: ${AUTH_SSO_ENABLED:false}
+    # SAML 2.0 with Microsoft Entra ID (SamlConfig), read only with SSO on, no defaults: the Identifier of the
+    # Entra application, its Reply URL (https://<site>/login/saml2/sso/entra) and its App Federation Metadata Url
+    entity-id: ${SAML_ENTITY_ID:}
+    acs-url: ${SAML_ACS_URL:}
+    metadata-uri: ${SAML_METADATA_URI:}
+    # Optional: only addresses of these domains (comma-separated, any case); empty: everyone Entra lets through
+    allowed-email-domains: ${SAML_ALLOWED_EMAIL_DOMAINS:}
   password:
     # Empty: the opposite of AUTH_SSO_ENABLED
     enabled: ${AUTH_PASSWORD_ENABLED:}

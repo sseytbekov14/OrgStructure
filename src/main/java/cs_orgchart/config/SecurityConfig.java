@@ -4,13 +4,17 @@ import cs_orgchart.security.AuthMode;
 import cs_orgchart.security.PasswordUsers;
 import cs_orgchart.security.RoleLists;
 import cs_orgchart.security.SignInEntryPoint;
+import cs_orgchart.security.SsoSignIn;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 import org.springframework.core.env.Profiles;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationProvider;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -50,8 +54,9 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, Environment env, AuthMode authMode,
-                                           RoleLists roleLists) throws Exception {
+                                           RoleLists roleLists, ObjectProvider<SsoSignIn> ssoSignIn) throws Exception {
         boolean isLocal = env.acceptsProfiles(Profiles.of("local"));
+        RequestCache requestCache = requestCache();
 
         http
             .csrf(csrf -> csrf
@@ -73,24 +78,44 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/prometheus").hasRole("MONITORING_SYSTEM")
                 .requestMatchers("/actuator/**").denyAll()
                 .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.svg", "/error").permitAll()
+                .requestMatchers(SsoSignIn.ACCESS_NOT_GRANTED_PATH, SsoSignIn.SIGN_IN_FAILED_PATH,
+                    SsoSignIn.SIGNED_OUT_PATH).permitAll()
                 .requestMatchers("/api/admin/upload-excel").hasAnyRole(RoleLists.HR_EDITOR, RoleLists.SYSTEM_ADMIN)
                 .requestMatchers("/api/admin/**").hasRole(RoleLists.SYSTEM_ADMIN)
                 .anyRequest().authenticated()
             )
             .logout(logout -> {
                 if (authMode.logout()) {
-                    logout.logoutSuccessUrl(authMode.password() ? "/login?logout" : "/");
+                    // With SSO only OrgChart's session ends; the Microsoft one stays (no single logout)
+                    logout.logoutSuccessUrl(authMode.sso() ? SsoSignIn.SIGNED_OUT_PATH : "/login?logout");
                 } else {
                     logout.disable();
                 }
             })
-            .requestCache(cache -> cache.requestCache(requestCache()))
+            .requestCache(cache -> cache.requestCache(requestCache))
             // Registered as the first default (not as THE entry point), so it wins over the ones of the sign-in
             // configurers and Spring still generates the /login page of the password form
             .exceptionHandling(exceptions -> exceptions
-                .defaultAuthenticationEntryPointFor(new SignInEntryPoint("/login"), AnyRequestMatcher.INSTANCE));
+                .defaultAuthenticationEntryPointFor(
+                    new SignInEntryPoint(authMode.sso() ? SamlConfig.SIGN_ON_PATH : "/login"),
+                    AnyRequestMatcher.INSTANCE));
 
-        if (authMode.password()) {
+        if (authMode.sso()) {
+            SsoSignIn sso = ssoSignIn.getObject();
+            http
+                // The one request without OrgChart's token: Microsoft's POST of the answer to the Assertion
+                // Consumer Service (it is signed and answers a request this session made). Nothing else.
+                .csrf(csrf -> csrf.ignoringRequestMatchers(
+                    PathPatternRequestMatcher.withDefaults().matcher(HttpMethod.POST, SamlConfig.ACS_PATH)))
+                .saml2Login(saml -> saml
+                    // No page listing identity providers: the Sign on URL goes straight to Microsoft
+                    .loginPage(SamlConfig.SIGN_ON_PATH)
+                    .authenticationManager(new ProviderManager(sso.provider()))
+                    .successHandler(sso.successHandler(requestCache))
+                    .failureHandler(sso.failureHandler()))
+                // The service provider metadata for the Entra application: /saml2/metadata/entra
+                .saml2Metadata(Customizer.withDefaults());
+        } else {
             http
                 .authenticationProvider(passwordProvider(env, roleLists, isLocal))
                 .formLogin(form -> form.permitAll());
