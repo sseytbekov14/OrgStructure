@@ -1,0 +1,4 @@
+# Stage: the password form until SSO is switched on here with AUTH_SSO_ENABLED=true (docs/SSO.md).
+auth:
+  sso:
+    enabled: ${AUTH_SSO_ENABLED:false}

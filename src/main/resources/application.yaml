@@ -1,8 +1,12 @@
+# No default profile: SPRING_PROFILES_ACTIVE=prod, stage or local must be given (StartupGuard refuses to start
+# without it). See docs/SSO.md.
 spring:
-  profiles:
-    active: local
   application:
     name: cs-orgchart
+  autoconfigure:
+    exclude:
+      # The accounts of the password form come from AUTH_PASSWORD_USERS (SecurityConfig), never Boot's default user
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:OrgStructure}?ssl=true&sslmode=require
     username: ${DB_USER:postgres}
@@ -23,6 +27,8 @@ server:
   port: 8080
   servlet:
     session:
+      # Signed out after this long without a request (every request starts it again)
+      timeout: ${SESSION_TIMEOUT:8h}
       cookie:
         http-only: true
         secure: false # Переключить в true на PROD после подключения HTTPS
@@ -32,6 +38,24 @@ app:
   data:
     excel-path: c:/Projects/OrgStructure/data/result_new.xlsx
     photos-path: c:/Projects/OrgStructure/photos
+
+# How people sign in (AuthMode): exactly one of SSO (Microsoft Entra ID, SAML) and the password form.
+# The profiles give their own defaults (prod: SSO; stage and local: the password); the variables override them.
+auth:
+  sso:
+    enabled: ${AUTH_SSO_ENABLED:false}
+  password:
+    # Empty: the opposite of AUTH_SSO_ENABLED
+    enabled: ${AUTH_PASSWORD_ENABLED:}
+    # Emergency accounts of the password form: name:bcrypt-hash[,name:bcrypt-hash...]
+    users: ${AUTH_PASSWORD_USERS:}
+  # /logout; empty: off with SSO, on with the password
+  logout:
+    enabled: ${AUTH_LOGOUT_ENABLED:}
+  # Everyone signed in is USER; these addresses (e-mail or UPN, or the password account name) get more
+  roles:
+    system-admin-emails: ${SYSTEM_ADMIN_EMAILS:}
+    hr-editor-emails: ${HR_EDITOR_EMAILS:}
 
 management:
   endpoints:

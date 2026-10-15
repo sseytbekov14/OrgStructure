@@ -1,16 +1,26 @@
+# The "test" profile of the security tests: an in-memory database and no data files (no PostgreSQL needed).
+# Accounts of the password form are made per test class (hashes computed at run time, nothing stored here).
 spring:
   jpa:
     open-in-view: false
     show-sql: false
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/OrgStructure?ssl=false
-    username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:postgres}
+    url: jdbc:h2:mem:orgchart-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
 
-# Increase file watcher interval so it does not interfere with test teardown
 app:
   data:
+    excel-path: target/test-data/no-such.xlsx
+    photos-path: target/test-data/photos
+    # Increase file watcher interval so it does not interfere with test teardown
     watch-interval-ms: 3600000
 
 management:
@@ -18,4 +28,3 @@ management:
     web:
       exposure:
         include: "health"
-
