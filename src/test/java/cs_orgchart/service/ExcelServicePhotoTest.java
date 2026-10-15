@@ -10,11 +10,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -30,10 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
  * loaded from Excel, photos are resolved by email, and the in-memory cache remains
  * stable across multiple reloadData() invocations (FileWatcher debounce simulation).
  *
- * <p>Uses the "local" Spring profile so that SecurityConfig activates its local
- * branch (permitAll, no OAuth2). ClientRegistrationRepository is mocked because
- * the OAuth2 starter is on the classpath and Spring Security needs the bean
- * even when it is unused in the local security chain.
+ * <p>Uses the "local" Spring profile: no identity provider is needed.
  */
 @SpringBootTest
 @ActiveProfiles("local")
@@ -41,9 +36,6 @@ class ExcelServicePhotoTest {
 
     @Autowired
     private ExcelService excelService;
-
-    @MockitoBean
-    ClientRegistrationRepository clientRegistrationRepository;
 
     private static Path tempDir;
     private static Path excelFile;
@@ -66,18 +58,6 @@ class ExcelServicePhotoTest {
         registry.add("app.data.photos-path",   () -> photosDir.toAbsolutePath().toString());
         // Disable file watcher polling in tests to avoid thread interference
         registry.add("app.data.watch-interval-ms", () -> "3600000");
-
-        // OAuth2ClientProperties.afterPropertiesSet() validates that client-id is non-empty.
-        // In CI the SSO_CLIENT_ID env var is absent, leaving an empty string from application.yaml.
-        // This fresh context (keyed separately from CsOrgchartApplicationTests due to
-        // @DynamicPropertySource) fails before @MockitoBean can replace the repository bean.
-        // Override with harmless dummy values so auto-configuration can complete.
-        registry.add("spring.security.oauth2.client.registration.corporate-sso.client-id",
-                () -> "test-client-id");
-        registry.add("spring.security.oauth2.client.registration.corporate-sso.client-secret",
-                () -> "test-client-secret");
-        registry.add("spring.security.oauth2.client.provider.corporate-sso.issuer-uri",
-                () -> "https://test.example.com");
     }
 
     @BeforeEach

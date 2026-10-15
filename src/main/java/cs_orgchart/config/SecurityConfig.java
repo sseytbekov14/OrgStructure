@@ -61,11 +61,6 @@ public class SecurityConfig {
                 .requestMatchers("/api/structure/**", "/org-chart/**", "/org-chart").hasAnyRole("USER", "HR_EDITOR", "SYSTEM_ADMIN")
                 .anyRequest().authenticated()
             );
-
-            // Prod/Stage profile: Corporate SSO (Azure AD / IdP)
-            http.oauth2Login(oauth2 -> oauth2
-                .defaultSuccessUrl("/org-chart", true)
-            );
         }
 
         return http.build();

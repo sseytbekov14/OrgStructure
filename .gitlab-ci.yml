@@ -25,9 +25,8 @@
 # │    DB_PASSWORD              — Database password (min 32 chars, random)  │
 # │                                                                         │
 # │  Spring / Application (Masked)                                          │
-# │    SSO_CLIENT_ID            — OAuth2 client ID (pending IT Infra)       │
-# │    SSO_CLIENT_SECRET        — OAuth2 client secret (pending IT Infra)   │
-# │    SSO_ISSUER_URI           — OIDC issuer URI (pending IT Infra)        │
+# │    SSO (SAML, Microsoft Entra ID) is configured on the server,          │
+# │    see docs/SSO.md                                                      │
 # │    APP_DATA_EXCEL_PATH      — Absolute path to result_new.xlsx on host  │
 # │    APP_DATA_PHOTOS_PATH     — Absolute path to /photos on host          │
 # │                                                                         │
