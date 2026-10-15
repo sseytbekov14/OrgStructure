@@ -48,7 +48,7 @@ let spinnerTimer = null;
 let openFirstWhenReady = false;
 
 async function loadDirectoryData() {
-  const title = document.getElementById("centralTitle");
+  const count = document.getElementById("centralCount");
   const copy = document.getElementById("centralCopy");
 
   try {
@@ -63,8 +63,7 @@ async function loadDirectoryData() {
     try { setLikeSummaries(await likesRes.json()); } catch (e) { setLikeSummaries({}); }
     const functions = await funcRes.json();
 
-    title.textContent = `${allEmployees.length} people`;
-    copy.textContent = `across ${functions.length} functions`;
+    count.textContent = `${allEmployees.length} people`;
     renderFunctions(functions);
 
     const activeQuery = searchInput.value.trim();
@@ -74,7 +73,7 @@ async function loadDirectoryData() {
       showFunctions();
     }
   } catch (error) {
-    title.textContent = "Couldn't load data";
+    count.textContent = "Couldn't load data";
     copy.textContent = "Refresh the page to try again.";
     console.error(error);
   }
