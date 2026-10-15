@@ -8,12 +8,13 @@ import java.util.Locale;
 import java.util.Optional;
 
 /**
- * How people sign in: with Microsoft Entra ID over SAML ({@code auth.sso.enabled}, env AUTH_SSO_ENABLED) or with
- * the password form ({@code auth.password.enabled}, env AUTH_PASSWORD_ENABLED; accounts from AUTH_PASSWORD_USERS).
- * Exactly one of the two is on. An empty AUTH_PASSWORD_ENABLED means "the opposite of SSO". /logout follows
- * {@code auth.logout.enabled} (AUTH_LOGOUT_ENABLED), by default off with SSO and on with the password.
- * The prod profile defaults to SSO, stage and local to the password; StartupGuard refuses other combinations
- * before anything starts.
+ * How people get in: with Microsoft Entra ID over SAML ({@code auth.sso.enabled}, env AUTH_SSO_ENABLED), or -
+ * with SSO off - without any sign-in, open to everyone who reaches the site (as before SSO). The password form
+ * ({@code auth.password.enabled}, env AUTH_PASSWORD_ENABLED; accounts from AUTH_PASSWORD_USERS) is an optional
+ * emergency sign-in instead of the open site; it never goes together with SSO. /logout follows
+ * {@code auth.logout.enabled} (AUTH_LOGOUT_ENABLED), by default on only with the password form.
+ * The prod profile defaults to SSO, stage and local to the open site; StartupGuard refuses impossible
+ * combinations before anything starts.
  */
 @Component
 public class AuthMode {
@@ -32,9 +33,9 @@ public class AuthMode {
         if (refusal.isPresent()) {
             throw new IllegalStateException(refusal.get());
         }
-        this.sso = sso(environment);
-        this.password = !sso;
-        this.logout = flag(environment, LOGOUT).orElse(!sso);
+        this.sso = flag(environment, SSO).orElse(false);
+        this.password = flag(environment, PASSWORD).orElse(false);
+        this.logout = flag(environment, LOGOUT).orElse(password);
     }
 
     /** Signed in with Microsoft Entra ID (SAML). */
@@ -47,9 +48,14 @@ public class AuthMode {
         return password;
     }
 
+    /** No sign-in at all: everyone who reaches the site is let in. */
+    public boolean open() {
+        return !sso && !password;
+    }
+
     /** /logout exists. */
     public boolean logout() {
-        return logout;
+        return logout && !open();
     }
 
     /** Why the sign-in settings cannot work, or empty. */
@@ -68,15 +74,11 @@ public class AuthMode {
                 return Optional.of(key + " must be true or false, not \"" + value.trim() + "\"");
             }
         }
-        boolean sso = sso(environment);
-        boolean password = flag(environment, PASSWORD).orElse(!sso);
+        boolean sso = flag(environment, SSO).orElse(false);
+        boolean password = flag(environment, PASSWORD).orElse(false);
         if (sso && password) {
-            return Optional.of("AUTH_SSO_ENABLED and AUTH_PASSWORD_ENABLED are both true: exactly one sign-in mode"
-                    + " can be on, set AUTH_PASSWORD_ENABLED=false (or AUTH_SSO_ENABLED=false to go back to the"
-                    + " password)");
-        }
-        if (!sso && !password) {
-            return Optional.of("AUTH_SSO_ENABLED and AUTH_PASSWORD_ENABLED are both false: nobody could sign in");
+            return Optional.of("AUTH_SSO_ENABLED and AUTH_PASSWORD_ENABLED are both true: the password form does"
+                    + " not go together with SSO, set AUTH_PASSWORD_ENABLED=false");
         }
         if (password && checkAccounts) {
             String users = environment.getProperty(PASSWORD_USERS);
@@ -84,7 +86,7 @@ public class AuthMode {
                 // local makes a one-off account (SecurityConfig); anywhere else nobody could sign in
                 if (!environment.acceptsProfiles(Profiles.of("local"))) {
                     return Optional.of("the password form is on but AUTH_PASSWORD_USERS is empty: nobody could"
-                            + " sign in (set user:bcrypt-hash pairs, or switch SSO on)");
+                            + " sign in (set user:bcrypt-hash pairs, or AUTH_PASSWORD_ENABLED=false)");
                 }
             } else {
                 try {
@@ -95,10 +97,6 @@ public class AuthMode {
             }
         }
         return Optional.empty();
-    }
-
-    private static boolean sso(Environment environment) {
-        return flag(environment, SSO).orElse(false);
     }
 
     private static Optional<Boolean> flag(Environment environment, String key) {

@@ -40,9 +40,10 @@ import java.util.Base64;
 import java.util.List;
 
 /**
- * The one filter chain. How people sign in is {@link AuthMode}: the password form (accounts of
- * AUTH_PASSWORD_USERS) or Microsoft Entra ID over SAML - never both. Every profile has the same rules;
- * local only differs in its one-off account when AUTH_PASSWORD_USERS is empty.
+ * The one filter chain. How people get in is {@link AuthMode}: Microsoft Entra ID over SAML, or with SSO off
+ * the open site (no sign-in, as before SSO) - or, only when asked for, the password form (accounts of
+ * AUTH_PASSWORD_USERS). Every profile has the same rules; local only differs in its one-off account when the
+ * password form is on without AUTH_PASSWORD_USERS.
  */
 @Slf4j
 @Configuration
@@ -73,7 +74,8 @@ public class SecurityConfig {
                 .contentSecurityPolicy(csp ->
                     csp.policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"))
             )
-            .authorizeHttpRequests(auth -> auth
+            .authorizeHttpRequests(auth -> {
+                auth
                 .requestMatchers("/actuator/health").permitAll()
                 .requestMatchers("/actuator/prometheus").hasRole("MONITORING_SYSTEM")
                 .requestMatchers("/actuator/**").denyAll()
@@ -81,9 +83,14 @@ public class SecurityConfig {
                 .requestMatchers(SsoSignIn.ACCESS_NOT_GRANTED_PATH, SsoSignIn.SIGN_IN_FAILED_PATH,
                     SsoSignIn.SIGNED_OUT_PATH).permitAll()
                 .requestMatchers("/api/admin/upload-excel").hasAnyRole(RoleLists.HR_EDITOR, RoleLists.SYSTEM_ADMIN)
-                .requestMatchers("/api/admin/**").hasRole(RoleLists.SYSTEM_ADMIN)
-                .anyRequest().authenticated()
-            )
+                .requestMatchers("/api/admin/**").hasRole(RoleLists.SYSTEM_ADMIN);
+                if (authMode.open()) {
+                    // Open site (SSO off, no password form): everyone, as before SSO
+                    auth.anyRequest().permitAll();
+                } else {
+                    auth.anyRequest().authenticated();
+                }
+            })
             .logout(logout -> {
                 if (authMode.logout()) {
                     // With SSO only OrgChart's session ends; the Microsoft one stays (no single logout)
@@ -115,10 +122,12 @@ public class SecurityConfig {
                     .failureHandler(sso.failureHandler()))
                 // The service provider metadata for the Entra application: /saml2/metadata/entra
                 .saml2Metadata(Customizer.withDefaults());
-        } else {
+        } else if (authMode.password()) {
             http
                 .authenticationProvider(passwordProvider(env, roleLists, isLocal))
                 .formLogin(form -> form.permitAll());
+        } else {
+            log.warn("AUTH_SSO_ENABLED=false: OrgChart is open to everyone who reaches the site, without sign-in");
         }
 
         return http.build();

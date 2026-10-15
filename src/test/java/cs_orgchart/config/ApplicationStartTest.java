@@ -34,14 +34,6 @@ class ApplicationStartTest {
                 .hasMessageContaining("AUTH_SSO_ENABLED and AUTH_PASSWORD_ENABLED are both true");
     }
 
-    @Test
-    void withNeitherSignInMode_itDoesNotStart() {
-        assertThatThrownBy(() -> run("--spring.profiles.active=test",
-                "--auth.sso.enabled=false", "--auth.password.enabled=false"))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("both false: nobody could sign in");
-    }
-
     /** No database or data files needed: the start fails before they matter, or does not touch them. */
     private static final String[] IN_MEMORY = {
             "--spring.datasource.url=jdbc:h2:mem:start-test;DB_CLOSE_DELAY=-1",
@@ -78,8 +70,9 @@ class ApplicationStartTest {
     }
 
     @Test
-    void stage_withoutPasswordAccounts_doesNotStart() {
-        assertThatThrownBy(() -> run("--spring.profiles.active=stage", "--auth.password.users="))
+    void stage_withThePasswordFormButNoAccounts_doesNotStart() {
+        assertThatThrownBy(() -> run("--spring.profiles.active=stage", "--auth.password.enabled=true",
+                "--auth.password.users="))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("AUTH_PASSWORD_USERS is empty");
     }

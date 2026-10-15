@@ -61,12 +61,12 @@ $env:SPRING_PROFILES_ACTIVE = "local"
 .\mvnw.cmd spring-boot:run
 ```
 
-После запуска приложение будет доступно по адресу `http://localhost:8080`. Профиль обязателен: без `SPRING_PROFILES_ACTIVE` (`prod`, `stage` или `local`) приложение не стартует. В `local` вход по форме: учётка `dev`, разовый пароль печатается в лог при старте.
+После запуска приложение будет доступно по адресу `http://localhost:8080`. Профиль обязателен: без `SPRING_PROFILES_ACTIVE` (`prod`, `stage` или `local`) приложение не стартует. В `local` сайт открыт без входа.
 
 ## Вход
 
-- `prod`: Microsoft Entra ID (SAML 2.0). Аварийный вход — форма с учётками из `AUTH_PASSWORD_USERS`.
-- `stage` и `local`: форма.
+- `AUTH_SSO_ENABLED=true` (по умолчанию в `prod`): вход через Microsoft Entra ID (SAML 2.0).
+- `AUTH_SSO_ENABLED=false` (по умолчанию в `stage` и `local`): сайт открыт всем без входа. Необязательно: `AUTH_PASSWORD_ENABLED=true` — форма с учётками из `AUTH_PASSWORD_USERS`.
 
 Переменные, настройка Entra, включение, диагностика и откат: [docs/SSO.md](docs/SSO.md).
 

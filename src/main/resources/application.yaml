@@ -41,8 +41,9 @@ app:
     excel-path: c:/Projects/OrgStructure/data/result_new.xlsx
     photos-path: c:/Projects/OrgStructure/photos
 
-# How people sign in (AuthMode): exactly one of SSO (Microsoft Entra ID, SAML) and the password form.
-# The profiles give their own defaults (prod: SSO; stage and local: the password); the variables override them.
+# How people get in (AuthMode): AUTH_SSO_ENABLED=true - sign-in with Microsoft Entra ID (SAML);
+# AUTH_SSO_ENABLED=false - open to everyone without sign-in (as before SSO), or the password form when
+# AUTH_PASSWORD_ENABLED=true. The profiles give their own defaults (prod: SSO; stage and local: open).
 auth:
   sso:
     enabled: ${AUTH_SSO_ENABLED:false}
@@ -57,11 +58,11 @@ auth:
     # off by default, switch it on only for the check
     debug-endpoint: ${AUTH_SSO_DEBUG_ENDPOINT:false}
   password:
-    # Empty: the opposite of AUTH_SSO_ENABLED
-    enabled: ${AUTH_PASSWORD_ENABLED:}
+    # Emergency sign-in instead of the open site (only with SSO off); off unless asked for
+    enabled: ${AUTH_PASSWORD_ENABLED:false}
     # Emergency accounts of the password form: name:bcrypt-hash[,name:bcrypt-hash...]
     users: ${AUTH_PASSWORD_USERS:}
-  # /logout; empty: off with SSO, on with the password
+  # /logout; empty: on only with the password form
   logout:
     enabled: ${AUTH_LOGOUT_ENABLED:}
   # Everyone signed in is USER; these addresses (e-mail or UPN, or the password account name) get more

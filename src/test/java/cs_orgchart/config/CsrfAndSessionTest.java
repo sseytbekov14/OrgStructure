@@ -41,6 +41,7 @@ class CsrfAndSessionTest {
 
     @DynamicPropertySource
     static void accounts(DynamicPropertyRegistry registry) {
+        registry.add("auth.password.enabled", () -> "true");
         registry.add("auth.password.users", TestAccounts::users);
     }
 

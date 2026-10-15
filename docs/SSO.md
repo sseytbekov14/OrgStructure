@@ -34,10 +34,10 @@
 | Переменная | prod | stage / local | Примечание |
 |---|---|---|---|
 | `SPRING_PROFILES_ACTIVE` | `prod` | `stage` / `local` | **Обязательна.** Без неё приложение не стартует (`choose the profile explicitly`). Два профиля из prod/stage/local сразу — тоже отказ. `local` только для разработки без Entra. |
-| `AUTH_SSO_ENABLED` | по умолчанию `true` | по умолчанию `false` | Ровно один из SSO и пароля должен быть включён, иначе старт отказывает. |
-| `AUTH_PASSWORD_ENABLED` | пусто = противоположно SSO | | Форма `/login`, аварийный вход. Оба `true` или оба `false` — отказ старта. |
-| `AUTH_PASSWORD_USERS` | пусто | **нужна** при пароле (кроме local) | `имя:bcrypt-хеш[,имя:bcrypt-хеш…]`. Только bcrypt (`$2a$`/`$2b$`/`$2y$`), открытый пароль — отказ старта. В `local` без неё создаётся разовая учётка `dev`, пароль печатается в лог при старте. |
-| `AUTH_LOGOUT_ENABLED` | пусто → `false` при SSO | пусто → `true` при пароле | При SSO и `true` закрывается только сессия OrgChart, затем переход на `/signed-out.html`. |
+| `AUTH_SSO_ENABLED` | по умолчанию `true` | по умолчанию `false` | **Главный переключатель.** `true` — вход через Microsoft. `false` — сайт открыт всем без входа, как до SSO (в логе WARN `OrgChart is open to everyone`). |
+| `AUTH_PASSWORD_ENABLED` | `false` | `false` | Необязательно. `true` (только при `AUTH_SSO_ENABLED=false`) — вместо открытого сайта форма `/login`, аварийный вход. Вместе с SSO — отказ старта. |
+| `AUTH_PASSWORD_USERS` | пусто | пусто | Нужна только при `AUTH_PASSWORD_ENABLED=true` (кроме local). `имя:bcrypt-хеш[,имя:bcrypt-хеш…]`. Только bcrypt (`$2a$`/`$2b$`/`$2y$`), открытый пароль — отказ старта. В `local` без неё создаётся разовая учётка `dev`, пароль печатается в лог при старте. |
+| `AUTH_LOGOUT_ENABLED` | пусто → `false` | пусто → `true` только с формой пароля | На открытом сайте выхода нет. При SSO и `true` закрывается только сессия OrgChart, затем переход на `/signed-out.html`. |
 | `SAML_ENTITY_ID` | `https://ccaorgchart.go1.kworld.kpmg.com` | — | Identifier (Entity ID) приложения в Entra, совпадение символ в символ. Шаблон `{baseUrl}…` не принимается. |
 | `SAML_ACS_URL` | `https://ccaorgchart.go1.kworld.kpmg.com/login/saml2/sso/entra` | — | Reply URL в Entra. Абсолютный адрес, путь строго `/login/saml2/sso/entra`, иначе старт отказывает. |
 | `SAML_METADATA_URI` | App Federation Metadata Url | — | Читается **один раз при старте**; если не читается, старт отказывает. Без выхода в интернет — `file:/путь/federationmetadata.xml`. |
@@ -136,7 +136,7 @@ SYSTEM_ADMIN_EMAILS=
 HR_EDITOR_EMAILS=
 AUTH_SSO_DEBUG_ENDPOINT=false
 SESSION_TIMEOUT=8h
-# Аварийный вход (нужен только при AUTH_SSO_ENABLED=false); одинарные кавычки обязательны из-за $
+# Форма пароля вместо открытого сайта (только с AUTH_SSO_ENABLED=false и AUTH_PASSWORD_ENABLED=true); одинарные кавычки обязательны из-за $
 AUTH_PASSWORD_USERS=
 ```
 
@@ -236,7 +236,7 @@ docker logs -f csorgchart                              # строка "SSO with 
 | Симптом | Где смотреть | Причина | Что делать |
 |---|---|---|---|
 | Не стартует: `OrgChart does not start: choose the profile explicitly` | лог старта | Не задан `SPRING_PROFILES_ACTIVE` | `SPRING_PROFILES_ACTIVE=prod` в environment контейнера |
-| Не стартует: `AUTH_SSO_ENABLED and AUTH_PASSWORD_ENABLED are both true` / `both false` | лог старта | Противоречивые переключатели | Ровно один `true` (или `AUTH_PASSWORD_ENABLED` пусто) |
+| Не стартует: `AUTH_SSO_ENABLED and AUTH_PASSWORD_ENABLED are both true` | лог старта | Форма пароля включена вместе с SSO | `AUTH_PASSWORD_ENABLED=false` (или удалить строку) |
 | Не стартует: `the password form is on but AUTH_PASSWORD_USERS is empty` / `is not a bcrypt hash` | лог старта | Пароль включён без учёток или с открытым паролем | Хеш по разделу 2 |
 | Не стартует: `SSO is on … but SAML_ENTITY_ID is not set` / `SAML_ACS_URL must end with /login/saml2/sso/entra` | лог старта | Пусто или неверно | Исправить переменную |
 | Не стартует: `the Entra metadata of SAML_METADATA_URI cannot be read` (часто с `PKIX path building failed`, `UnknownHost`, `Connection timed out`) | лог старта | Нет выхода к `login.microsoftonline.com`, корпоративная TLS-инспекция, прокси, неверный URL | Проверить `curl` из WSL; иначе `file:` с XML (раздел 6, шаг 2) |
@@ -261,20 +261,32 @@ docker logs -f csorgchart                              # строка "SSO with 
 
 ## 8. Откат
 
-### 8.1 На вход по паролю (тот же образ)
+### 8.1 Выключить SSO: сайт открыт всем (тот же образ)
 
-1. Задать `AUTH_SSO_ENABLED=false` и `AUTH_PASSWORD_USERS='admin:$2y$12$...'` (раздел 2). `SAML_*` можно оставить: без SSO они не читаются.
-2. Перезапустить. Появятся форма `/login` и `/logout`. Cookie сессии вернётся к `SameSite=Strict`, без `Secure`, если `SERVER_SERVLET_SESSION_COOKIE_*` не заданы явно.
-3. Войти смогут только учётки из `AUTH_PASSWORD_USERS`. Роли берутся из `SYSTEM_ADMIN_EMAILS` / `HR_EDITOR_EMAILS` по имени учётки.
+В `.env` одна строка, остальное не трогать (`SAML_*` без SSO не читаются):
 
-### 8.2 На старый образ (без всякого входа)
+```dotenv
+AUTH_SSO_ENABLED=false
+```
+
+```bash
+docker compose up -d --force-recreate     # docker restart не перечитывает .env
+```
+
+Сайт открывается без входа, как до SSO. Cookie сессии вернётся к `SameSite=Strict`, без `Secure`. Включить обратно: `AUTH_SSO_ENABLED=true` и снова `--force-recreate`.
+
+### 8.2 Вместо открытого сайта — форма пароля (необязательно)
+
+`AUTH_SSO_ENABLED=false`, `AUTH_PASSWORD_ENABLED=true`, `AUTH_PASSWORD_USERS='admin:$2y$12$...'` (раздел 2). Появятся `/login` и `/logout`; войти смогут только эти учётки, роли — из `SYSTEM_ADMIN_EMAILS` / `HR_EDITOR_EMAILS` по имени учётки.
+
+### 8.3 На старый образ
 
 ```bash
 docker tag csorgchart:before-sso csorgchart:latest
-docker compose up -d
+docker compose up -d --force-recreate
 ```
 
-Старый образ запускается в `local` без входа. Новые переменные ему не мешают.
+Старый образ без `SPRING_PROFILES_ACTIVE=local` (или без этой строки) уходит в старую OIDC-заготовку, поэтому для него в `.env` поставьте `SPRING_PROFILES_ACTIVE=local`.
 
 ---
 
@@ -283,7 +295,7 @@ docker compose up -d
 ```powershell
 $env:SPRING_PROFILES_ACTIVE = "local"
 .\mvnw.cmd spring-boot:run
-# в логе: local profile without AUTH_PASSWORD_USERS: sign in as 'dev' with the one-off password ...
+# сайт открыт без входа; с $env:AUTH_PASSWORD_ENABLED = "true" — форма, учётка 'dev', пароль в логе
 ```
 
 Entra не нужен. Тесты SSO работают с поддельным IdP: ключ и сертификат создаются при запуске тестов, в репозитории ключей нет.

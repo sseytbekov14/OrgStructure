@@ -33,6 +33,7 @@ class PasswordFormTest {
 
     @DynamicPropertySource
     static void accounts(DynamicPropertyRegistry registry) {
+        registry.add("auth.password.enabled", () -> "true");
         registry.add("auth.password.users", TestAccounts::users);
         registry.add("auth.roles.system-admin-emails", () -> TestAccounts.ADMIN);
     }

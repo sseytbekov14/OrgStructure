@@ -39,10 +39,16 @@ class StartupGuardTest {
     }
 
     @Test
+    void stage_startsOpen_withoutAnyVariable() {
+        assertThat(StartupGuard.refusal(env("stage"))).isEmpty();
+    }
+
+    @Test
     void stage_withThePasswordForm_needsAccounts() {
-        assertThat(StartupGuard.refusal(env("stage"))).hasValueSatisfying(reason ->
+        MockEnvironment password = env("stage").withProperty("auth.password.enabled", "true");
+        assertThat(StartupGuard.refusal(password)).hasValueSatisfying(reason ->
                 assertThat(reason).contains("AUTH_PASSWORD_USERS is empty"));
-        assertThat(StartupGuard.refusal(env("stage").withProperty("auth.password.users", "admin:" + HASH))).isEmpty();
+        assertThat(StartupGuard.refusal(password.withProperty("auth.password.users", "admin:" + HASH))).isEmpty();
     }
 
     @Test
