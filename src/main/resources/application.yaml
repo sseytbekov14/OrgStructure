@@ -53,6 +53,9 @@ auth:
     metadata-uri: ${SAML_METADATA_URI:}
     # Optional: only addresses of these domains (comma-separated, any case); empty: everyone Entra lets through
     allowed-email-domains: ${SAML_ALLOWED_EMAIL_DOMAINS:}
+    # GET /me: the signed-in person's own SAML claims, for checking the claims of the Entra application;
+    # off by default, switch it on only for the check
+    debug-endpoint: ${AUTH_SSO_DEBUG_ENDPOINT:false}
   password:
     # Empty: the opposite of AUTH_SSO_ENABLED
     enabled: ${AUTH_PASSWORD_ENABLED:}

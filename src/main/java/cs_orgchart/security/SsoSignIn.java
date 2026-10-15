@@ -3,6 +3,7 @@ package cs_orgchart.security;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
@@ -42,11 +43,13 @@ public class SsoSignIn {
     private static final Pattern ADDRESS = Pattern.compile("[^\\s\\[\\]<>\"',;:]+@[^\\s\\[\\]<>\"',;:]+");
 
     private final SsoAdmission admission;
+    private final boolean keepClaims;
     private final Converter<OpenSaml4AuthenticationProvider.ResponseToken, Saml2Authentication> saml =
             OpenSaml4AuthenticationProvider.createDefaultResponseAuthenticationConverter();
 
-    public SsoSignIn(SsoAdmission admission) {
+    public SsoSignIn(SsoAdmission admission, @Value("${auth.sso.debug-endpoint:false}") boolean keepClaims) {
         this.admission = admission;
+        this.keepClaims = keepClaims;
     }
 
     /** The SAML provider: Spring's checks of the answer, then OrgChart's admission. */
@@ -72,8 +75,10 @@ public class SsoSignIn {
             throw new AccessNotGrantedException(decision.refusal().name());
         }
         log.info("SSO sign-in: roles={} attributes={}", decision.roles(), attributes);
+        // The claims only for the person's own GET /me (SsoDebugController), kept with their sign-in
         return new SsoAuthenticationToken(decision.name(), decision.roles().stream()
-                .<GrantedAuthority>map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList());
+                .<GrantedAuthority>map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList(),
+                keepClaims ? SsoClaims.of(person) : null);
     }
 
     /** The page that was asked for (or the start page). */

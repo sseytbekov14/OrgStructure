@@ -75,6 +75,12 @@ class SsoChainTest extends SsoTestSupport {
     }
 
     @Test
+    void theDebugEndpoint_isOffByDefault() throws Exception {
+        MockHttpSession session = signIn("/", TestIdp.Person.of("someone@corp.example")).session();
+        mockMvc.perform(get("/me").session(session)).andExpect(status().isNotFound());
+    }
+
+    @Test
     void thereIsNoPasswordForm_andNoLogout() throws Exception {
         mockMvc.perform(get("/login").accept(MediaType.TEXT_HTML))
                 .andExpect(redirectedUrlPattern("**" + TestIdp.SIGN_ON_PATH));
