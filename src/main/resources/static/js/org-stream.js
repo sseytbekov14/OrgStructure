@@ -53,7 +53,17 @@ function connectOrgStream() {
   });
 
   orgEventSource.onerror = () => {
-    console.warn("SSE connection interrupted, waiting for reconnect");
+    if (orgEventSource?.readyState !== EventSource.CLOSED) {
+      console.warn("SSE connection interrupted, waiting for reconnect");
+      return;
+    }
+    // The server refused the stream (401 when the session ended): EventSource does not say why and does not
+    // retry, so ask the API - apiFetch reloads the page on 401 - and otherwise reconnect a little later.
+    orgEventSource.close();
+    orgEventSource = null;
+    apiFetch("/api/functions")
+      .then((res) => { if (res.status !== 401) setTimeout(connectOrgStream, 5000); })
+      .catch(() => setTimeout(connectOrgStream, 5000));
   };
 
   window.addEventListener("beforeunload", () => {

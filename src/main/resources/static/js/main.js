@@ -53,9 +53,9 @@ async function loadDirectoryData() {
 
   try {
     const [empRes, funcRes, likesRes] = await Promise.all([
-      fetch("/api/employees"),
-      fetch("/api/functions"),
-      fetch("/api/likes/summary")
+      apiFetch("/api/employees"),
+      apiFetch("/api/functions"),
+      apiFetch("/api/likes/summary")
     ]);
 
     allEmployees = await empRes.json();
@@ -277,7 +277,7 @@ function handleSearch(query, { log = true } = {}) {
   searchController = new AbortController();
   setSearchLoading(true);
 
-  fetch(`/api/search?q=${encodeURIComponent(trimmed)}`, { signal: searchController.signal })
+  apiFetch(`/api/search?q=${encodeURIComponent(trimmed)}`, { signal: searchController.signal })
     .then((response) => response.json())
     .then((data) => {
       searchResults = data;

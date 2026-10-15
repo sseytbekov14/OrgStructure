@@ -132,6 +132,39 @@ function compareByGrade(left, right) {
   return (left?.name || "").localeCompare(right?.name || "");
 }
 
+/* ---------- Requests ---------- */
+
+const RELOAD_GUARD_KEY = "orgchart-reloaded-at";
+
+// The CSRF token the server keeps in the XSRF-TOKEN cookie, sent back as the X-XSRF-TOKEN header
+function csrfToken() {
+  const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
+
+// 401: the session ended. Reloading signs in again and comes back to this page
+// (at most once in 10 seconds, so a sign-in that keeps failing does not loop).
+function reloadOnUnauthorized(res) {
+  if (res.status !== 401) return res;
+  let last = 0;
+  try { last = Number(sessionStorage.getItem(RELOAD_GUARD_KEY)) || 0; } catch (e) { /* storage unavailable */ }
+  if (Date.now() - last > 10000) {
+    try { sessionStorage.setItem(RELOAD_GUARD_KEY, String(Date.now())); } catch (e) { /* storage unavailable */ }
+    window.location.reload();
+  } else {
+    notify("Session expired. Reload the page to sign in again.");
+  }
+  return res;
+}
+
+// fetch for /api/**: the CSRF header on every write, a reload on 401
+function apiFetch(url, options = {}) {
+  const method = (options.method || "GET").toUpperCase();
+  const headers = new Headers(options.headers || {});
+  if (method !== "GET" && method !== "HEAD") headers.set("X-XSRF-TOKEN", csrfToken());
+  return fetch(url, { ...options, headers }).then(reloadOnUnauthorized);
+}
+
 /* ---------- Analytics ---------- */
 
 function getVisitorId() {
@@ -148,7 +181,7 @@ function getVisitorId() {
 }
 
 function postJson(url, body) {
-  return fetch(url, {
+  return apiFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body)
@@ -269,7 +302,7 @@ async function handleLikeClick(btn) {
   try {
     if (isOn) {
       const params = new URLSearchParams({ employeeEmail: email, reactionType: type, visitorId });
-      const res = await fetch(`/api/likes?${params}`, { method: "DELETE" });
+      const res = await apiFetch(`/api/likes?${params}`, { method: "DELETE" });
       if (res.ok || res.status === 404) {
         if (res.ok) changeLikeCount(btn, email, type, -1);
         saveMyReaction(email, type, false);

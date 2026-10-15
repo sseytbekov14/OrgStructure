@@ -1114,8 +1114,8 @@ async function loadFunctionData({ refresh = false } = {}) {
 
   try {
     const [allRes, likesRes] = await Promise.all([
-      fetch('/api/employees'),
-      fetch('/api/likes/summary')
+      apiFetch('/api/employees'),
+      apiFetch('/api/likes/summary')
     ]);
 
     const allEmployees = await allRes.json();
