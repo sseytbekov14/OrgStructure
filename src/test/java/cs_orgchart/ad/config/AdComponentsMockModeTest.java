@@ -3,12 +3,18 @@ package cs_orgchart.ad.config;
 import cs_orgchart.ad.client.AdDirectoryClient;
 import cs_orgchart.ad.client.MockAdDirectoryClient;
 import cs_orgchart.ad.mapper.AdEmployeeMapper;
+import cs_orgchart.ad.sync.AdSyncScheduler;
+import cs_orgchart.ad.sync.AdSyncService;
+import cs_orgchart.ad.sync.AdSyncStartup;
+import cs_orgchart.ad.sync.MockOverlaySeeder;
 import cs_orgchart.CsOrgchartApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
+import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
@@ -30,11 +36,23 @@ class AdComponentsMockModeTest {
     @Autowired
     private AdEmployeeMapper mapper;
 
+    @Autowired
+    private ApplicationContext context;
+
     @Test
     void mockModeReadsTheSyntheticDirectory() {
         assertThat(client).isInstanceOf(MockAdDirectoryClient.class);
         assertThat(client.fetchAll()).hasSize(43);
         assertThat(mapper.mapAll(client.fetchAll()).employees()).hasSize(41);
+    }
+
+    @Test
+    void withAdSyncDisabledNothingRunsByItself() {
+        assertThat(context.getBeanNamesForType(AdSyncService.class)).hasSize(1);
+        assertThat(context.getBeanNamesForType(MockOverlaySeeder.class)).hasSize(1);
+        assertThat(context.getBeanNamesForType(AdSyncScheduler.class)).isEmpty();
+        assertThat(context.getBeanNamesForType(AdSyncStartup.class)).isEmpty();
+        assertThat(context.getBeanNamesForType(ScheduledAnnotationBeanPostProcessor.class)).isEmpty();
     }
 
     @Test

@@ -95,6 +95,9 @@ ad:
     # "-" disables the scheduler
     cron: "${AD_SYNC_CRON:0 */30 * * * *}"
     on-startup: ${AD_SYNC_ON_STARTUP:false}
+    # A dry run once at startup (nothing written to the database), its report (counts only) to report-path
+    startup-dry-run: ${AD_SYNC_STARTUP_DRY_RUN:false}
+    report-path: ${AD_SYNC_REPORT_PATH:logs/ad-sync-report.json}
     min-ratio: ${AD_SYNC_MIN_RATIO:0.5}
   ldap:
     # ldaps:// only; the certificate is checked against AD_LDAP_TRUSTSTORE_PATH, for this connection only
@@ -122,6 +125,12 @@ management:
     health:
       show-details: when_authorized
       roles: "SYSTEM_ADMIN"
+      # The AD sync health (AdSyncHealthIndicator) is never DOWN: a stale or switched-off AD sync keeps
+      # /actuator/health at 200, the site serves the employees it has
+      status:
+        http-mapping:
+          STALE: 200
+          DISABLED: 200
     env:
       enabled: false
     heapdump:

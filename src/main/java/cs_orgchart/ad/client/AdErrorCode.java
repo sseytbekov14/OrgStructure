@@ -20,6 +20,10 @@ public enum AdErrorCode {
     CONFIG,
     /** Too few entries fetched: the database is left unchanged (sync, spec §7 step 5) */
     SAFETY,
+    /** The run was cut off (application stopped or crashed); found RUNNING at a later start or run */
+    INTERRUPTED,
+    /** An error of the application itself while writing the result (the database is left unchanged) */
+    INTERNAL,
     /** Any other LDAP error */
     LDAP
 }

@@ -40,6 +40,10 @@ public class AdLdapProperties {
         private String cron = "0 */30 * * * *";
         /** AD_SYNC_ON_STARTUP */
         private boolean onStartup = false;
+        /** AD_SYNC_STARTUP_DRY_RUN: a dry run once at startup instead of a sync, report to {@link #reportPath} */
+        private boolean startupDryRun = false;
+        /** AD_SYNC_REPORT_PATH: the report of the startup dry run (counts only, no personal data) */
+        private String reportPath = "logs/ad-sync-report.json";
         /** AD_SYNC_MIN_RATIO */
         private double minRatio = 0.5;
     }

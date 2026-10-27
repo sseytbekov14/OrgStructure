@@ -4,7 +4,13 @@ import cs_orgchart.ad.client.AdDirectoryClient;
 import cs_orgchart.ad.mapper.AdEmployeeMapper;
 import cs_orgchart.ad.mapper.DepartmentNormalizer;
 import cs_orgchart.ad.mapper.FunctionResolver;
+import cs_orgchart.ad.health.AdSyncHealthIndicator;
+import cs_orgchart.ad.sync.AdSyncScheduler;
+import cs_orgchart.ad.sync.AdSyncService;
+import cs_orgchart.ad.sync.AdSyncStartup;
 import cs_orgchart.ad.sync.AuthCircuitBreaker;
+import cs_orgchart.ad.sync.MockOverlaySeeder;
+import cs_orgchart.ad.web.AdSyncAdminController;
 import cs_orgchart.department.DepartmentDictionaries;
 import cs_orgchart.service.ExcelService;
 import org.junit.jupiter.api.Test;
@@ -15,6 +21,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import org.springframework.ldap.core.ContextSource;
 import org.springframework.ldap.core.LdapOperations;
+import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
@@ -48,7 +56,9 @@ class AdComponentsOffTest {
         for (Class<?> type : List.of(AdDirectoryClient.class, AdEmployeeMapper.class, AuthCircuitBreaker.class,
                 DepartmentNormalizer.class, FunctionResolver.class, DepartmentDictionaries.class,
                 AdLdapProperties.class, AdConfig.class, ContextSource.class, LdapOperations.class,
-                LdapHealthIndicator.class)) {
+                LdapHealthIndicator.class, AdSyncService.class, AdSyncAdminController.class,
+                AdSyncHealthIndicator.class, AdSyncScheduler.class, AdSyncStartup.class, MockOverlaySeeder.class,
+                ScheduledAnnotationBeanPostProcessor.class, TaskScheduler.class)) {
             assertThat(context.getBeanNamesForType(type)).as(type.getSimpleName()).isEmpty();
         }
     }

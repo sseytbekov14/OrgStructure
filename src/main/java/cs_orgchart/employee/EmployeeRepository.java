@@ -10,4 +10,9 @@ import java.util.UUID;
 public interface EmployeeRepository extends JpaRepository<Employee, Long> {
 
     Optional<Employee> findByAdGuid(UUID adGuid);
+
+    Optional<Employee> findFirstByUpnIgnoreCase(String upn);
+
+    /** The employees the site shows: synced from AD and still there (the base of the sync safety check) */
+    long countByEnabledTrueAndExternalFalse();
 }

@@ -1,0 +1,121 @@
+package cs_orgchart.ad.sync;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import cs_orgchart.ad.client.AdDirectoryClient;
+import cs_orgchart.ad.client.MockAdDirectoryClient;
+import cs_orgchart.ad.model.AdRecord;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.atomic.AtomicInteger;
+
+/**
+ * The directory of the sync tests: the mock fixture (mock/ad-employees.json) as it is, which a test can change,
+ * extend or make fail. The lookups (findByDn / findByUpn) search the whole fixture, like AD.
+ */
+public class FakeDirectory implements AdDirectoryClient {
+
+    private static final MockAdDirectoryClient MOCK = new MockAdDirectoryClient(new ObjectMapper());
+    private static final List<String> ALL_LOGINS = List.of("rrust", "ppearl", "qquince", "copilot-agent01");
+
+    private final List<AdRecord> fetched = new CopyOnWriteArrayList<>();
+    private final List<AdRecord> lookups = new CopyOnWriteArrayList<>();
+    private volatile RuntimeException failure;
+    final AtomicInteger fetchCalls = new AtomicInteger();
+    final AtomicInteger lookupCalls = new AtomicInteger();
+
+    public FakeDirectory() {
+        reset();
+    }
+
+    /** Back to the fixture: 43 fetched entries (41 valid, 2 skipped by the mapper), no failure */
+    public void reset() {
+        fetched.clear();
+        fetched.addAll(MOCK.fetchAll());
+        lookups.clear();
+        lookups.addAll(fetched);
+        for (String login : ALL_LOGINS) {
+            MOCK.findByUpn(login + "@kz.example").ifPresent(lookups::add);
+        }
+        failure = null;
+        fetchCalls.set(0);
+        lookupCalls.set(0);
+    }
+
+    public void failWith(RuntimeException failure) {
+        this.failure = failure;
+    }
+
+    public void setFetched(List<AdRecord> records) {
+        fetched.clear();
+        fetched.addAll(records);
+    }
+
+    public List<AdRecord> fetched() {
+        return List.copyOf(fetched);
+    }
+
+    /** The fetched entry of this login with one attribute changed (null removes it) */
+    public void change(String login, String attribute, Object value) {
+        AdRecord old = byLogin(login);
+        Map<String, Object> attributes = new HashMap<>(old.attributes());
+        if (value == null) {
+            attributes.remove(attribute);
+        } else {
+            attributes.put(attribute, value);
+        }
+        AdRecord changed = new AdRecord(attributes);
+        fetched.replaceAll(r -> r == old ? changed : r);
+        lookups.replaceAll(r -> r == old ? changed : r);
+    }
+
+    /** The account left Central Services: no longer fetched, still found by a lookup */
+    public void remove(String login) {
+        fetched.remove(byLogin(login));
+    }
+
+    public void add(AdRecord record) {
+        fetched.add(record);
+        lookups.add(record);
+    }
+
+    public AdRecord byLogin(String login) {
+        List<AdRecord> all = new ArrayList<>(fetched);
+        all.addAll(lookups);
+        return all.stream().filter(r -> login.equals(r.get("sAMAccountName"))).findFirst().orElseThrow();
+    }
+
+    @Override
+    public List<AdRecord> fetchAll() {
+        fetchCalls.incrementAndGet();
+        if (failure != null) {
+            throw failure;
+        }
+        return List.copyOf(fetched);
+    }
+
+    @Override
+    public Optional<AdRecord> findByDn(String dn) {
+        return find("distinguishedName", dn);
+    }
+
+    @Override
+    public Optional<AdRecord> findByUpn(String upn) {
+        return find("userPrincipalName", upn);
+    }
+
+    private Optional<AdRecord> find(String attribute, String value) {
+        lookupCalls.incrementAndGet();
+        if (failure != null) {
+            throw failure;
+        }
+        return lookups.stream()
+                .filter(r -> value != null && value.trim().equalsIgnoreCase(Objects.toString(r.get(attribute), null)))
+                .findFirst();
+    }
+}
