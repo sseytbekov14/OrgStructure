@@ -70,18 +70,21 @@ document.addEventListener("error", (event) => {
 const OrgDirectory = {
   employees: [],
   byEmail: new Map(),
-  byName: new Map()
+  byName: new Map(),
+  byId: new Map()
 };
 
 function setDirectory(employees) {
   OrgDirectory.employees = employees || [];
   OrgDirectory.byEmail = new Map();
   OrgDirectory.byName = new Map();
+  OrgDirectory.byId = new Map();
   OrgDirectory.employees.forEach((employee) => {
     const email = normalizeKey(employee.email);
     const name = normalizeKey(employee.name);
     if (email && !OrgDirectory.byEmail.has(email)) OrgDirectory.byEmail.set(email, employee);
     if (name && !OrgDirectory.byName.has(name)) OrgDirectory.byName.set(name, employee);
+    if (employee.id != null && !OrgDirectory.byId.has(employee.id)) OrgDirectory.byId.set(employee.id, employee);
   });
 }
 
@@ -89,8 +92,10 @@ function findPerson({ name, email }) {
   return OrgDirectory.byEmail.get(normalizeKey(email)) || OrgDirectory.byName.get(normalizeKey(name)) || null;
 }
 
-// PM name wins over PM email (same rule as the tree); the email covers typos in the name
+// PM name wins over PM email (same rule as the tree); the email covers typos in the name. Employees from the
+// database carry ids: their parent is parentId (null: the parent is not on the site, shown from the pm fields)
 function resolveManager(employee) {
+  if (employee?.id != null) return OrgDirectory.byId.get(employee.parentId) || null;
   return OrgDirectory.byName.get(normalizeKey(employee?.pm)) || OrgDirectory.byEmail.get(normalizeKey(employee?.pmEmail)) || null;
 }
 

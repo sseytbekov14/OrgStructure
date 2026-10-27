@@ -47,6 +47,12 @@ server:
       # The session cookie (SameSite, Secure, HttpOnly) follows the sign-in mode: SessionCookieDefaults
 
 app:
+  # Where the employees of the site come from (EmployeeSourceProperties, spec section 8): excel (the Excel file) or db
+  # (the employees synced from AD); back to excel is the rollback. The tree parent: pm or manager, the other one is
+  # the fallback.
+  employees:
+    source: ${EMPLOYEE_SOURCE:excel}
+    parent-source: ${ORG_PARENT_SOURCE:pm}
   data:
     excel-path: c:/Projects/OrgStructure/data/result_new.xlsx
     photos-path: c:/Projects/OrgStructure/photos

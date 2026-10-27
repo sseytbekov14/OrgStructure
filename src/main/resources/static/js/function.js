@@ -332,7 +332,8 @@ function renderGroupsView(employees) {
     ctryGroups[g].push(e);
   });
 
-  headEmps.sort(compareEmployeesByHierarchy);
+  // From the database (with ids) the heads already come in head_rank order
+  if (!employees.some(e => e.id != null)) headEmps.sort(compareEmployeesByHierarchy);
   Object.values(kzGroups).forEach(group => group.sort(compareEmployeesByHierarchy));
   Object.values(ctryGroups).forEach(group => group.sort(compareEmployeesByHierarchy));
 
@@ -467,16 +468,22 @@ function buildTree(employees) {
   const nodes = employees.map(emp => ({ emp, id: emp._id, key: employeeKey(emp), children: [], parent: null }));
   const byEmail = new Map();
   const byName = new Map();
+  const byId = new Map();
   nodes.forEach(node => {
     const email = normalizeKey(node.emp.email);
     const name = normalizeKey(node.emp.name);
     if (email && !byEmail.has(email)) byEmail.set(email, node);
     if (name && !byName.has(name)) byName.set(name, node);
+    if (node.emp.id != null && !byId.has(node.emp.id)) byId.set(node.emp.id, node);
   });
 
+  // Employees from the database carry ids: the parent is parentId (null: no parent in the function)
+  const fromDb = byId.size > 0;
   let roots = [];
   nodes.forEach(node => {
-    const parent = byName.get(normalizeKey(node.emp.pm)) || byEmail.get(normalizeKey(node.emp.pmEmail));
+    const parent = fromDb
+      ? byId.get(node.emp.parentId)
+      : byName.get(normalizeKey(node.emp.pm)) || byEmail.get(normalizeKey(node.emp.pmEmail));
     if (parent && parent !== node) {
       parent.children.push(node);
       node.parent = parent;
@@ -484,6 +491,14 @@ function buildTree(employees) {
       roots.push(node);
     }
   });
+
+  // From the database the heads come in head_rank order: the first one is the root of the function tree
+  const mainHeadFromDb = fromDb ? nodes.find(node => node.emp.group?.trim().toUpperCase() === 'HEAD') : null;
+  if (mainHeadFromDb && mainHeadFromDb.parent) {
+    mainHeadFromDb.parent.children = mainHeadFromDb.parent.children.filter(child => child !== mainHeadFromDb);
+    mainHeadFromDb.parent = null;
+    roots.push(mainHeadFromDb);
+  }
 
   // Break PM cycles so nobody disappears from the chart
   const reachable = new Set();
@@ -500,7 +515,7 @@ function buildTree(employees) {
   // The function head stays on top: other top-level people hang under the first head
   const headRoots = roots
     .filter(node => node.emp.group?.trim().toUpperCase() === 'HEAD')
-    .sort((a, b) => compareEmployeesByHierarchy(a.emp, b.emp));
+    .sort((a, b) => fromDb ? nodes.indexOf(a) - nodes.indexOf(b) : compareEmployeesByHierarchy(a.emp, b.emp));
   if (roots.length > 1 && headRoots.length > 0) {
     const mainHead = headRoots[0];
     roots.filter(node => node !== mainHead).forEach(node => {

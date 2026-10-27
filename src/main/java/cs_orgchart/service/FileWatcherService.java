@@ -2,11 +2,14 @@ package cs_orgchart.service;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import cs_orgchart.employee.DbEmployeeDirectory;
+import cs_orgchart.employee.EmployeeSourceProperties;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.monitor.FileAlterationListenerAdaptor;
 import org.apache.commons.io.monitor.FileAlterationMonitor;
 import org.apache.commons.io.monitor.FileAlterationObserver;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -16,12 +19,16 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicLong;
 
+/**
+ * Watches the Excel file (EMPLOYEE_SOURCE=excel only) and the photos folder; a change rebuilds the employee
+ * directory (from Excel, or from the database for the photos in db mode) and tells the open pages (SSE).
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class FileWatcherService {
 
-    @Value("${app.data.excel-path}")
+    @Value("${app.data.excel-path:}")
     private String excelPath;
 
     @Value("${app.data.photos-path}")
@@ -32,6 +39,8 @@ public class FileWatcherService {
 
     private final ExcelService excelService;
     private final OrgStreamService orgStreamService;
+    private final EmployeeSourceProperties employeeSource;
+    private final ObjectProvider<DbEmployeeDirectory> dbDirectory;
 
     private final AtomicLong lastReloadAt = new AtomicLong(0);
     private FileAlterationMonitor monitor;
@@ -44,7 +53,9 @@ public class FileWatcherService {
             // 1. Наблюдатель за файлом Excel
             File excelFile = new File(excelPath);
             File parentDir = excelFile.getParentFile();
-            if (parentDir != null && parentDir.exists()) {
+            if (employeeSource.isDb()) {
+                log.info("EMPLOYEE_SOURCE=db: the Excel file is not watched");
+            } else if (parentDir != null && parentDir.exists()) {
                 FileAlterationObserver excelObserver = new FileAlterationObserver(
                         parentDir,
                         file -> file.getName().equals(excelFile.getName())
@@ -129,7 +140,11 @@ public class FileWatcherService {
         scheduledTask = scheduler.schedule(() -> {
             try {
                 log.info("{} changed (file: {}), rebuilding org chart...", source, fileName);
-                excelService.reloadData();
+                if (employeeSource.isDb()) {
+                    dbDirectory.getObject().load();
+                } else {
+                    excelService.reloadData();
+                }
                 orgStreamService.publishOrgUpdated(fileName);
                 log.info("Org chart rebuilt successfully");
             } catch (Exception e) {
