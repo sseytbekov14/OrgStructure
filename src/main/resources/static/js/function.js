@@ -1,9 +1,13 @@
 const COUNTRY_CODES = ['UZ', 'AZ', 'GE', 'AM', 'KG', 'KZ', 'RU'];
-const COUNTRY_FLAGS = { UZ: '🇺🇿', AZ: '🇦🇿', GE: '🇬🇪', AM: '🇦🇲', KG: '🇰🇬', KZ: '🇰🇿', RU: '🇷🇺' };
+const TREE_BY_DEFAULT = ['ITS'];
+const VIEW_STORAGE_KEY = 'orgchart-view:';
 
+// Card sizes and gaps of the tree layout, in px (must match .tree-stage card sizes in style.css)
+const TREE_SIZE = { W: 220, H: 76, HW: 300, HH: 96, GX: 24, GY: 56, SG: 10, LH: 34 };
+
+let currentCs = '';
 let employeeDirectory = [];
-let allEmployeesLookup = [];
-let likeSummaries = {};
+let currentView = 'groups';
 
 const FUNCTION_FAQ = {
   People: {
@@ -104,6 +108,28 @@ const FUNCTION_FAQ = {
   }
 };
 
+const FAQ_OPEN_KEY = 'orgchart-faq-open';
+
+function isValidEmail(email) {
+  return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email || '');
+}
+
+function renderFaqMailbox(item) {
+  const valid = isValidEmail(item.email);
+  return `
+    <div class="faq-mailbox">
+      <span class="faq-mailbox-icon">${ICONS.mail}</span>
+      <span class="faq-mailbox-body">
+        <span class="faq-mailbox-label">${escapeHtml(item.label)}</span>
+        ${valid
+          ? `<a class="faq-mailbox-email" href="mailto:${escapeHtml(item.email)}">${escapeHtml(item.email)}</a>`
+          : '<span class="faq-mailbox-missing">Email to be added</span>'}
+      </span>
+      ${valid ? `<button type="button" class="icon-btn" data-faq-copy="${escapeHtml(item.email)}" aria-label="Copy ${escapeHtml(item.email)}">${ICONS.copy}</button>` : ''}
+    </div>
+  `;
+}
+
 function renderFaqBanner(cs) {
   const container = document.getElementById('faqBanner');
   if (!container) return;
@@ -114,98 +140,63 @@ function renderFaqBanner(cs) {
     return;
   }
 
-  container.innerHTML = `
-    <div class="faq-card is-collapsed" id="faqCard">
-      <button class="faq-card-header" onclick="toggleFaqBanner()" aria-expanded="false">
-        <div class="faq-header-title">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18">
-            <circle cx="12" cy="12" r="10"></circle>
-            <line x1="12" y1="16" x2="12" y2="12"></line>
-            <line x1="12" y1="8" x2="12.01" y2="8"></line>
-          </svg>
-          <span>FAQ & Request Guidelines</span>
-        </div>
-        <svg class="faq-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
-          <polyline points="6 9 12 15 18 9"></polyline>
-        </svg>
-      </button>
-      
-      <div class="faq-card-body" id="faqCardBody">
-        <div class="faq-card-content">
-          <div class="faq-card-section rules-section">
-            <div class="faq-section-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
-              Request Submission Rules
-            </div>
-            <ul class="faq-rules-list">
-              ${faq.rules.map(rule => `<li>${escapeHtml(rule)}</li>`).join('')}
-            </ul>
-          </div>
-          
-          <div class="faq-card-divider"></div>
+  let isOpen = false;
+  try { isOpen = localStorage.getItem(FAQ_OPEN_KEY) === 'true'; } catch (e) { /* storage unavailable */ }
 
-          <div class="faq-card-section emails-section">
-            <div class="faq-section-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
-                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-                <polyline points="22,6 12,13 2,6"></polyline>
-              </svg>
-              General Team Emails (FAQ)
+  container.innerHTML = `
+    <section class="faq-card${isOpen ? '' : ' is-collapsed'}" id="faqCard">
+      <button type="button" class="faq-toggle" aria-expanded="${isOpen}" aria-controls="faqBody">
+        <span class="faq-badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+        </span>
+        <span class="faq-toggle-text">
+          <span class="faq-title">FAQ &amp; Request Guidelines</span>
+          <span class="faq-subtitle">How to reach ${escapeHtml(cs)} and submit a request</span>
+        </span>
+        <svg class="faq-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+      </button>
+
+      <div class="faq-body" id="faqBody">
+        <div class="faq-body-inner">
+          <div class="faq-grid">
+            <div class="faq-section">
+              <h3 class="faq-section-title">Request rules</h3>
+              <ul class="faq-rules">
+                ${faq.rules.map(rule => `
+                  <li>
+                    <span class="faq-rule-icon" aria-hidden="true">${ICONS.check}</span>
+                    <span>${escapeHtml(rule)}</span>
+                  </li>
+                `).join('')}
+              </ul>
             </div>
-            <div class="faq-emails-list">
-              ${faq.emails.map(item => `
-                <div class="faq-email-item">
-                  <span class="faq-email-label">${escapeHtml(item.label)}:</span>
-                  <a href="mailto:${escapeHtml(item.email)}" class="faq-email-link">${escapeHtml(item.email)}</a>
-                </div>
-              `).join('')}
+
+            <div class="faq-section">
+              <h3 class="faq-section-title">Team mailboxes</h3>
+              <div class="faq-mailboxes">
+                ${faq.emails.map(renderFaqMailbox).join('')}
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
+    </section>
   `;
   container.style.display = 'block';
+
+  const card = container.querySelector('#faqCard');
+  const toggle = card.querySelector('.faq-toggle');
+  toggle.addEventListener('click', () => {
+    const open = card.classList.toggle('is-collapsed') === false;
+    toggle.setAttribute('aria-expanded', String(open));
+    try { localStorage.setItem(FAQ_OPEN_KEY, String(open)); } catch (e) { /* storage unavailable */ }
+  });
+
+  card.addEventListener('click', event => {
+    const copyBtn = event.target.closest('[data-faq-copy]');
+    if (copyBtn) copyText(copyBtn.dataset.faqCopy, 'Email copied');
+  });
 }
-
-window.toggleFaqBanner = function () {
-  const card = document.getElementById('faqCard');
-  if (!card) return;
-  const isCollapsed = card.classList.toggle('is-collapsed');
-  const btn = card.querySelector('.faq-card-header');
-  if (btn) {
-    btn.setAttribute('aria-expanded', !isCollapsed);
-  }
-};
-
-window.toggleTreeBranch = function (event, btn) {
-  event.stopPropagation();
-  const wrapper = btn.closest('.tree-node-wrapper');
-  if (wrapper) {
-    wrapper.classList.toggle('is-collapsed');
-    const isCollapsed = wrapper.classList.contains('is-collapsed');
-    btn.setAttribute('aria-expanded', !isCollapsed);
-  }
-};
-
-window.toggleLeafGroup = function (event, btn) {
-  event.stopPropagation();
-  const container = btn.closest('.tree-group-label-container');
-  if (container) {
-    const cardsContainer = container.nextElementSibling;
-    if (cardsContainer && cardsContainer.classList.contains('leaf-group-cards')) {
-      const isCollapsed = cardsContainer.style.display === 'none';
-      cardsContainer.style.display = isCollapsed ? 'flex' : 'none';
-      btn.setAttribute('aria-expanded', isCollapsed);
-    }
-  }
-};
 
 window.toggleHeadSection = function (event, btn) {
   event.stopPropagation();
@@ -239,24 +230,6 @@ window.toggleColumn = function (btn) {
   }
 };
 
-
-
-function getInitials(name) {
-  if (!name) return '?';
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return parts[0][0].toUpperCase();
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function isCountryGroup(group) {
   return COUNTRY_CODES.includes(group?.trim().toUpperCase());
 }
@@ -283,44 +256,39 @@ function compareEmployeesByHierarchy(left, right) {
   return (left?.name || '').localeCompare(right?.name || '');
 }
 
-function renderPhoto(emp, size = 'sm') {
-  const initials = getInitials(emp.name);
-  const cls = size === 'lg' ? 'photo-lg' : 'photo-sm';
-  if (emp.photoUrl && emp.photoUrl !== '/photos/default.jpg') {
-    return `<img class="${cls}" src="${escapeHtml(emp.photoUrl)}" alt="${escapeHtml(emp.name || 'Employee photo')}"
-      onerror="this.outerHTML='<div class=\\'${cls} initials-circle\\'>${escapeHtml(initials)}</div>'" />`;
-  }
-  return `<div class="${cls} initials-circle">${escapeHtml(initials)}</div>`;
+function employeeKey(emp) {
+  return normalizeKey(emp?.email) || normalizeKey(emp?.name);
 }
 
-function renderHeadCard(emp, namePrefix = "") {
+/* ---------- Cards ---------- */
+
+function renderHeadCard(emp) {
   return `
-    <div class="head-card" data-emp-id="${emp._id}" tabindex="0" role="button" aria-label="Open details for ${escapeHtml(emp.name || 'employee')}">
-      ${renderPhoto(emp, 'lg')}
-      <div class="head-card-info">
-        <div class="head-card-name">${namePrefix}${escapeHtml(emp.name || '—')}</div>
-        <div class="head-card-job">${escapeHtml(emp.jobTitle || '—')}</div>
-        ${emp.email ? `<div class="emp-email">${escapeHtml(emp.email)}</div>` : ''}
-      </div>
-    </div>
+    <button type="button" class="head-card" data-emp-id="${emp._id}" aria-label="Open profile of ${escapeHtml(emp.name || 'employee')}">
+      ${renderAvatar(emp, 'lg')}
+      <span class="head-card-info">
+        <span class="head-card-name">${escapeHtml(emp.name || '—')}</span>
+        <span class="head-card-job">${escapeHtml(emp.jobTitle || '—')}</span>
+      </span>
+    </button>
   `;
 }
 
-function renderEmpCard(emp, namePrefix = "") {
+function renderEmpCard(emp) {
   return `
-    <div class="emp-card" data-emp-id="${emp._id}" tabindex="0" role="button" aria-label="Open details for ${escapeHtml(emp.name || 'employee')}">
-      ${renderPhoto(emp, 'sm')}
-      <div class="emp-card-info">
-        <div class="emp-card-name">${namePrefix}${escapeHtml(emp.name || '—')}</div>
-        <div class="emp-card-job">${escapeHtml(emp.jobTitle || '—')}</div>
-        ${emp.email ? `<div class="emp-email">${escapeHtml(emp.email)}</div>` : ''}
-      </div>
-    </div>
+    <button type="button" class="emp-card" data-emp-id="${emp._id}" aria-label="Open profile of ${escapeHtml(emp.name || 'employee')}">
+      ${renderAvatar(emp, 'md')}
+      <span class="emp-card-info">
+        <span class="emp-card-name">${escapeHtml(emp.name || '—')}</span>
+        <span class="emp-card-job">${escapeHtml(emp.jobTitle || '—')}</span>
+      </span>
+    </button>
   `;
 }
+
+/* ---------- Groups view ---------- */
 
 function renderColumn(title, employees, isCountry = false) {
-  const flag = isCountry ? (COUNTRY_FLAGS[title] || '🌍') : '';
   const headerClass = isCountry ? 'col-header country' : 'col-header kz';
   return `
     <div class="org-column" data-country="${isCountry ? 'true' : 'false'}">
@@ -338,608 +306,85 @@ function renderColumn(title, employees, isCountry = false) {
   `;
 }
 
-function findEmployeeMatch({ name, email }) {
-  return allEmployeesLookup.find(candidate =>
-    (email && candidate.email === email) ||
-    (name && candidate.name === name)
+function renderGroupsView(employees) {
+  const headEmps = employees.filter(e =>
+    e.group?.trim().toUpperCase() === 'HEAD' && !getCountryHeadCode(e)
   );
-}
+  const kzEmps = employees.filter(e =>
+    !isCountryGroup(e.group) &&
+    e.group?.trim().toUpperCase() !== 'HEAD'
+  );
+  const ctryEmps = employees.filter(e =>
+    isCountryGroup(e.group) || !!getCountryHeadCode(e)
+  );
 
-function buildPmDetails(emp) {
-  if (!emp.pm) return null;
-
-  const linkedPm = findEmployeeMatch({ name: emp.pm, email: emp.pmEmail });
-  return {
-    name: emp.pm,
-    email: emp.pmEmail || linkedPm?.email || '',
-    jobTitle: emp.pmJobTitle || linkedPm?.jobTitle || '',
-    photoUrl: linkedPm?.photoUrl || '/photos/default.jpg',
-    cs: linkedPm?.cs || '',
-    group: linkedPm?.group || '',
-    areaOfDuties: linkedPm?.areaOfDuties || '',
-    jobDescription: linkedPm?.jobDescription || ''
-  };
-}
-
-function renderModalAvatar(person, variant) {
-  const initials = getInitials(person?.name || (variant === 'pm' ? 'PM' : '?'));
-  const avatarClass = `modal-avatar ${variant === 'pm' ? 'pm-avatar' : 'employee-avatar'}`;
-
-  if (person?.photoUrl && person.photoUrl !== '/photos/default.jpg') {
-    return `<img class="${avatarClass}" src="${escapeHtml(person.photoUrl)}" alt="${escapeHtml(person.name || 'Employee photo')}"
-      onerror="this.outerHTML='<div class=\\'${avatarClass} initials-circle\\'>${escapeHtml(initials)}</div>'" />`;
-  }
-
-  return `<div class="${avatarClass} initials-circle">${escapeHtml(initials)}</div>`;
-}
-
-function renderMailAction(email) {
-  if (!email) {
-    return '<div class="modal-email-empty">Email не указан</div>';
-  }
-
-  const safeEmail = escapeHtml(email);
-  return `
-    <div class="modal-email-row">
-      <div class="modal-email-link">${safeEmail}</div>
-      <a class="modal-mail-btn" href="mailto:${safeEmail}" data-email="${safeEmail}">Mail</a>
-    </div>
-  `;
-}
-
-function renderLikeButtons(email) {
-  if (!email) return '';
-  const key = email.trim().toLowerCase();
-  const summary = likeSummaries[key] || { solvedCount: 0, exceededCount: 0 };
-
-  return `
-    <div class="like-section">
-      <div class="like-section-label">Reviews</div>
-      <div class="like-buttons">
-        <button class="like-btn like-btn-solved" data-email="${escapeHtml(email)}" data-type="SOLVED" type="button">
-          <span class="like-btn-icon">👍</span>
-          <span class="like-btn-text">Delivered Results</span>
-          <span class="like-btn-count" id="likeCount_SOLVED_${escapeHtml(key)}">${summary.solvedCount}</span>
-        </button>
-        <button class="like-btn like-btn-exceeded" data-email="${escapeHtml(email)}" data-type="EXCEEDED" type="button">
-          <span class="like-btn-icon">❤️</span>
-          <span class="like-btn-text">Above and Beyond</span>
-          <span class="like-btn-count" id="likeCount_EXCEEDED_${escapeHtml(key)}">${summary.exceededCount}</span>
-        </button>
-      </div>
-    </div>
-  `;
-}
-
-function renderModalContent(emp) {
-  const pm = buildPmDetails(emp);
-  const employeeMeta = [emp.cs, emp.group].filter(Boolean).join(' · ') || '—';
-
-  return `
-    <div class="modal-section">
-      <div class="modal-section-label">Employee</div>
-      <div class="modal-profile">
-        ${renderModalAvatar(emp, 'employee')}
-        <div class="modal-profile-body">
-          <h2 class="modal-name" id="employeeModalTitle">${escapeHtml(emp.name || '—')}</h2>
-          <div class="modal-job">${escapeHtml(emp.jobTitle || '—')}</div>
-          <div class="modal-meta">${escapeHtml(employeeMeta)}</div>
-        </div>
-      </div>
-      ${emp.areaOfDuties ? `
-        <div class="modal-duties-block">
-          <div class="modal-duties-label">Area of Duties</div>
-          <div class="modal-duties-value">${escapeHtml(emp.areaOfDuties)}</div>
-        </div>
-      ` : ''}
-      ${emp.jobDescription ? `
-        <div class="modal-duties-block">
-          <div class="modal-duties-label">Job Description</div>
-          <div class="modal-duties-value">${escapeHtml(emp.jobDescription)}</div>
-        </div>
-      ` : ''}
-      ${renderMailAction(emp.email)}
-      ${renderLikeButtons(emp.email)}
-    </div>
-    <div class="modal-section modal-section-pm">
-      <div class="modal-section-label">Performance Manager</div>
-      ${pm ? `
-          <div class="modal-profile">
-            ${renderModalAvatar(pm, 'pm')}
-            <div class="modal-profile-body">
-              <h3 class="modal-name">${escapeHtml(pm.name || '—')}</h3>
-              ${pm.jobTitle ? `<div class="modal-job modal-job-pm">${escapeHtml(pm.jobTitle)}</div>` : ''}
-              ${[pm.cs, pm.group].filter(Boolean).join(' · ') ? `<div class="modal-meta">${escapeHtml([pm.cs, pm.group].filter(Boolean).join(' · '))}</div>` : ''}
-            </div>
-          </div>
-          ${pm.areaOfDuties ? `
-            <div class="modal-duties-block">
-              <div class="modal-duties-label">Area of Duties</div>
-              <div class="modal-duties-value">${escapeHtml(pm.areaOfDuties)}</div>
-            </div>
-          ` : ''}
-          ${pm.jobDescription ? `
-            <div class="modal-duties-block">
-              <div class="modal-duties-label">Job Description</div>
-              <div class="modal-duties-value">${escapeHtml(pm.jobDescription)}</div>
-            </div>
-          ` : ''}
-          ${renderMailAction(pm.email)}
-        ` : `
-          <div class="modal-profile modal-profile-empty">
-            <div class="modal-avatar pm-avatar initials-circle">PM</div>
-            <div class="modal-profile-body">
-              <h3 class="modal-name">Performance Manager not assigned</h3>
-            </div>
-          </div>
-        `
-    }
-    </div>
-  `;
-}
-
-function ensureEmployeeModal() {
-  let overlay = document.getElementById('employeeModal');
-  if (overlay) return overlay;
-
-  document.body.insertAdjacentHTML('beforeend', `
-    <div class="employee-modal-overlay" id="employeeModal" aria-hidden="true">
-      <div class="employee-modal" role="dialog" aria-modal="true" aria-labelledby="employeeModalTitle">
-        <button class="employee-modal-close" type="button" aria-label="Close employee details">&times;</button>
-        <div class="employee-modal-grid" id="employeeModalContent"></div>
-      </div>
-    </div>
-  `);
-
-  overlay = document.getElementById('employeeModal');
-  overlay.addEventListener('click', event => {
-    if (event.target === overlay || event.target.closest('.employee-modal-close')) {
-      closeEmployeeModal();
-    }
+  const kzGroups = {};
+  kzEmps.forEach(e => {
+    const g = e.group || 'Other';
+    if (!kzGroups[g]) kzGroups[g] = [];
+    kzGroups[g].push(e);
   });
 
-  overlay.addEventListener('click', (event) => {
-    const likeBtn = event.target.closest('.like-btn');
-    if (likeBtn) {
-      event.stopPropagation();
-      handleLikeClick(likeBtn);
-    }
-
-    const mailBtn = event.target.closest('.modal-mail-btn');
-    if (mailBtn && mailBtn.dataset.email) {
-      logInteraction(mailBtn.dataset.email, 'MAIL_CLICK');
-    }
+  const ctryGroups = {};
+  ctryEmps.forEach(e => {
+    const g = getCountryHeadCode(e) || e.group?.trim().toUpperCase() || 'OTHER';
+    if (!ctryGroups[g]) ctryGroups[g] = [];
+    ctryGroups[g].push(e);
   });
 
-  return overlay;
-}
+  headEmps.sort(compareEmployeesByHierarchy);
+  Object.values(kzGroups).forEach(group => group.sort(compareEmployeesByHierarchy));
+  Object.values(ctryGroups).forEach(group => group.sort(compareEmployeesByHierarchy));
 
-async function handleLikeClick(btn) {
-  const email = btn.dataset.email;
-  const type = btn.dataset.type;
-  if (!email || !type) return;
+  let html = '';
 
-  btn.disabled = true;
-  btn.classList.add('like-btn-sending');
-
-  try {
-    const res = await fetch('/api/likes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employeeEmail: email, reactionType: type, visitorId: getVisitorId() })
-    });
-
-    if (res.ok) {
-      const key = email.trim().toLowerCase();
-      if (!likeSummaries[key]) likeSummaries[key] = { solvedCount: 0, exceededCount: 0 };
-      if (type === 'SOLVED') likeSummaries[key].solvedCount++;
-      else likeSummaries[key].exceededCount++;
-
-      const countEl = document.getElementById(`likeCount_${type}_${key}`);
-      if (countEl) {
-        countEl.textContent = type === 'SOLVED' ? likeSummaries[key].solvedCount : likeSummaries[key].exceededCount;
-        countEl.classList.add('like-count-bump');
-        setTimeout(() => countEl.classList.remove('like-count-bump'), 400);
-      }
-
-      btn.classList.add('like-btn-success');
-      setTimeout(() => btn.classList.remove('like-btn-success'), 1200);
-    }
-  } catch (e) {
-    console.error('Failed to send like', e);
-  } finally {
-    btn.disabled = false;
-    btn.classList.remove('like-btn-sending');
-  }
-}
-
-function openEmployeeModal(emp) {
-  const overlay = ensureEmployeeModal();
-  const content = document.getElementById('employeeModalContent');
-  content.innerHTML = renderModalContent(emp);
-  overlay.classList.add('is-open');
-  overlay.setAttribute('aria-hidden', 'false');
-  document.body.classList.add('modal-open');
-  overlay.querySelector('.employee-modal-close')?.focus();
-
-  if (emp && emp.email) {
-    logInteraction(emp.email, 'PROFILE_VIEW');
-  }
-}
-
-function logInteraction(email, type) {
-  if (!email || !type) return;
-  fetch('/api/interactions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ employeeEmail: email, interactionType: type, visitorId: getVisitorId() })
-  }).catch(e => console.error('Failed to log interaction', e));
-}
-
-function closeEmployeeModal() {
-  const overlay = document.getElementById('employeeModal');
-  if (!overlay) return;
-  overlay.classList.remove('is-open');
-  overlay.setAttribute('aria-hidden', 'true');
-  document.body.classList.remove('modal-open');
-}
-
-function bindEmployeeCardEvents() {
-  const chart = document.getElementById('orgChart');
-  if (!chart || chart.dataset.modalBound === 'true') return;
-
-  chart.addEventListener('click', event => {
-    if (event.target.closest('a, .emp-email')) return;
-    if (window.getSelection()?.toString().trim()) return;
-    const card = event.target.closest('.emp-card, .head-card');
-    if (!card) return;
-
-    const emp = employeeDirectory.find(item => String(item._id) === card.dataset.empId);
-    if (emp) openEmployeeModal(emp);
-  });
-
-  chart.addEventListener('keydown', event => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    const card = event.target.closest('.emp-card, .head-card');
-    if (!card) return;
-
-    event.preventDefault();
-    const emp = employeeDirectory.find(item => String(item._id) === card.dataset.empId);
-    if (emp) openEmployeeModal(emp);
-  });
-
-  document.addEventListener('keydown', event => {
-    if (event.key === 'Escape') {
-      closeEmployeeModal();
-    }
-  });
-
-  chart.dataset.modalBound = 'true';
-}
-
-function buildEmployeeTree(employees) {
-  const emailMap = new Map();
-  const nameMap = new Map();
-
-  const nodes = employees.map(emp => {
-    const node = {
-      emp: emp,
-      children: []
-    };
-    if (emp.email) emailMap.set(emp.email.toLowerCase().trim(), node);
-    if (emp.name) nameMap.set(emp.name.toLowerCase().trim(), node);
-    return node;
-  });
-
-  const roots = [];
-
-  const javidan = employees.find(e => e.name === 'Guliyev, Javidan');
-  if (javidan) {
-    javidan.pm = 'Turusbekov, Serik';
-    javidan.group = 'L1 | L2';
-    javidan.isJointNode = true;
-  }
-
-  nodes.forEach(node => {
-    const emp = node.emp;
-    let parentNode = null;
-
-    let pmName = emp.pm;
-
-    if (pmName) {
-      parentNode = nameMap.get(pmName.toLowerCase().trim());
-    }
-    if (!parentNode && emp.pmEmail) {
-      parentNode = emailMap.get(emp.pmEmail.toLowerCase().trim());
-    }
-
-    if (parentNode) {
-      parentNode.children.push(node);
-    } else {
-      roots.push(node);
-    }
-  });
-
-  // Логика "Head всегда наверху"
-  const headRoots = roots.filter(r => r.emp.group && r.emp.group.trim().toUpperCase() === 'HEAD');
-  if (roots.length > 1 && headRoots.length > 0) {
-    const mainHead = headRoots[0]; // Берем первого Head как главного
-    const otherRoots = roots.filter(r => r !== mainHead);
-    otherRoots.forEach(r => mainHead.children.push(r));
-    roots.length = 0;
-    roots.push(mainHead);
-  }
-
-  const sortNodes = (n) => {
-    n.children.sort(compareEmployeesByHierarchyForTree);
-    n.children.forEach(sortNodes);
-  };
-
-  roots.sort(compareEmployeesByHierarchyForTree);
-  roots.forEach(sortNodes);
-
-  return roots;
-}
-
-function compareEmployeesByHierarchyForTree(a, b) {
-  if (a.emp.name === 'Guliyev, Javidan' && b.emp.name === 'Hajiyev, Sabir') return 1;
-  if (a.emp.name === 'Hajiyev, Sabir' && b.emp.name === 'Guliyev, Javidan') return -1;
-  return compareEmployeesByHierarchy(a.emp, b.emp);
-}
-
-function getGroupLabel(parentEmp, children) {
-  // Rely exclusively on Excel groups
-
-  // Fallback: if all children have the same group, use it
-  const groups = [...new Set(children.map(c => c.emp.group).filter(Boolean))];
-  if (groups.length === 1) return groups[0];
-  return "";
-}
-
-function renderTreeNode(node, isRoot = false, indexInParent = -1, parentName = "") {
-  const emp = node.emp;
-  const hasChildren = node.children.length > 0;
-
-  // Separate children into leaves and non-leaves (branches)
-  const leafChildren = node.children.filter(child => child.children.length === 0);
-  const nonLeafChildren = node.children.filter(child => child.children.length > 0);
-  let namePrefix = "";
-
-  let html = `
-    <div class="tree-node-wrapper">
-      <div class="tree-node ${hasChildren ? 'tree-node-has-children' : ''}">
-        ${isRoot ? renderHeadCard(emp, namePrefix) : renderEmpCard(emp, namePrefix)}
-        ${hasChildren ? `<button class="tree-toggle-btn" aria-expanded="true" onclick="toggleTreeBranch(event, this)" aria-label="Toggle branches"></button>` : ''}
-      </div>
-  `;
-
-  if (hasChildren) {
-    const branches = [];
-    const leavesByGroup = new Map();
-
-    node.children.forEach(child => {
-      if (child.children.length > 0 || child.emp.isJointNode) {
-        branches.push(child);
-      } else {
-        let gLabel = child.emp.group || "";
-        if (!leavesByGroup.has(gLabel)) leavesByGroup.set(gLabel, []);
-        leavesByGroup.get(gLabel).push(child);
-      }
-    });
-
+  if (headEmps.length > 0) {
+    const hasChildren = Object.keys(kzGroups).length > 0 || Object.keys(ctryGroups).length > 0;
     html += `
-      <div class="tree-children">
-        ${branches.map((child, idx) => {
-      let gLabel = child.emp.group || "";
-      const showLabel = gLabel && gLabel !== emp.group;
-      if (showLabel || child.emp.isJointNode) {
-        const isSmall = gLabel === 'L1' || gLabel === 'L2' || gLabel === 'L1 | L2';
-        const style = isSmall ? 'font-size: 0.75rem; padding: 2px 8px;' : '';
-        const jointClass = child.emp.isJointNode ? 'javidan-joint-node' : '';
-        return `
-                <div class="tree-node-wrapper ${jointClass}">
-                  <div class="tree-vertical-children">
-                    <div class="tree-vertical-connector"></div>
-                    <div class="tree-group-label" style="${style}">${escapeHtml(gLabel)}</div>
-                    <div class="tree-node-vertical-branch">
-                      ${renderTreeNode(child, false, -1, emp.name)}
-                    </div>
-                  </div>
-                </div>
-                `;
-      } else {
-        return renderTreeNode(child, false, idx, emp.name);
-      }
-    }).join('')}
-
-        ${leavesByGroup.size > 0 ? `
-          <div class="tree-node-wrapper">
-            <div class="tree-vertical-children">
-              <div class="tree-vertical-connector"></div>
-              ${Array.from(leavesByGroup.entries()).map(([gLabel, leaves], groupIdx) => {
-      const showLabel = gLabel && gLabel !== emp.group;
-      const isSmall = gLabel === 'L1' || gLabel === 'L2';
-      const style = isSmall ? 'font-size: 0.75rem; padding: 2px 8px;' : '';
-      let groupHtml = '';
-
-      if (showLabel) {
-        groupHtml += `
-                        <div class="tree-vertical-connector"></div>
-                        <div class="tree-group-label" style="${style}">${escapeHtml(gLabel)}</div>
-                      `;
-      }
-
-      groupHtml += leaves.map((child, idx) => `
-                    <div class="tree-vertical-connector"></div>
-                    <div class="tree-node-vertical">
-                      ${renderEmpCard(child.emp)}
-                    </div>
-                  `).join('');
-
-      return groupHtml;
-    }).join('')}
-            </div>
-          </div>
-        ` : ''}
+      <div class="head-section">
+        <div class="head-cards" style="position: relative;">
+          ${headEmps.map(emp => renderHeadCard(emp)).join('')}
+          ${hasChildren ? `<button class="tree-toggle-btn" aria-expanded="true" onclick="toggleHeadSection(event, this)" aria-label="Toggle head section"></button>` : ''}
+        </div>
+        <div class="connector-v"></div>
       </div>
     `;
   }
 
-  html += `
-    </div>
-  `;
-  return html;
-}
+  const hasKz = Object.keys(kzGroups).length > 0;
+  const hasCtry = Object.keys(ctryGroups).length > 0;
 
-async function loadFunctionData() {
-  const params = new URLSearchParams(window.location.search);
-  const cs = params.get('cs');
-  if (!cs) { window.location.href = '/'; return; }
+  if (hasKz && hasCtry) {
+    const combined = [];
+    Object.entries(kzGroups).forEach(([g, emps]) => combined.push({ title: g, emps, isCountry: false }));
+    Object.entries(ctryGroups).forEach(([g, emps]) => combined.push({ title: g, emps, isCountry: true }));
 
-  document.title = `CS OrgChart - ${cs}`;
-  document.getElementById('funcTitle').textContent = cs;
-  renderFaqBanner(cs);
-  logPageVisit(cs);
-
-  try {
-    const [res, allRes, likesRes] = await Promise.all([
-      fetch(`/api/employees?cs=${encodeURIComponent(cs)}`),
-      fetch('/api/employees'),
-      fetch('/api/likes/summary')
-    ]);
-
-    allEmployeesLookup = await allRes.json();
-    try { likeSummaries = await likesRes.json(); } catch (e) { likeSummaries = {}; }
-
-    let employees = (await res.json()).map((employee, index) => ({
-      ...employee,
-      _id: index
-    }));
-
-    employeeDirectory = employees;
-    closeEmployeeModal();
-    document.getElementById('funcCount').textContent = `${employees.length} employees`;
-
-    if (cs === 'ITS') {
-      const roots = buildEmployeeTree(employees);
-      if (roots.length > 0) {
-        let treeHtml = '';
-        if (roots.length === 1) {
-          treeHtml = `
-            <div class="org-tree-container">
-              <div class="org-tree-wrapper">
-                ${renderTreeNode(roots[0], true)}
-              </div>
-            </div>
-          `;
-        } else {
-          treeHtml = `
-            <div class="org-tree-container">
-              <div class="org-tree-wrapper">
-                <div class="tree-children" style="padding-top: 0; margin-top: 0;">
-                  ${roots.map(r => renderTreeNode(r, true)).join('')}
-                </div>
-              </div>
-            </div>
-          `;
-        }
-        document.getElementById('orgChart').innerHTML = treeHtml;
-        bindEmployeeCardEvents();
-        setTimeout(applyJavidanHack, 50);
-        return;
-      }
-    }
-
-    const headEmps = employees.filter(e =>
-      e.group?.trim().toUpperCase() === 'HEAD' && !getCountryHeadCode(e)
-    );
-    const kzEmps = employees.filter(e =>
-      !isCountryGroup(e.group) &&
-      e.group?.trim().toUpperCase() !== 'HEAD'
-    );
-    const ctryEmps = employees.filter(e =>
-      isCountryGroup(e.group) || !!getCountryHeadCode(e)
-    );
-
-    const kzGroups = {};
-    kzEmps.forEach(e => {
-      const g = e.group || 'Other';
-      if (!kzGroups[g]) kzGroups[g] = [];
-      kzGroups[g].push(e);
-    });
-
-    const ctryGroups = {};
-    ctryEmps.forEach(e => {
-      const g = getCountryHeadCode(e) || e.group?.trim().toUpperCase() || 'OTHER';
-      if (!ctryGroups[g]) ctryGroups[g] = [];
-      ctryGroups[g].push(e);
-    });
-
-    headEmps.sort(compareEmployeesByHierarchy);
-    Object.values(kzGroups).forEach(group => group.sort(compareEmployeesByHierarchy));
-    Object.values(ctryGroups).forEach(group => group.sort(compareEmployeesByHierarchy));
-
-    let html = '';
-
-    if (headEmps.length > 0) {
-      const hasChildren = Object.keys(kzGroups).length > 0 || Object.keys(ctryGroups).length > 0;
-      html += `
-        <div class="head-section">
-          <div class="head-cards" style="position: relative;">
-            ${headEmps.map(emp => renderHeadCard(emp)).join('')}
-            ${hasChildren ? `<button class="tree-toggle-btn" aria-expanded="true" onclick="toggleHeadSection(event, this)" aria-label="Toggle head section"></button>` : ''}
-          </div>
-          <div class="connector-v"></div>
+    html += `
+      <div class="section-block mixed-section-block">
+        <div class="org-grid org-grid-mixed">
+          ${combined.map(c => renderColumn(c.title, c.emps, c.isCountry)).join('')}
         </div>
-      `;
-    }
-
-    const hasKz = Object.keys(kzGroups).length > 0;
-    const hasCtry = Object.keys(ctryGroups).length > 0;
-
-    if (hasKz || hasCtry) {
-      if (hasKz && hasCtry) {
-        const combined = [];
-        Object.entries(kzGroups).forEach(([g, emps]) => combined.push({ title: g, emps, isCountry: false }));
-        Object.entries(ctryGroups).forEach(([g, emps]) => combined.push({ title: g, emps, isCountry: true }));
-
-        html += `
-          <div class="section-block mixed-section-block">
-            <div class="org-grid org-grid-mixed">
-              ${combined.map(c => renderColumn(c.title, c.emps, c.isCountry)).join('')}
-            </div>
-          </div>
-        `;
-      } else if (hasKz) {
-        html += `
-          <div class="section-block">
-            <div class="org-grid">
-              ${Object.entries(kzGroups).map(([g, emps]) => renderColumn(g, emps, false)).join('')}
-            </div>
-          </div>
-        `;
-      } else {
-        html += `
-          <div class="section-block country-section-block">
-            <div class="org-grid">
-              ${Object.entries(ctryGroups).map(([c, emps]) => renderColumn(c, emps, true)).join('')}
-            </div>
-          </div>
-        `;
-      }
-    }
-
-    if (!html) {
-      html = `<div class="no-results">No employees found for "${escapeHtml(cs)}"</div>`;
-    }
-
-    document.getElementById('orgChart').innerHTML = html;
-    bindEmployeeCardEvents();
-    layoutOrgGrids();
-  } catch (e) {
-    console.error(e);
-    document.getElementById('orgChart').innerHTML = '<div class="no-results">Error loading data</div>';
+      </div>
+    `;
+  } else if (hasKz) {
+    html += `
+      <div class="section-block">
+        <div class="org-grid">
+          ${Object.entries(kzGroups).map(([g, emps]) => renderColumn(g, emps, false)).join('')}
+        </div>
+      </div>
+    `;
+  } else if (hasCtry) {
+    html += `
+      <div class="section-block country-section-block">
+        <div class="org-grid">
+          ${Object.entries(ctryGroups).map(([c, emps]) => renderColumn(c, emps, true)).join('')}
+        </div>
+      </div>
+    `;
   }
+
+  return html;
 }
 
 function debounce(fn, wait = 120) {
@@ -977,6 +422,16 @@ function layoutOrgGrids() {
       grid.appendChild(wrapper);
     }
 
+    const placeIntoShortestColumn = (columnItems, targetColumns) => {
+      columnItems.forEach(item => {
+        item.style.width = '100%';
+        const target = targetColumns.reduce((shortest, col) => {
+          return col.offsetHeight < shortest.offsetHeight ? col : shortest;
+        }, targetColumns[0]);
+        target.appendChild(item);
+      });
+    };
+
     if (isMixedGrid) {
       const mainItems = items.filter(item => item.dataset.country !== 'true');
       const countryItems = items.filter(item => item.dataset.country === 'true');
@@ -984,157 +439,712 @@ function layoutOrgGrids() {
       if (mainItems.length > 0 && countryItems.length > 0 && columns.length > 1) {
         const proportionalMainColumns = Math.round((mainItems.length / items.length) * columns.length);
         const mainColumnCount = Math.max(1, Math.min(columns.length - 1, proportionalMainColumns));
-        const countryColumnCount = Math.max(1, columns.length - mainColumnCount);
-        const mainColumns = columns.slice(0, mainColumnCount);
-        const countryColumns = columns.slice(mainColumnCount);
-
-        const placeIntoShortestColumn = (columnItems, targetColumns) => {
-          columnItems.forEach(item => {
-            item.style.width = '100%';
-            const target = targetColumns.reduce((shortest, col) => {
-              return col.offsetHeight < shortest.offsetHeight ? col : shortest;
-            }, targetColumns[0]);
-            target.appendChild(item);
-          });
-        };
-
-        placeIntoShortestColumn(mainItems, mainColumns);
-        placeIntoShortestColumn(countryItems, countryColumns);
+        placeIntoShortestColumn(mainItems, columns.slice(0, mainColumnCount));
+        placeIntoShortestColumn(countryItems, columns.slice(mainColumnCount));
         return;
       }
     }
 
-    items.forEach(item => {
-      item.style.width = '100%';
-      const target = columns.reduce((shortest, col) => {
-        return col.offsetHeight < shortest.offsetHeight ? col : shortest;
-      }, columns[0]);
-      target.appendChild(item);
-    });
+    placeIntoShortestColumn(items, columns);
   });
 }
 
-function getVisitorId() {
-  let id = localStorage.getItem('visitorId');
-  if (!id) {
-    id = 'user-' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-    localStorage.setItem('visitorId', id);
+/* ---------- Tree view ---------- */
+
+const tree = {
+  root: null,
+  nodes: [],
+  byKey: new Map(),
+  preorder: [],
+  expandedKeys: null,
+  view: { s: 1, x: 0, y: 0 },
+  fitted: false,
+  cardEls: new Map(),
+  toggleEls: new Map()
+};
+
+function buildTree(employees) {
+  const nodes = employees.map(emp => ({ emp, id: emp._id, key: employeeKey(emp), children: [], parent: null }));
+  const byEmail = new Map();
+  const byName = new Map();
+  nodes.forEach(node => {
+    const email = normalizeKey(node.emp.email);
+    const name = normalizeKey(node.emp.name);
+    if (email && !byEmail.has(email)) byEmail.set(email, node);
+    if (name && !byName.has(name)) byName.set(name, node);
+  });
+
+  let roots = [];
+  nodes.forEach(node => {
+    const parent = byName.get(normalizeKey(node.emp.pm)) || byEmail.get(normalizeKey(node.emp.pmEmail));
+    if (parent && parent !== node) {
+      parent.children.push(node);
+      node.parent = parent;
+    } else {
+      roots.push(node);
+    }
+  });
+
+  // Break PM cycles so nobody disappears from the chart
+  const reachable = new Set();
+  const mark = node => { reachable.add(node); node.children.forEach(mark); };
+  roots.forEach(mark);
+  nodes.forEach(node => {
+    if (reachable.has(node)) return;
+    node.parent.children = node.parent.children.filter(child => child !== node);
+    node.parent = null;
+    roots.push(node);
+    mark(node);
+  });
+
+  // The function head stays on top: other top-level people hang under the first head
+  const headRoots = roots
+    .filter(node => node.emp.group?.trim().toUpperCase() === 'HEAD')
+    .sort((a, b) => compareEmployeesByHierarchy(a.emp, b.emp));
+  if (roots.length > 1 && headRoots.length > 0) {
+    const mainHead = headRoots[0];
+    roots.filter(node => node !== mainHead).forEach(node => {
+      node.parent = mainHead;
+      mainHead.children.push(node);
+    });
+    roots = [mainHead];
   }
-  return id;
+
+  const sortChildren = node => {
+    node.children.sort((a, b) => compareEmployeesByHierarchy(a.emp, b.emp));
+    node.children.forEach(sortChildren);
+  };
+  roots.forEach(sortChildren);
+  roots.sort((a, b) => compareEmployeesByHierarchy(a.emp, b.emp));
+
+  let root = roots[0];
+  if (roots.length > 1) {
+    root = { virtual: true, key: '__root__', children: roots, parent: null };
+    roots.forEach(node => { node.parent = root; });
+  }
+  nodes.forEach(node => { node.isHead = !node.parent || node.parent.virtual; });
+
+  const preorder = [];
+  const visit = (node, depth) => {
+    node.depth = depth;
+    if (!node.virtual) preorder.push(node);
+    node.children.forEach(child => visit(child, node.virtual ? depth : depth + 1));
+  };
+  if (root) visit(root, 0);
+
+  tree.root = root || null;
+  tree.nodes = nodes;
+  tree.preorder = preorder;
+  tree.byKey = new Map(nodes.map(node => [node.key, node]));
 }
 
-function logPageVisit(pageName) {
-  fetch('/api/page-visits', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pageName: pageName, visitorId: getVisitorId() })
-  }).catch(e => console.error('Failed to log page visit', e));
+function defaultExpandedKeys() {
+  const expandAll = tree.nodes.length <= 25;
+  return new Set(tree.nodes
+    .filter(node => node.children.length && (expandAll || node.depth <= 1))
+    .map(node => node.key));
+}
+
+const nodeWidth = node => node.virtual ? 0 : node.isHead ? TREE_SIZE.HW : TREE_SIZE.W;
+const nodeHeight = node => node.virtual ? 0 : node.isHead ? TREE_SIZE.HH : TREE_SIZE.H;
+const isExpanded = node => node.virtual || tree.expandedKeys.has(node.key);
+const countDescendants = node => node.children.reduce((sum, child) => sum + 1 + countDescendants(child), 0);
+
+function slotLabel(parent, child) {
+  if (parent.virtual) return null;
+  return child.emp.group && child.emp.group !== parent.emp.group ? child.emp.group : null;
+}
+
+function measureNode(node) {
+  if (!node.children.length || !isExpanded(node)) {
+    node.slots = null;
+    node.width = nodeWidth(node);
+    return;
+  }
+
+  const slots = [];
+  node.children.filter(child => child.children.length).forEach(child => {
+    measureNode(child);
+    slots.push({ type: 'branch', node: child, width: child.width, label: slotLabel(node, child) });
+  });
+
+  const leafGroups = new Map();
+  node.children.filter(child => !child.children.length).forEach(child => {
+    const label = slotLabel(node, child) || '';
+    if (!leafGroups.has(label)) leafGroups.set(label, []);
+    leafGroups.get(label).push(child);
+  });
+  leafGroups.forEach((leaves, label) => {
+    leaves.forEach(leaf => { leaf.slots = null; leaf.width = TREE_SIZE.W; });
+    slots.push({ type: 'stack', nodes: leaves, width: TREE_SIZE.W, label: label || null });
+  });
+
+  node.slots = slots;
+  node.slotsWidth = slots.reduce((sum, slot) => sum + slot.width, 0) + TREE_SIZE.GX * (slots.length - 1);
+  node.width = Math.max(nodeWidth(node), node.slotsWidth);
+}
+
+function placeNode(node, x, y) {
+  node.x = x + (node.width - nodeWidth(node)) / 2;
+  node.y = y;
+  if (!node.slots) return;
+
+  const top = y + nodeHeight(node) + (node.virtual ? 0 : TREE_SIZE.GY);
+  let cursor = x + (node.width - node.slotsWidth) / 2;
+  node.slots.forEach(slot => {
+    slot.top = top;
+    slot.start = top + (slot.label ? TREE_SIZE.LH : 0);
+    slot.center = cursor + slot.width / 2;
+    if (slot.type === 'branch') {
+      placeNode(slot.node, cursor, slot.start);
+    } else {
+      slot.nodes.forEach((leaf, index) => {
+        leaf.x = cursor;
+        leaf.y = slot.start + index * (TREE_SIZE.H + TREE_SIZE.SG);
+      });
+    }
+    cursor += slot.width + TREE_SIZE.GX;
+  });
+}
+
+function walkVisible(node, fn) {
+  fn(node);
+  if (!node.slots) return;
+  node.slots.forEach(slot => {
+    if (slot.type === 'branch') walkVisible(slot.node, fn);
+    else slot.nodes.forEach(fn);
+  });
+}
+
+function renderTreeShell() {
+  return `
+    <div class="tree-shell">
+      <div class="tree-toolbar">
+        <button type="button" class="tool-btn" data-tree-action="expand-all">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m7 15 5 5 5-5M7 9l5-5 5 5"/></svg>
+          Expand all
+        </button>
+        <div class="tree-zoom" role="group" aria-label="Zoom">
+          <button type="button" class="icon-btn" data-tree-action="zoom-out" aria-label="Zoom out">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M5 12h14"/></svg>
+          </button>
+          <span class="tree-zoom-value" id="treeZoomValue">100%</span>
+          <button type="button" class="icon-btn" data-tree-action="zoom-in" aria-label="Zoom in">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          </button>
+          <button type="button" class="icon-btn tree-zoom-fit" data-tree-action="fit">Fit</button>
+        </div>
+      </div>
+      <div class="tree-viewport" id="treeViewport">
+        <div class="tree-stage" id="treeStage">
+          <div class="tree-overlay" id="treeOverlay">
+            <svg class="tree-edges" id="treeEdges" aria-hidden="true"></svg>
+            <div id="treeLabels"></div>
+          </div>
+        </div>
+        <div class="tree-legend">
+          <span class="tree-legend-hint">Drag to move · Ctrl + wheel to zoom</span>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function initTree() {
+  buildTree(employeeDirectory);
+  if (!tree.root) return;
+  if (!tree.expandedKeys) tree.expandedKeys = defaultExpandedKeys();
+
+  const stage = document.getElementById('treeStage');
+  tree.cardEls = new Map();
+  tree.toggleEls = new Map();
+
+  const holder = document.createElement('div');
+  tree.nodes.forEach(node => {
+    holder.innerHTML = node.isHead ? renderHeadCard(node.emp) : renderEmpCard(node.emp);
+    const card = holder.firstElementChild;
+    card.hidden = true;
+    stage.appendChild(card);
+    tree.cardEls.set(node.id, card);
+
+    if (node.children.length) {
+      const toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.className = 'tree-count-btn';
+      toggle.dataset.toggleKey = node.key;
+      toggle.hidden = true;
+      stage.appendChild(toggle);
+      tree.toggleEls.set(node.id, toggle);
+    }
+  });
+
+  bindTreeViewport(document.getElementById('treeViewport'));
+  layoutTree(false);
+
+  if (!tree.fitted) {
+    showTreeTop();
+    tree.fitted = true;
+  } else {
+    applyTreeView(false);
+  }
+}
+
+function moveTreeEl(el, target, from, suffix = '') {
+  if (from) {
+    el.style.transition = 'none';
+    el.style.transform = from + suffix;
+    el.hidden = false;
+    void el.offsetWidth;
+    el.style.transition = '';
+  }
+  el.hidden = false;
+  el.style.transform = target + suffix;
+}
+
+function layoutTree(animate = true) {
+  const root = tree.root;
+  if (!root) return;
+
+  measureNode(root);
+  placeNode(root, 0, 0);
+  const visible = new Set();
+  walkVisible(root, node => visible.add(node));
+
+  let maxY = 0;
+  tree.nodes.forEach(node => {
+    const card = tree.cardEls.get(node.id);
+    const toggle = tree.toggleEls.get(node.id);
+    if (!visible.has(node)) {
+      card.hidden = true;
+      if (toggle) toggle.hidden = true;
+      return;
+    }
+
+    const parent = node.parent && !node.parent.virtual ? node.parent : null;
+    const from = animate && card.hidden && parent && visible.has(parent)
+      ? `translate(${parent.x + (nodeWidth(parent) - nodeWidth(node)) / 2}px,${parent.y}px)`
+      : null;
+    moveTreeEl(card, `translate(${node.x}px,${node.y}px)`, from);
+    maxY = Math.max(maxY, node.y + nodeHeight(node));
+
+    if (toggle) {
+      const open = isExpanded(node);
+      const count = countDescendants(node);
+      toggle.setAttribute('aria-expanded', String(open));
+      toggle.setAttribute('aria-label', `${open ? 'Collapse' : 'Expand'} ${count} people under ${node.emp.name}`);
+      toggle.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg>${open ? count : '+' + count}`;
+      const toggleFrom = from ? `translate(${parent.x + nodeWidth(parent) / 2}px,${parent.y + nodeHeight(parent)}px)` : null;
+      moveTreeEl(toggle, `translate(${node.x + nodeWidth(node) / 2}px,${node.y + nodeHeight(node)}px)`, toggleFrom, ' translate(-50%,-50%)');
+    }
+  });
+
+  let edges = '';
+  let labels = '';
+  walkVisible(root, node => {
+    if (!node.slots || node.virtual) return;
+    const x = node.x + nodeWidth(node) / 2;
+    const bottom = node.y + nodeHeight(node);
+    const bus = bottom + TREE_SIZE.GY / 2;
+    edges += `M${x} ${bottom}V${bus}`;
+
+    const centers = node.slots.map(slot => slot.center);
+    if (centers.length > 1) edges += `M${Math.min(...centers)} ${bus}H${Math.max(...centers)}`;
+
+    node.slots.forEach(slot => {
+      const end = slot.type === 'branch' ? slot.node.y : slot.nodes[slot.nodes.length - 1].y + TREE_SIZE.H / 2;
+      edges += `M${slot.center} ${bus}V${end}`;
+      if (slot.label) {
+        labels += `<span class="tree-label" style="transform:translate(${slot.center}px,${slot.top}px) translate(-50%,0)">${escapeHtml(slot.label)}</span>`;
+      }
+    });
+  });
+
+  const width = Math.max(root.width, 1);
+  const height = maxY + 24;
+  const svg = document.getElementById('treeEdges');
+  svg.setAttribute('width', width);
+  svg.setAttribute('height', height);
+  svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  svg.innerHTML = `<path class="tree-edge" d="${edges}"/>`;
+  document.getElementById('treeLabels').innerHTML = labels;
+
+  const stage = document.getElementById('treeStage');
+  stage.style.width = `${width}px`;
+  stage.style.height = `${height}px`;
+
+  const overlay = document.getElementById('treeOverlay');
+  overlay.classList.remove('is-visible');
+  if (animate) void overlay.offsetWidth;
+  overlay.classList.add('is-visible');
+  overlay.classList.toggle('no-delay', !animate);
+}
+
+function applyTreeView(glide) {
+  const stage = document.getElementById('treeStage');
+  if (!stage) return;
+  const { s, x, y } = tree.view;
+  stage.classList.toggle('is-gliding', !!glide);
+  stage.style.transform = `translate(${x}px,${y}px) scale(${s})`;
+  const value = document.getElementById('treeZoomValue');
+  if (value) value.textContent = `${Math.round(s * 100)}%`;
+  if (glide) setTimeout(() => stage.classList.remove('is-gliding'), 420);
+}
+
+function zoomTree(factor, cx, cy) {
+  const view = tree.view;
+  const scale = Math.min(2, Math.max(0.25, view.s * factor));
+  view.x = cx - (cx - view.x) * (scale / view.s);
+  view.y = cy - (cy - view.y) * (scale / view.s);
+  view.s = scale;
+  applyTreeView(true);
+}
+
+function zoomTreeFromCenter(factor) {
+  const rect = document.getElementById('treeViewport').getBoundingClientRect();
+  zoomTree(factor, rect.width / 2, rect.height / 2);
+}
+
+function fitTree(glide) {
+  const viewport = document.getElementById('treeViewport');
+  const stage = document.getElementById('treeStage');
+  if (!viewport || !stage || !tree.root) return;
+  const rect = viewport.getBoundingClientRect();
+  if (!rect.width) return;
+  const width = tree.root.width;
+  const height = parseFloat(stage.style.height) || 400;
+  const scale = Math.max(0.25, Math.min((rect.width - 48) / width, (rect.height - 72) / height, 1));
+  tree.view = { s: scale, x: (rect.width - width * scale) / 2, y: 24 };
+  applyTreeView(glide);
+}
+
+// First view: fit the width only (tall branches can be panned), never below a readable scale
+function showTreeTop(glide = false) {
+  const viewport = document.getElementById('treeViewport');
+  if (!viewport || !tree.root) return;
+  const rect = viewport.getBoundingClientRect();
+  if (!rect.width) return;
+  const width = tree.root.width;
+  const scale = Math.max(0.7, Math.min((rect.width - 48) / width, 1));
+  const rootCenter = tree.root.virtual ? width / 2 : tree.root.x + nodeWidth(tree.root) / 2;
+  const x = width * scale <= rect.width ? (rect.width - width * scale) / 2 : rect.width / 2 - rootCenter * scale;
+  tree.view = { s: scale, x, y: 24 };
+  applyTreeView(glide);
+}
+
+function focusTreeNode(node) {
+  const rect = document.getElementById('treeViewport').getBoundingClientRect();
+  const view = tree.view;
+  view.s = Math.max(view.s, 0.85);
+  view.x = rect.width / 2 - (node.x + nodeWidth(node) / 2) * view.s;
+  view.y = rect.height / 2 - (node.y + nodeHeight(node) / 2) * view.s;
+  applyTreeView(true);
+}
+
+function expandPathTo(node) {
+  let current = node.parent;
+  while (current && !current.virtual) {
+    tree.expandedKeys.add(current.key);
+    current = current.parent;
+  }
+}
+
+function bindTreeViewport(viewport) {
+  let drag = null;
+
+  viewport.addEventListener('wheel', event => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    const rect = viewport.getBoundingClientRect();
+    zoomTree(event.deltaY < 0 ? 1.1 : 1 / 1.1, event.clientX - rect.left, event.clientY - rect.top);
+  }, { passive: false });
+
+  viewport.addEventListener('pointerdown', event => {
+    if (event.target.closest('button, a, input, .tree-legend')) return;
+    drag = { x: event.clientX, y: event.clientY, viewX: tree.view.x, viewY: tree.view.y };
+    viewport.setPointerCapture(event.pointerId);
+    viewport.classList.add('is-dragging');
+  });
+
+  viewport.addEventListener('pointermove', event => {
+    if (!drag) return;
+    tree.view.x = drag.viewX + event.clientX - drag.x;
+    tree.view.y = drag.viewY + event.clientY - drag.y;
+    applyTreeView(false);
+  });
+
+  const endDrag = () => {
+    drag = null;
+    viewport.classList.remove('is-dragging');
+  };
+  viewport.addEventListener('pointerup', endDrag);
+  viewport.addEventListener('pointercancel', endDrag);
+}
+
+function handleTreeAction(action) {
+  if (action === 'expand-all') {
+    tree.expandedKeys = new Set(tree.nodes.filter(node => node.children.length).map(node => node.key));
+    layoutTree();
+    showTreeTop(true);
+  } else if (action === 'zoom-in') {
+    zoomTreeFromCenter(1.2);
+  } else if (action === 'zoom-out') {
+    zoomTreeFromCenter(1 / 1.2);
+  } else if (action === 'fit') {
+    fitTree(true);
+  }
+}
+
+/* ---------- Search inside the function ---------- */
+
+const funcSearch = { query: '', matches: [], index: 0 };
+
+function searchableEmployees() {
+  if (currentView === 'tree') return tree.preorder.map(node => node.emp);
+  const seen = new Set();
+  return Array.from(document.querySelectorAll('#orgChart [data-emp-id]'))
+    .map(el => employeeDirectory[Number(el.dataset.empId)])
+    .filter(emp => emp && !seen.has(emp._id) && seen.add(emp._id));
+}
+
+function updateCardHighlights() {
+  const current = funcSearch.matches[funcSearch.index];
+  document.querySelectorAll('#orgChart [data-emp-id]').forEach(card => {
+    const emp = employeeDirectory[Number(card.dataset.empId)];
+    if (!emp) return;
+    const isMatch = funcSearch.matches.includes(emp);
+    card.classList.toggle('is-match', isMatch);
+    card.classList.toggle('is-current', emp === current);
+    const nameEl = card.querySelector('.emp-card-name, .head-card-name');
+    if (nameEl) nameEl.innerHTML = isMatch ? highlightText(emp.name || '—', funcSearch.query) : escapeHtml(emp.name || '—');
+  });
+}
+
+function runFunctionSearch(reveal) {
+  const query = funcSearch.query;
+  funcSearch.matches = query.length >= 2
+    ? searchableEmployees().filter(emp =>
+        [emp.name, emp.jobTitle, emp.email, emp.group].join(' ').toLowerCase().includes(query))
+    : [];
+  if (funcSearch.index >= funcSearch.matches.length) funcSearch.index = 0;
+  showSearchMatch(reveal);
+}
+
+function showSearchMatch(reveal) {
+  const total = funcSearch.matches.length;
+  document.getElementById('funcSearchCount').textContent =
+    funcSearch.query.length < 2 ? '' : total ? `${funcSearch.index + 1} of ${total}` : 'No match';
+  document.getElementById('funcSearchPrev').disabled = total < 2;
+  document.getElementById('funcSearchNext').disabled = total < 2;
+
+  const current = funcSearch.matches[funcSearch.index];
+  if (current && reveal) {
+    revealEmployee(current, false);
+  } else {
+    updateCardHighlights();
+  }
+}
+
+function stepSearch(delta) {
+  const total = funcSearch.matches.length;
+  if (!total) return;
+  funcSearch.index = (funcSearch.index + delta + total) % total;
+  showSearchMatch(true);
+}
+
+/* ---------- Revealing an employee ---------- */
+
+function flashCard(card) {
+  if (!card) return;
+  card.classList.remove('is-flash');
+  void card.offsetWidth;
+  card.classList.add('is-flash');
+}
+
+function revealEmployee(emp, flash) {
+  if (currentView === 'tree') {
+    const node = tree.nodes.find(item => item.emp === emp);
+    if (!node) return;
+    expandPathTo(node);
+    layoutTree();
+    updateCardHighlights();
+    focusTreeNode(node);
+    if (flash) flashCard(tree.cardEls.get(node.id));
+    return;
+  }
+
+  updateCardHighlights();
+  const card = document.querySelector(`#orgChart [data-emp-id="${emp._id}"]`);
+  if (!card) return;
+
+  const column = card.closest('.org-column');
+  if (column?.classList.contains('is-collapsed')) {
+    column.classList.remove('is-collapsed');
+    column.querySelector('.col-header-btn')?.setAttribute('aria-expanded', 'true');
+  }
+  const headToggle = document.querySelector('.head-section .tree-toggle-btn[aria-expanded="false"]');
+  if (headToggle && !card.closest('.head-section')) {
+    window.toggleHeadSection({ stopPropagation() {} }, headToggle);
+  }
+
+  card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  if (flash) flashCard(card);
+}
+
+// Called by the profile dialog's "Show in chart" link
+window.showEmployeeInChart = function (employee) {
+  if (!employee || employee.cs !== currentCs) return false;
+  const key = employeeKey(employee);
+  const local = employeeDirectory.find(emp => employeeKey(emp) === key);
+  if (!local) return false;
+  revealEmployee(local, true);
+  return true;
+};
+
+/* ---------- Rendering ---------- */
+
+function readViewPreference(cs) {
+  try {
+    const saved = localStorage.getItem(VIEW_STORAGE_KEY + cs);
+    if (saved === 'tree' || saved === 'groups') return saved;
+  } catch (e) { /* storage unavailable */ }
+  return TREE_BY_DEFAULT.includes(cs) ? 'tree' : 'groups';
+}
+
+function setView(view) {
+  currentView = view;
+  try { localStorage.setItem(VIEW_STORAGE_KEY + currentCs, view); } catch (e) { /* storage unavailable */ }
+  renderChart();
+}
+
+function renderChart() {
+  document.querySelectorAll('.view-toggle [data-view]').forEach(btn => {
+    btn.setAttribute('aria-pressed', String(btn.dataset.view === currentView));
+  });
+
+  const chart = document.getElementById('orgChart');
+  if (employeeDirectory.length === 0) {
+    chart.innerHTML = `<div class="no-results">No employees found for "${escapeHtml(currentCs)}"</div>`;
+    return;
+  }
+
+  if (currentView === 'tree') {
+    chart.innerHTML = renderTreeShell();
+    initTree();
+  } else {
+    chart.innerHTML = renderGroupsView(employeeDirectory);
+    layoutOrgGrids();
+  }
+  runFunctionSearch(false);
+}
+
+function bindChartEvents() {
+  const chart = document.getElementById('orgChart');
+
+  chart.addEventListener('click', event => {
+    const action = event.target.closest('[data-tree-action]');
+    if (action) {
+      handleTreeAction(action.dataset.treeAction);
+      return;
+    }
+
+    const toggle = event.target.closest('[data-toggle-key]');
+    if (toggle) {
+      const key = toggle.dataset.toggleKey;
+      if (tree.expandedKeys.has(key)) tree.expandedKeys.delete(key);
+      else tree.expandedKeys.add(key);
+      layoutTree();
+      return;
+    }
+
+    if (window.getSelection()?.toString().trim()) return;
+    const card = event.target.closest('.emp-card, .head-card');
+    if (!card) return;
+    const emp = employeeDirectory[Number(card.dataset.empId)];
+    if (emp) openEmployeeProfile(emp);
+  });
+
+  // Back to the main page keeps its search (?q=) when we came from there
+  document.querySelector('.btn-back')?.addEventListener('click', event => {
+    let fromHome = false;
+    try {
+      const referrer = new URL(document.referrer);
+      fromHome = referrer.origin === location.origin && (referrer.pathname === '/' || referrer.pathname === '/index.html');
+    } catch (e) { /* no referrer */ }
+    if (fromHome && history.length > 1) {
+      event.preventDefault();
+      history.back();
+    }
+  });
+
+  document.querySelectorAll('.view-toggle [data-view]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.view !== currentView) setView(btn.dataset.view);
+    });
+  });
+
+  const input = document.getElementById('funcSearch');
+  const runDebounced = debounce(() => {
+    funcSearch.query = input.value.trim().toLowerCase();
+    funcSearch.index = 0;
+    runFunctionSearch(true);
+  }, 160);
+  input.addEventListener('input', runDebounced);
+  input.addEventListener('keydown', event => {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    stepSearch(event.shiftKey ? -1 : 1);
+  });
+  document.getElementById('funcSearchPrev').addEventListener('click', () => stepSearch(-1));
+  document.getElementById('funcSearchNext').addEventListener('click', () => stepSearch(1));
+}
+
+async function loadFunctionData({ refresh = false } = {}) {
+  const params = new URLSearchParams(window.location.search);
+  const cs = params.get('cs');
+  if (!cs) { window.location.href = '/'; return; }
+
+  if (!refresh) {
+    currentCs = cs;
+    currentView = readViewPreference(cs);
+    document.title = `CS OrgChart - ${cs}`;
+    document.getElementById('funcTitle').textContent = cs;
+    renderFaqBanner(cs);
+    logPageVisit(cs);
+  }
+
+  try {
+    const [allRes, likesRes] = await Promise.all([
+      apiFetch('/api/employees'),
+      apiFetch('/api/likes/summary')
+    ]);
+
+    const allEmployees = await allRes.json();
+    setDirectory(allEmployees);
+    try { setLikeSummaries(await likesRes.json()); } catch (e) { setLikeSummaries({}); }
+
+    employeeDirectory = allEmployees
+      .filter(employee => employee.cs === cs)
+      .map((employee, index) => ({ ...employee, _id: index }));
+    document.getElementById('funcCount').textContent = `${employeeDirectory.length} employees`;
+
+    renderChart();
+
+    const target = !refresh && params.get('emp');
+    if (target) {
+      const emp = employeeDirectory.find(item => normalizeKey(item.email) === normalizeKey(target));
+      if (emp) requestAnimationFrame(() => revealEmployee(emp, true));
+    }
+  } catch (e) {
+    console.error(e);
+    document.getElementById('orgChart').innerHTML = '<div class="no-results">Error loading data</div>';
+  }
 }
 
 window.addEventListener('resize', debounce(layoutOrgGrids, 120));
 
 window.refreshOrgChart = async () => {
-  await loadFunctionData();
+  await loadFunctionData({ refresh: true });
 };
 
+bindChartEvents();
 loadFunctionData();
-
-window.applyJavidanHack = function () {
-  console.log("applyJavidanHack started");
-  try {
-    const allNameEls = document.querySelectorAll('.org-tree-wrapper .emp-card-name, .org-tree-wrapper .head-card-name');
-    const sabirEl = Array.from(allNameEls).find(el => el.textContent.includes('Hajiyev, Sabir'));
-    const zhanelEl = Array.from(allNameEls).find(el => el.textContent.includes('Tleumbetova, Zhanel'));
-    const javidanEl = Array.from(allNameEls).find(el => el.textContent.includes('Guliyev, Javidan'));
-
-    if (!sabirEl || !zhanelEl || !javidanEl) {
-      console.error("Missing nodes", { sabir: !!sabirEl, zhanel: !!zhanelEl, javidan: !!javidanEl });
-      return;
-    }
-
-    const container = document.querySelector('.org-tree-wrapper');
-    let svg = document.getElementById('javidan-lines');
-    if (!svg) {
-      svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-      svg.id = 'javidan-lines';
-      svg.style.position = 'absolute';
-      svg.style.top = '0';
-      svg.style.left = '0';
-      svg.style.pointerEvents = 'none';
-      svg.style.zIndex = '5';
-      container.style.position = 'relative';
-      container.appendChild(svg);
-    }
-
-    const draw = () => {
-      try {
-        svg.innerHTML = '';
-        const customJavidan = javidanEl.closest('.javidan-joint-node');
-        if (!customJavidan) return;
-
-        const cRect = container.getBoundingClientRect();
-        if (cRect.width === 0 || cRect.height === 0) return;
-
-        svg.setAttribute('width', cRect.width);
-        svg.setAttribute('height', cRect.height);
-        svg.style.width = cRect.width + 'px';
-        svg.style.height = cRect.height + 'px';
-
-        // Find the toggle buttons (collapse chevrons) under Sabir and Zhanel
-        const sabirWrapper = sabirEl.closest('.tree-node-wrapper');
-        const zhanelWrapper = zhanelEl.closest('.tree-node-wrapper');
-        const sabirToggle = sabirWrapper ? sabirWrapper.querySelector('.tree-toggle-btn') : null;
-        const zhanelToggle = zhanelWrapper ? zhanelWrapper.querySelector('.tree-toggle-btn') : null;
-
-        // Start from bottom of toggle buttons (or card bottom as fallback)
-        const sSource = sabirToggle || sabirEl.closest('.tree-node');
-        const zSource = zhanelToggle || zhanelEl.closest('.tree-node');
-        const sRect = sSource.getBoundingClientRect();
-        const zRect = zSource.getBoundingClientRect();
-
-        // End at the L1|L2 group label
-        const jLabel = customJavidan.querySelector('.tree-group-label');
-        const jTarget = jLabel || javidanEl.closest('.tree-node');
-        const jRect = jTarget.getBoundingClientRect();
-
-        const sX = sRect.left + sRect.width / 2 - cRect.left;
-        const sY = sRect.bottom - cRect.top;
-
-        const zX = zRect.left + zRect.width / 2 - cRect.left;
-        const zY = zRect.bottom - cRect.top;
-
-        const jX = jRect.left + jRect.width / 2 - cRect.left;
-        const jY = jRect.top - cRect.top;
-
-        // Horizontal bend point halfway between source bottom and target top
-        const bendY = Math.max(sY, zY) + (jY - Math.max(sY, zY)) * 0.5;
-
-        const drawPath = (x1, y1, x2, y2) => {
-          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-          const d = `M ${x1} ${y1} L ${x1} ${bendY} L ${x2} ${bendY} L ${x2} ${y2}`;
-          path.setAttribute('d', d);
-          path.setAttribute('stroke', '#d8dce5');
-          path.setAttribute('stroke-width', '2');
-          path.setAttribute('fill', 'none');
-          svg.appendChild(path);
-        };
-
-        drawPath(sX, sY, jX, jY);
-        drawPath(zX, zY, jX, jY);
-        svg.style.overflow = 'visible';
-      } catch (e) {
-        console.error("Error drawing SVG lines:", e);
-      }
-    };
-
-    setTimeout(draw, 100);
-    setTimeout(draw, 500);
-    setTimeout(draw, 1500); // Extra retry
-    window.addEventListener('resize', draw);
-    document.querySelectorAll('.tree-toggle-btn').forEach(btn => {
-      btn.addEventListener('click', () => setTimeout(draw, 350));
-    });
-  } catch (e) {
-    console.error("Javidan hack failed:", e);
-  }
-};

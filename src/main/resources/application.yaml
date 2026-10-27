@@ -1,8 +1,12 @@
+# No default profile: SPRING_PROFILES_ACTIVE=prod, stage or local must be given (StartupGuard refuses to start
+# without it). See docs/SSO.md.
 spring:
-  profiles:
-    active: local
   application:
     name: cs-orgchart
+  autoconfigure:
+    exclude:
+      # The accounts of the password form come from AUTH_PASSWORD_USERS (SecurityConfig), never Boot's default user
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:OrgStructure}?ssl=true&sslmode=require
     username: ${DB_USER:postgres}
@@ -19,33 +23,57 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
 
-  security:
-    oauth2:
-      client:
-        registration:
-          corporate-sso:
-            client-id: ${SSO_CLIENT_ID:}
-            client-secret: ${SSO_CLIENT_SECRET:}
-            scope: openid, profile, email
-            authorization-grant-type: authorization_code
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-        provider:
-          corporate-sso:
-            issuer-uri: ${SSO_ISSUER_URI:}
-
 server:
   port: 8080
+  # Whether to trust X-Forwarded-* (scheme, host, client address) from an HTTP proxy in front of the app. On the
+  # server there is none: a TCP port forward (netsh portproxy 443 -> 8082) and TLS ends in the app itself
+  # (server.ssl), so the request already carries the real scheme and host, and the headers must not be trusted
+  # (anyone could send them). native (or framework) only behind a reverse proxy that ends TLS (docs/SSO.md).
+  forward-headers-strategy: ${SERVER_FORWARD_HEADERS_STRATEGY:none}
   servlet:
     session:
-      cookie:
-        http-only: true
-        secure: false # Переключить в true на PROD после подключения HTTPS
-        same-site: strict
+      # Signed out after this long without a request (every request starts it again)
+      timeout: ${SESSION_TIMEOUT:8h}
+      # The session cookie (SameSite, Secure, HttpOnly) follows the sign-in mode: SessionCookieDefaults
 
 app:
   data:
     excel-path: c:/Projects/OrgStructure/data/result_new.xlsx
     photos-path: c:/Projects/OrgStructure/photos
+  # Requests for an alias host (comma-separated, any case) are redirected to the same address on the canonical
+  # host before sign-in (CanonicalHostFilter, docs/SSO.md); empty: off. Status 302 or 301.
+  canonical-host: ${APP_CANONICAL_HOST:}
+  alias-hosts: ${APP_ALIAS_HOSTS:}
+  alias-redirect-status: ${APP_ALIAS_REDIRECT_STATUS:302}
+
+# How people get in (AuthMode): AUTH_SSO_ENABLED=true - sign-in with Microsoft Entra ID (SAML);
+# AUTH_SSO_ENABLED=false - open to everyone without sign-in (as before SSO), or the password form when
+# AUTH_PASSWORD_ENABLED=true. The profiles give their own defaults (prod: SSO; stage and local: open).
+auth:
+  sso:
+    enabled: ${AUTH_SSO_ENABLED:false}
+    # SAML 2.0 with Microsoft Entra ID (SamlConfig), read only with SSO on, no defaults: the Identifier of the
+    # Entra application, its Reply URL (https://<site>/login/saml2/sso/entra) and its App Federation Metadata Url
+    entity-id: ${SAML_ENTITY_ID:}
+    acs-url: ${SAML_ACS_URL:}
+    metadata-uri: ${SAML_METADATA_URI:}
+    # Optional: only addresses of these domains (comma-separated, any case); empty: everyone Entra lets through
+    allowed-email-domains: ${SAML_ALLOWED_EMAIL_DOMAINS:}
+    # GET /me: the signed-in person's own SAML claims, for checking the claims of the Entra application;
+    # off by default, switch it on only for the check
+    debug-endpoint: ${AUTH_SSO_DEBUG_ENDPOINT:false}
+  password:
+    # Emergency sign-in instead of the open site (only with SSO off); off unless asked for
+    enabled: ${AUTH_PASSWORD_ENABLED:false}
+    # Emergency accounts of the password form: name:bcrypt-hash[,name:bcrypt-hash...]
+    users: ${AUTH_PASSWORD_USERS:}
+  # /logout; empty: on only with the password form
+  logout:
+    enabled: ${AUTH_LOGOUT_ENABLED:}
+  # Everyone signed in is USER; these addresses (e-mail or UPN, or the password account name) get more
+  roles:
+    system-admin-emails: ${SYSTEM_ADMIN_EMAILS:}
+    hr-editor-emails: ${HR_EDITOR_EMAILS:}
 
 management:
   endpoints:

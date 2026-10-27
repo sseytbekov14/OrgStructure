@@ -11,311 +11,13 @@ const FUNC_ICONS = {
 
 let allEmployees = [];
 let searchTimer = null;
-let likeSummaries = {};
-
-function getEmployeeLookupKey(employee) {
-  return `${employee.email || ""}||${employee.name || ""}||${employee.cs || ""}||${employee.jobTitle || ""}`;
-}
+let searchController = null;
+let searchResults = [];
+let searchQuery = "";
+let functionFilter = "All";
 
 function svgIcon(path) {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="${path}"></path></svg>`;
-}
-
-function getInitials(name) {
-  if (!name) return "?";
-  const parts = name.trim().split(" ");
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return parts[0][0].toUpperCase();
-}
-
-function escapeHtml(value = "") {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
-}
-
-function renderPhoto(emp, size = "sm") {
-  const initials = getInitials(emp.name);
-  const cls = size === "lg" ? "photo-lg" : "photo-sm";
-  if (emp.photoUrl && emp.photoUrl !== "/photos/default.jpg") {
-    return `<img class="${cls}" src="${escapeHtml(emp.photoUrl)}" alt="${escapeHtml(emp.name || "Employee photo")}"
-      onerror="this.outerHTML='<div class=\\'${cls} initials-circle\\'>${escapeHtml(initials)}</div>'" />`;
-  }
-  return `<div class="${cls} initials-circle">${escapeHtml(initials)}</div>`;
-}
-
-function findEmployeeMatch({ name, email }) {
-  return allEmployees.find((candidate) =>
-    (email && candidate.email === email) ||
-    (name && candidate.name === name)
-  );
-}
-
-function buildPmDetails(emp) {
-  if (!emp.pm) return null;
-
-  const linkedPm = findEmployeeMatch({ name: emp.pm, email: emp.pmEmail });
-  return {
-    name: emp.pm,
-    email: emp.pmEmail || linkedPm?.email || "",
-    jobTitle: emp.pmJobTitle || linkedPm?.jobTitle || "",
-    photoUrl: linkedPm?.photoUrl || "/photos/default.jpg",
-    cs: linkedPm?.cs || "",
-    group: linkedPm?.group || "",
-    areaOfDuties: linkedPm?.areaOfDuties || "",
-    jobDescription: linkedPm?.jobDescription || ""
-  };
-}
-
-function renderModalAvatar(person, variant) {
-  const initials = getInitials(person?.name || (variant === "pm" ? "PM" : "?"));
-  const avatarClass = `modal-avatar ${variant === "pm" ? "pm-avatar" : "employee-avatar"}`;
-
-  if (person?.photoUrl && person.photoUrl !== "/photos/default.jpg") {
-    return `<img class="${avatarClass}" src="${escapeHtml(person.photoUrl)}" alt="${escapeHtml(person.name || "Employee photo")}"
-      onerror="this.outerHTML='<div class=\\'${avatarClass} initials-circle\\'>${escapeHtml(initials)}</div>'" />`;
-  }
-
-  return `<div class="${avatarClass} initials-circle">${escapeHtml(initials)}</div>`;
-}
-
-function renderMailAction(email) {
-  if (!email) {
-    return '<div class="modal-email-empty">Email not specified</div>';
-  }
-
-  const safeEmail = escapeHtml(email);
-  return `
-    <div class="modal-email-row">
-      <div class="modal-email-link">${safeEmail}</div>
-      <a class="modal-mail-btn" href="mailto:${safeEmail}" data-email="${safeEmail}">Mail</a>
-    </div>
-  `;
-}
-
-function renderLikeButtons(email) {
-  if (!email) return '';
-  const key = email.trim().toLowerCase();
-  const summary = likeSummaries[key] || { solvedCount: 0, exceededCount: 0 };
-
-  return `
-    <div class="like-section">
-      <div class="like-section-label">Reviews</div>
-      <div class="like-buttons">
-        <button class="like-btn like-btn-solved" data-email="${escapeHtml(email)}" data-type="SOLVED" type="button">
-          <span class="like-btn-icon">👍</span>
-          <span class="like-btn-text">Delivered Results</span>
-          <span class="like-btn-count" id="likeCount_SOLVED_${escapeHtml(key)}">${summary.solvedCount}</span>
-        </button>
-        <button class="like-btn like-btn-exceeded" data-email="${escapeHtml(email)}" data-type="EXCEEDED" type="button">
-          <span class="like-btn-icon">❤️</span>
-          <span class="like-btn-text">Above and Beyond</span>
-          <span class="like-btn-count" id="likeCount_EXCEEDED_${escapeHtml(key)}">${summary.exceededCount}</span>
-        </button>
-      </div>
-    </div>
-  `;
-}
-
-function renderModalContent(emp) {
-  const pm = buildPmDetails(emp);
-  const employeeMeta = [emp.cs, emp.group].filter(Boolean).join(" · ") || "—";
-
-  return `
-    <div class="modal-section">
-      <div class="modal-section-label">Employee</div>
-      <div class="modal-profile">
-        ${renderModalAvatar(emp, "employee")}
-        <div class="modal-profile-body">
-          <h2 class="modal-name" id="employeeModalTitle">${escapeHtml(emp.name || "—")}</h2>
-          <div class="modal-job">${escapeHtml(emp.jobTitle || "—")}</div>
-          <div class="modal-meta">${escapeHtml(employeeMeta)}</div>
-        </div>
-      </div>
-      ${emp.areaOfDuties ? `
-        <div class="modal-duties-block">
-          <div class="modal-duties-label">Area of Duties</div>
-          <div class="modal-duties-value">${escapeHtml(emp.areaOfDuties)}</div>
-        </div>
-      ` : ""}
-      ${emp.jobDescription ? `
-        <div class="modal-duties-block">
-          <div class="modal-duties-label">Job Description</div>
-          <div class="modal-duties-value">${escapeHtml(emp.jobDescription)}</div>
-        </div>
-      ` : ""}
-      ${renderMailAction(emp.email)}
-      ${renderLikeButtons(emp.email)}
-    </div>
-    <div class="modal-section modal-section-pm">
-      <div class="modal-section-label">Performance Manager</div>
-      ${
-        pm ? `
-          <div class="modal-profile">
-            ${renderModalAvatar(pm, "pm")}
-            <div class="modal-profile-body">
-              <h3 class="modal-name">${escapeHtml(pm.name || "—")}</h3>
-              ${pm.jobTitle ? `<div class="modal-job modal-job-pm">${escapeHtml(pm.jobTitle)}</div>` : ""}
-              ${[pm.cs, pm.group].filter(Boolean).join(" · ") ? `<div class="modal-meta">${escapeHtml([pm.cs, pm.group].filter(Boolean).join(" · "))}</div>` : ""}
-            </div>
-          </div>
-          ${pm.areaOfDuties ? `
-            <div class="modal-duties-block">
-              <div class="modal-duties-label">Area of Duties</div>
-              <div class="modal-duties-value">${escapeHtml(pm.areaOfDuties)}</div>
-            </div>
-          ` : ""}
-          ${pm.jobDescription ? `
-            <div class="modal-duties-block">
-              <div class="modal-duties-label">Job Description</div>
-              <div class="modal-duties-value">${escapeHtml(pm.jobDescription)}</div>
-            </div>
-          ` : ""}
-          ${renderMailAction(pm.email)}
-        ` : `
-          <div class="modal-profile modal-profile-empty">
-            <div class="modal-avatar pm-avatar initials-circle">PM</div>
-            <div class="modal-profile-body">
-              <h3 class="modal-name">Performance Manager not assigned</h3>
-            </div>
-          </div>
-        `
-      }
-    </div>
-  `;
-}
-
-function ensureEmployeeModal() {
-  let overlay = document.getElementById("employeeModal");
-  if (overlay) return overlay;
-
-  document.body.insertAdjacentHTML("beforeend", `
-    <div class="employee-modal-overlay" id="employeeModal" aria-hidden="true">
-      <div class="employee-modal" role="dialog" aria-modal="true" aria-labelledby="employeeModalTitle">
-        <button class="employee-modal-close" type="button" aria-label="Close employee details">&times;</button>
-        <div class="employee-modal-grid" id="employeeModalContent"></div>
-      </div>
-    </div>
-  `);
-
-  overlay = document.getElementById("employeeModal");
-  overlay.addEventListener("click", (event) => {
-    if (event.target === overlay || event.target.closest(".employee-modal-close")) {
-      closeEmployeeModal();
-    }
-  });
-
-  overlay.addEventListener('click', (event) => {
-    const likeBtn = event.target.closest('.like-btn');
-    if (likeBtn) {
-      event.stopPropagation();
-      handleLikeClick(likeBtn);
-    }
-    
-    const mailBtn = event.target.closest('.modal-mail-btn');
-    if (mailBtn && mailBtn.dataset.email) {
-      logInteraction(mailBtn.dataset.email, 'MAIL_CLICK');
-    }
-  });
-
-  return overlay;
-}
-
-async function handleLikeClick(btn) {
-  const email = btn.dataset.email;
-  const type = btn.dataset.type;
-  if (!email || !type) return;
-
-  btn.disabled = true;
-  btn.classList.add('like-btn-sending');
-
-  try {
-    const res = await fetch('/api/likes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ employeeEmail: email, reactionType: type, visitorId: getVisitorId() })
-    });
-
-    if (res.ok) {
-      const key = email.trim().toLowerCase();
-      if (!likeSummaries[key]) likeSummaries[key] = { solvedCount: 0, exceededCount: 0 };
-      if (type === 'SOLVED') likeSummaries[key].solvedCount++;
-      else likeSummaries[key].exceededCount++;
-
-      const countEl = document.getElementById(`likeCount_${type}_${key}`);
-      if (countEl) {
-        countEl.textContent = type === 'SOLVED' ? likeSummaries[key].solvedCount : likeSummaries[key].exceededCount;
-        countEl.classList.add('like-count-bump');
-        setTimeout(() => countEl.classList.remove('like-count-bump'), 400);
-      }
-
-      btn.classList.add('like-btn-success');
-      setTimeout(() => btn.classList.remove('like-btn-success'), 1200);
-    }
-  } catch (e) {
-    console.error('Failed to send like', e);
-  } finally {
-    btn.disabled = false;
-    btn.classList.remove('like-btn-sending');
-  }
-}
-
-function openEmployeeModal(emp) {
-  const overlay = ensureEmployeeModal();
-  const content = document.getElementById("employeeModalContent");
-  content.innerHTML = renderModalContent(emp);
-  overlay.classList.add("is-open");
-  overlay.setAttribute("aria-hidden", "false");
-  document.body.classList.add("modal-open");
-  overlay.querySelector(".employee-modal-close")?.focus();
-  
-  if (emp && emp.email) {
-    logInteraction(emp.email, 'PROFILE_VIEW');
-  }
-}
-
-function closeEmployeeModal() {
-  const overlay = document.getElementById("employeeModal");
-  if (!overlay) return;
-  overlay.classList.remove("is-open");
-  overlay.setAttribute("aria-hidden", "true");
-  document.body.classList.remove("modal-open");
-}
-
-function bindSearchResultEvents() {
-  const container = document.getElementById("searchResults");
-  if (!container || container.dataset.modalBound === "true") return;
-
-  container.addEventListener("click", (event) => {
-    if (event.target.closest("a, .result-email")) return;
-    if (window.getSelection()?.toString().trim()) return;
-    const card = event.target.closest(".result-card");
-    if (!card) return;
-
-    const employee = allEmployees.find((item) => getEmployeeLookupKey(item) === card.dataset.empKey);
-    if (employee) openEmployeeModal(employee);
-  });
-
-  container.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" && event.key !== " ") return;
-    const card = event.target.closest(".result-card");
-    if (!card) return;
-
-    event.preventDefault();
-    const employee = allEmployees.find((item) => getEmployeeLookupKey(item) === card.dataset.empKey);
-    if (employee) openEmployeeModal(employee);
-  });
-
-  document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") {
-      closeEmployeeModal();
-    }
-  });
-
-  container.dataset.modalBound = "true";
 }
 
 function getOrbitPositions(count) {
@@ -334,33 +36,45 @@ function getOrbitPositions(count) {
   });
 }
 
+const MIN_QUERY_LENGTH = 2;
+const MATCH_FIELDS = [
+  ["Area of duties", "areaOfDuties"],
+  ["Job description", "jobDescription"],
+  ["Email", "email"]
+];
+
+const searchInput = document.getElementById("searchInput");
+let spinnerTimer = null;
+let openFirstWhenReady = false;
+
 async function loadDirectoryData() {
+  const count = document.getElementById("centralCount");
+  const copy = document.getElementById("centralCopy");
+
   try {
     const [empRes, funcRes, likesRes] = await Promise.all([
-      fetch("/api/employees"),
-      fetch("/api/functions"),
-      fetch("/api/likes/summary")
+      apiFetch("/api/employees"),
+      apiFetch("/api/functions"),
+      apiFetch("/api/likes/summary")
     ]);
 
     allEmployees = await empRes.json();
-    try { likeSummaries = await likesRes.json(); } catch(e) { likeSummaries = {}; }
+    setDirectory(allEmployees);
+    try { setLikeSummaries(await likesRes.json()); } catch (e) { setLikeSummaries({}); }
     const functions = await funcRes.json();
 
-    closeEmployeeModal();
-    document.getElementById("empCount").textContent = `${allEmployees.length} employees`;
-    document.getElementById("headerSubtitle").textContent = `${functions.length} departments - ${allEmployees.length} employees`;
+    count.textContent = `${allEmployees.length} people`;
     renderFunctions(functions);
 
-    const activeQuery = document.getElementById("searchInput")?.value?.trim() || "";
-    if (activeQuery.length >= 2) {
-      handleSearch(activeQuery);
+    const activeQuery = searchInput.value.trim();
+    if (activeQuery.length >= MIN_QUERY_LENGTH) {
+      handleSearch(activeQuery, { log: false });
     } else {
-      document.getElementById("functionsSection").style.display = "";
-      document.getElementById("searchSection").style.display = "none";
-      document.getElementById("searchClear").style.display = "none";
+      showFunctions();
     }
   } catch (error) {
-    document.getElementById("empCount").textContent = "Error";
+    count.textContent = "Couldn't load data";
+    copy.textContent = "Refresh the page to try again.";
     console.error(error);
   }
 }
@@ -388,7 +102,7 @@ function renderFunctions(functions) {
           class="func-node"
           href="/function.html?cs=${encodeURIComponent(cs)}"
           style="--x:${x}%; --y:${y}%"
-          aria-label="Open ${escapeHtml(cs)} function"
+          aria-label="Open ${escapeHtml(cs)} function, ${count} employees"
         >
           <div class="func-node-icon">${svgIcon(iconPath)}</div>
           <div class="func-node-body">
@@ -401,166 +115,289 @@ function renderFunctions(functions) {
     .join("");
 
   links.innerHTML = positions
-    .map(
-      ({ x, y }) =>
-        `<line class="orbit-link" x1="50" y1="50" x2="${x}" y2="${y}"></line>`
-    )
+    .map(({ x, y }) => `<line class="orbit-link" x1="50" y1="50" x2="${x}" y2="${y}"></line>`)
     .join("");
 }
 
-function renderSearchResults(employees, query) {
+/* ---------- Search ---------- */
+
+function updateSearchChrome() {
+  const value = searchInput.value;
+  document.getElementById("searchClear").hidden = !value;
+  document.getElementById("searchKbd").hidden = !!value;
+  document.getElementById("searchHint").hidden = value.trim().length !== 1;
+}
+
+function syncQueryToUrl(query) {
+  try {
+    history.replaceState(null, "", query ? `/?q=${encodeURIComponent(query)}` : "/");
+  } catch (e) { /* ignore */ }
+}
+
+function setSearchLoading(isLoading) {
+  clearTimeout(spinnerTimer);
+  const spinner = document.getElementById("searchSpinner");
+  document.getElementById("searchSection").setAttribute("aria-busy", String(isLoading));
+  if (isLoading) {
+    spinnerTimer = setTimeout(() => { spinner.hidden = false; }, 150);
+  } else {
+    spinner.hidden = true;
+  }
+}
+
+function showFunctions() {
+  document.getElementById("functionsSection").hidden = false;
+  document.getElementById("searchSection").hidden = true;
+}
+
+function queryWords(query) {
+  return query.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
+}
+
+function snippetAround(text, word, radius = 48) {
+  const clean = String(text).replace(/\s+/g, " ").trim();
+  const index = clean.toLowerCase().indexOf(word);
+  if (index < 0) return clean;
+  const start = Math.max(0, index - radius);
+  const end = Math.min(clean.length, index + word.length + radius);
+  return `${start > 0 ? "…" : ""}${clean.slice(start, end)}${end < clean.length ? "…" : ""}`;
+}
+
+// Explains results that matched on a field the row does not show
+function renderMatchContext(employee, query) {
+  const shown = [employee.name, employee.jobTitle, employee.cs, employee.group].join(" ").toLowerCase();
+  const hidden = queryWords(query).filter((word) => !shown.includes(word));
+  if (!hidden.length) return "";
+
+  for (const [label, key] of MATCH_FIELDS) {
+    const value = employee[key];
+    if (!value) continue;
+    const word = hidden.find((item) => value.toLowerCase().includes(item));
+    if (word) {
+      return `<span class="result-match"><span class="result-match-label">${label}:</span> ${highlightText(snippetAround(value, word), query)}</span>`;
+    }
+  }
+  return "";
+}
+
+function renderEmptyState() {
+  return `
+    <div class="search-empty">
+      <span class="search-empty-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M8.5 8.5l5 5M13.5 8.5l-5 5"/></svg>
+      </span>
+      <p class="search-empty-title">No one found for “${escapeHtml(searchQuery)}”</p>
+      <p class="search-empty-text">Check the spelling, or try a job title, group or function.</p>
+      <button type="button" class="tool-btn" data-clear-search>Clear search</button>
+    </div>
+  `;
+}
+
+function visibleResults() {
+  return functionFilter === "All"
+    ? searchResults
+    : searchResults.filter((employee) => employee.cs === functionFilter);
+}
+
+function renderSearchResults() {
   const container = document.getElementById("searchResults");
-  const label = document.getElementById("searchResultLabel");
+  const meta = document.getElementById("searchResultsMeta");
+  const filters = document.getElementById("searchFilters");
 
-  label.textContent = `Results for "${query}" - ${employees.length} found`;
+  const counts = { All: searchResults.length };
+  searchResults.forEach((employee) => {
+    counts[employee.cs] = (counts[employee.cs] || 0) + 1;
+  });
+  if (!counts[functionFilter]) functionFilter = "All";
 
-  if (employees.length === 0) {
-    container.innerHTML = `<div class="no-results">No employees found for "${escapeHtml(query)}"</div>`;
+  const functionNames = Object.keys(counts).filter((name) => name !== "All").sort();
+  filters.innerHTML = searchResults.length
+    ? ["All", ...functionNames].map((name) => `
+        <button type="button" class="search-filter" data-filter="${escapeHtml(name)}" aria-pressed="${name === functionFilter}">
+          ${escapeHtml(name)}<span class="search-filter-count">${counts[name]}</span>
+        </button>`).join("")
+    : "";
+
+  const visible = visibleResults();
+  meta.textContent = searchResults.length
+    ? `${visible.length} ${visible.length === 1 ? "person" : "people"} for “${searchQuery}”`
+    : "";
+
+  if (visible.length === 0) {
+    container.innerHTML = renderEmptyState();
     return;
   }
 
-  const groups = {};
-
-  employees.forEach((employee) => {
-    const key = `${employee.cs}||${employee.group}||${employee.jobTitle}`;
-    if (!groups[key]) {
-      groups[key] = {
-        cs: employee.cs,
-        group: employee.group,
-        jobTitle: employee.jobTitle,
-        emps: []
-      };
-    }
-    groups[key].emps.push(employee);
-  });
-
-  container.innerHTML = Object.values(groups)
-    .map(({ cs, group, jobTitle, emps }) => {
-      const groupLabel = group && group.toUpperCase() !== "HEAD" ? `${cs} - ${group}` : cs;
-
-      const empCards = emps
-        .map((emp) => {
-          const initials = getInitials(emp.name);
-          const emailHtml = emp.email
-            ? `<span class="result-email">${escapeHtml(emp.email)}</span>`
-            : "";
-
-          return `
-            <div class="result-card" data-emp-key="${escapeHtml(getEmployeeLookupKey(emp))}" tabindex="0" role="button" aria-label="Open details for ${escapeHtml(emp.name || "employee")}">
-              <div class="result-avatar">${initials}</div>
-              <div class="result-name">${escapeHtml(emp.name || "-")}</div>
-              ${emailHtml}
-            </div>
-          `;
-        })
-        .join("");
-
+  container.innerHTML = visible
+    .map((employee) => {
+      const index = searchResults.indexOf(employee);
       return `
-        <div class="result-group-block">
-          <div class="result-group-label">${escapeHtml(groupLabel || "-")}</div>
-          <div class="result-job-title">${escapeHtml(jobTitle || "")}</div>
-          ${empCards}
+        <div class="result-row">
+          <button type="button" class="result-main" data-result-index="${index}" aria-label="Open profile of ${escapeHtml(employee.name || "employee")}">
+            ${renderAvatar(employee, "md")}
+            <span class="result-body">
+              <span class="result-name">${highlightText(employee.name || "—", searchQuery)}</span>
+              <span class="result-title">${highlightText(employee.jobTitle || "", searchQuery)}</span>
+              <span class="result-tags">
+                ${employee.cs ? `<span class="result-tag result-tag-function">${highlightText(employee.cs, searchQuery)}</span>` : ""}
+                ${employee.group ? `<span class="result-tag result-tag-group">${highlightText(employee.group, searchQuery)}</span>` : ""}
+              </span>
+              ${renderMatchContext(employee, searchQuery)}
+            </span>
+            <span class="result-pm">${employee.pm ? `PM <b>${escapeHtml(employee.pm)}</b>` : ""}</span>
+          </button>
+          ${employee.email ? `<button type="button" class="icon-btn" data-copy="${escapeHtml(employee.email)}" aria-label="Copy email of ${escapeHtml(employee.name || "employee")}">${ICONS.copy}</button>` : ""}
         </div>
       `;
     })
     .join("");
-
-  bindSearchResultEvents();
 }
 
-function handleSearch(query) {
-  const funcSection = document.getElementById("functionsSection");
-  const searchSection = document.getElementById("searchSection");
-  const clearBtn = document.getElementById("searchClear");
+function openFirstResult() {
+  const first = visibleResults()[0];
+  if (first) openEmployeeProfile(first);
+}
 
-  if (!query || query.trim().length < 2) {
-    funcSection.style.display = "";
-    searchSection.style.display = "none";
-    clearBtn.style.display = "none";
+function handleSearch(query, { log = true } = {}) {
+  const trimmed = (query || "").trim();
+  syncQueryToUrl(trimmed.length >= MIN_QUERY_LENGTH ? trimmed : "");
+
+  if (trimmed.length < MIN_QUERY_LENGTH) {
+    searchController?.abort();
+    setSearchLoading(false);
+    openFirstWhenReady = false;
+    showFunctions();
     return;
   }
 
-  clearBtn.style.display = "";
-  funcSection.style.display = "none";
-  searchSection.style.display = "";
+  document.getElementById("functionsSection").hidden = true;
+  document.getElementById("searchSection").hidden = false;
 
-  const pmToggle = document.getElementById("searchPmToggle");
-  const isPmSearch = pmToggle && pmToggle.checked;
-  const apiQuery = isPmSearch ? `pm:${query.trim()}` : query.trim();
+  searchController?.abort();
+  searchController = new AbortController();
+  setSearchLoading(true);
 
-  fetch(`/api/search?q=${encodeURIComponent(apiQuery)}`)
+  apiFetch(`/api/search?q=${encodeURIComponent(trimmed)}`, { signal: searchController.signal })
     .then((response) => response.json())
     .then((data) => {
-      renderSearchResults(data, query.trim());
-      logSearchQuery(query.trim(), data.length);
+      searchResults = data;
+      searchQuery = trimmed;
+      setSearchLoading(false);
+      renderSearchResults();
+      if (log) logSearchQuery(trimmed, data.length);
+      if (openFirstWhenReady) {
+        openFirstWhenReady = false;
+        openFirstResult();
+      }
     })
-    .catch((error) => console.error(error));
+    .catch((error) => {
+      if (error.name === "AbortError") return;
+      setSearchLoading(false);
+      console.error(error);
+    });
 }
 
-function logSearchQuery(query, resultsCount) {
-  if (!query || query.length < 2) return;
-  fetch('/api/search-logs', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, resultsCount, visitorId: getVisitorId() })
-  }).catch(e => console.error('Failed to log search', e));
-}
-
-function logInteraction(email, type) {
-  if (!email || !type) return;
-  fetch('/api/interactions', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ employeeEmail: email, interactionType: type, visitorId: getVisitorId() })
-  }).catch(e => console.error('Failed to log interaction', e));
-}
-
-document.getElementById("searchInput").addEventListener("input", (event) => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(() => handleSearch(event.target.value), 300);
-});
-
-document.getElementById("searchClear").addEventListener("click", () => {
-  document.getElementById("searchInput").value = "";
+function clearSearch() {
+  searchInput.value = "";
+  updateSearchChrome();
   handleSearch("");
+  searchInput.focus();
+}
+
+function focusResult(offset) {
+  const buttons = Array.from(document.querySelectorAll("#searchResults .result-main"));
+  if (!buttons.length) return;
+  const current = buttons.indexOf(document.activeElement);
+  const next = current + offset;
+  if (next < 0) {
+    searchInput.focus();
+  } else if (next < buttons.length) {
+    buttons[next].focus();
+  }
+}
+
+searchInput.addEventListener("input", () => {
+  updateSearchChrome();
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => handleSearch(searchInput.value), 300);
 });
 
-const pmToggle = document.getElementById("searchPmToggle");
-const pmToggleLabel = document.getElementById("searchPmToggleLabel");
-if (pmToggle && pmToggleLabel) {
-  pmToggle.addEventListener("change", (e) => {
-    if (e.target.checked) {
-      pmToggleLabel.classList.add("is-active");
+searchInput.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    event.preventDefault();
+    if (searchInput.value) clearSearch();
+    else searchInput.blur();
+  } else if (event.key === "Enter") {
+    event.preventDefault();
+    const trimmed = searchInput.value.trim();
+    if (trimmed.length < MIN_QUERY_LENGTH) return;
+    const resultsAreCurrent = trimmed === searchQuery && document.getElementById("searchSection").getAttribute("aria-busy") !== "true";
+    if (resultsAreCurrent) {
+      openFirstResult();
     } else {
-      pmToggleLabel.classList.remove("is-active");
+      clearTimeout(searchTimer);
+      openFirstWhenReady = true;
+      handleSearch(trimmed);
     }
-    const searchInput = document.getElementById("searchInput");
-    if (searchInput) {
-      handleSearch(searchInput.value);
-    }
-  });
-}
-
-function getVisitorId() {
-  let id = localStorage.getItem('visitorId');
-  if (!id) {
-    id = 'user-' + Math.random().toString(36).substring(2, 10) + Date.now().toString(36);
-    localStorage.setItem('visitorId', id);
+  } else if (event.key === "ArrowDown") {
+    event.preventDefault();
+    focusResult(1);
   }
-  return id;
-}
+});
 
-function logPageVisit(pageName) {
-  fetch('/api/page-visits', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ pageName: pageName, visitorId: getVisitorId() })
-  }).catch(e => console.error('Failed to log page visit', e));
-}
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "/" || event.ctrlKey || event.metaKey || event.altKey) return;
+  const target = event.target;
+  const isTyping = target instanceof HTMLElement && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName));
+  if (isTyping || document.getElementById("profileDialog")?.open) return;
+  event.preventDefault();
+  searchInput.focus();
+  searchInput.select();
+});
+
+document.getElementById("searchClear").addEventListener("click", clearSearch);
+
+document.getElementById("searchResults").addEventListener("keydown", (event) => {
+  if (!event.target.closest(".result-main")) return;
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
+    focusResult(1);
+  } else if (event.key === "ArrowUp") {
+    event.preventDefault();
+    focusResult(-1);
+  }
+});
+
+document.getElementById("searchSection").addEventListener("click", (event) => {
+  const filter = event.target.closest("[data-filter]");
+  if (filter) {
+    functionFilter = filter.dataset.filter;
+    renderSearchResults();
+    return;
+  }
+
+  if (event.target.closest("[data-clear-search]")) {
+    clearSearch();
+    return;
+  }
+
+  const copyBtn = event.target.closest("[data-copy]");
+  if (copyBtn) {
+    copyText(copyBtn.dataset.copy, "Email copied");
+    return;
+  }
+
+  const result = event.target.closest("[data-result-index]");
+  if (result) {
+    openEmployeeProfile(searchResults[Number(result.dataset.resultIndex)]);
+  }
+});
 
 window.refreshOrgChart = async () => {
   await loadDirectoryData();
 };
 
+searchInput.value = new URLSearchParams(window.location.search).get("q") || "";
+updateSearchChrome();
 loadDirectoryData();
-logPageVisit('Main');
+logPageVisit("Main");
