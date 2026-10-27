@@ -7,6 +7,10 @@ spring:
     exclude:
       # The accounts of the password form come from AUTH_PASSWORD_USERS (SecurityConfig), never Boot's default user
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+      # Spring LDAP is used only by the AD sync, with its own connection (ad.ldap, AdConfig): no default LDAP
+      # connection to localhost and no LDAP health check (it would query AD on every /actuator/health)
+      - org.springframework.boot.autoconfigure.ldap.LdapAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.ldap.LdapHealthContributorAutoConfiguration
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:OrgStructure}?ssl=true&sslmode=require
     username: ${DB_USER:postgres}
@@ -15,9 +19,15 @@ spring:
     hikari:
       maximum-pool-size: 10
       minimum-idle: 2
+  # The schema comes from the Flyway migrations (db/migration); Hibernate only checks that it fits the entities.
+  # A database made before Flyway (by ddl-auto: update) already has the tables of V1: it is marked as version 1
+  # on the first start and gets only the later migrations.
+  flyway:
+    baseline-on-migrate: true
+    baseline-version: 1
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: false
     properties:
       hibernate:
@@ -37,6 +47,19 @@ server:
       # The session cookie (SameSite, Secure, HttpOnly) follows the sign-in mode: SessionCookieDefaults
 
 app:
+  # Where the employees of the site come from (EmployeeSourceProperties, spec section 8): excel (the Excel file) or db
+  # (the employees synced from AD); back to excel is the rollback. The tree parent: pm or manager, the other one is
+  # the fallback.
+  employees:
+    source: ${EMPLOYEE_SOURCE:excel}
+    parent-source: ${ORG_PARENT_SOURCE:pm}
+  # One-off import of group, heads and texts from the Excel file (app.data.excel-path) into employee_overrides
+  # (OverridesImportProperties, spec section 13 Phase 5c)
+  overrides-import:
+    from-excel: ${OVERRIDES_IMPORT_FROM_EXCEL:false}
+    dry-run: ${OVERRIDES_IMPORT_DRY_RUN:false}
+    report-path: ${OVERRIDES_IMPORT_REPORT_PATH:logs/overrides-import-report.json}
+    max-manager-override-ratio: ${OVERRIDES_IMPORT_MAX_MANAGER_OVERRIDE_RATIO:0.10}
   data:
     excel-path: c:/Projects/OrgStructure/data/result_new.xlsx
     photos-path: c:/Projects/OrgStructure/photos
@@ -75,6 +98,37 @@ auth:
     system-admin-emails: ${SYSTEM_ADMIN_EMAILS:}
     hr-editor-emails: ${HR_EDITOR_EMAILS:}
 
+# Employees from Active Directory (docs/OrgChart_AD_Integration_Spec_v3.md, section 8). AD_SYNC_MODE empty: no AD
+# components at all. Nothing connects to AD at start: the first connection is made by the first sync.
+ad:
+  sync:
+    enabled: ${AD_SYNC_ENABLED:false}
+    # mock (synthetic users of mock/ad-employees.json) | ldap
+    mode: ${AD_SYNC_MODE:}
+    # "-" disables the scheduler
+    cron: "${AD_SYNC_CRON:0 */30 * * * *}"
+    on-startup: ${AD_SYNC_ON_STARTUP:false}
+    # A dry run once at startup (nothing written to the database), its report (counts only) to report-path
+    startup-dry-run: ${AD_SYNC_STARTUP_DRY_RUN:false}
+    report-path: ${AD_SYNC_REPORT_PATH:logs/ad-sync-report.json}
+    min-ratio: ${AD_SYNC_MIN_RATIO:0.5}
+  ldap:
+    # ldaps:// only; the certificate is checked against AD_LDAP_TRUSTSTORE_PATH, for this connection only
+    url: ${AD_LDAP_URL:}
+    base-dn: ${AD_LDAP_BASE_DN:}
+    bind-dn: ${AD_LDAP_BIND_DN:}
+    bind-password: ${AD_LDAP_BIND_PASSWORD:}
+    # empty: Central Services users with enabled accounts, without copilot-* (AdLdapProperties.DEFAULT_FILTER,
+    # spec section 4.2)
+    filter: ${AD_LDAP_FILTER:}
+    page-size: ${AD_LDAP_PAGE_SIZE:500}
+    # Country OUs (OU=<XX>,OU=Countries) whose employees are synced; records of other OUs are skipped (section 4.4)
+    countries: ${AD_LDAP_COUNTRIES:KZ,UZ,AZ,GE,AM,KG}
+    truststore-path: ${AD_LDAP_TRUSTSTORE_PATH:}
+    truststore-password: ${AD_LDAP_TRUSTSTORE_PASSWORD:}
+    connect-timeout: 10s
+    read-timeout: 60s
+
 management:
   endpoints:
     web:
@@ -84,6 +138,12 @@ management:
     health:
       show-details: when_authorized
       roles: "SYSTEM_ADMIN"
+      # The AD sync health (AdSyncHealthIndicator) is never DOWN: a stale or switched-off AD sync keeps
+      # /actuator/health at 200, the site serves the employees it has
+      status:
+        http-mapping:
+          STALE: 200
+          DISABLED: 200
     env:
       enabled: false
     heapdump:
