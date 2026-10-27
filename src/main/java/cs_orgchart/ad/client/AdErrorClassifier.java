@@ -81,7 +81,7 @@ public final class AdErrorClassifier {
                 || contains(t, "read timed out"))) {
             return new AdDirectoryException(AdErrorCode.TIMEOUT, target + " accepted the connection but did not"
                     + " answer in time (" + detail + "). Try again later; if it persists, check the load of the"
-                    + " domain controller or raise ad.ldap.read-timeout.", failure);
+                    + " domain controller or raise AD_LDAP_READ_TIMEOUT.", failure);
         }
         if (any(failure, t -> t instanceof UnknownHostException)) {
             return new AdDirectoryException(AdErrorCode.NETWORK, "host of " + target + " not found in DNS ("

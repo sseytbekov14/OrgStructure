@@ -70,8 +70,10 @@ public class AdLdapProperties {
         /** AD_LDAP_TRUSTSTORE_PASSWORD */
         @ToString.Exclude
         private String truststorePassword = "";
+        /** AD_LDAP_CONNECT_TIMEOUT */
         private Duration connectTimeout = Duration.ofSeconds(10);
-        private Duration readTimeout = Duration.ofSeconds(60);
+        /** AD_LDAP_READ_TIMEOUT */
+        private Duration readTimeout = Duration.ofSeconds(180);
 
         public String effectiveFilter() {
             return filter == null || filter.isBlank() ? DEFAULT_FILTER : filter.trim();

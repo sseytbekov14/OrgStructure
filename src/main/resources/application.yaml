@@ -126,8 +126,9 @@ ad:
     countries: ${AD_LDAP_COUNTRIES:KZ,UZ,AZ,GE,AM,KG}
     truststore-path: ${AD_LDAP_TRUSTSTORE_PATH:}
     truststore-password: ${AD_LDAP_TRUSTSTORE_PASSWORD:}
-    connect-timeout: 10s
-    read-timeout: 60s
+    # Connecting to the domain controller, and waiting for each answer (a page of 500 entries can take a while)
+    connect-timeout: ${AD_LDAP_CONNECT_TIMEOUT:10s}
+    read-timeout: ${AD_LDAP_READ_TIMEOUT:180s}
 
 management:
   endpoints:

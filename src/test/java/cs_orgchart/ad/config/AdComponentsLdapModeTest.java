@@ -24,6 +24,7 @@ import java.io.UncheckedIOException;
 import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.SocketTimeoutException;
+import java.time.Duration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -51,6 +52,9 @@ class AdComponentsLdapModeTest {
         registry.add("AD_LDAP_BIND_DN", () -> "svc-orgchart@corp.example");
         registry.add("AD_LDAP_BIND_PASSWORD", () -> "test-only-secret");
         registry.add("AD_LDAP_COUNTRIES", () -> " kz, uz ,,");
+        // Env-style names reach ad.ldap.* only through the placeholders of application.yaml
+        registry.add("AD_LDAP_READ_TIMEOUT", () -> "45s");
+        registry.add("AD_LDAP_CONNECT_TIMEOUT", () -> "7s");
     }
 
     @AfterAll
@@ -73,6 +77,14 @@ class AdComponentsLdapModeTest {
         assertThat(context.getBeanNamesForType(DepartmentNormalizer.class)).hasSize(1);
         assertThat(context.getBeanNamesForType(FunctionResolver.class)).hasSize(1);
         assertThat(context.getBeanNamesForType(LdapOperations.class)).isEmpty();
+    }
+
+    @Test
+    void timeoutsComeFromTheirEnvKeys() {
+        AdLdapProperties.Ldap ldap = context.getBean(AdLdapProperties.class).getLdap();
+
+        assertThat(ldap.getReadTimeout()).isEqualTo(Duration.ofSeconds(45));
+        assertThat(ldap.getConnectTimeout()).isEqualTo(Duration.ofSeconds(7));
     }
 
     @Test

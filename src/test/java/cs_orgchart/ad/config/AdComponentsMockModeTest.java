@@ -18,6 +18,8 @@ import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProc
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
+import java.time.Duration;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -38,6 +40,14 @@ class AdComponentsMockModeTest {
 
     @Autowired
     private ApplicationContext context;
+
+    @Test
+    void timeoutsDefaultTo10sConnectAnd180sRead() {
+        AdLdapProperties.Ldap ldap = context.getBean(AdLdapProperties.class).getLdap();
+
+        assertThat(ldap.getConnectTimeout()).isEqualTo(Duration.ofSeconds(10));
+        assertThat(ldap.getReadTimeout()).isEqualTo(Duration.ofSeconds(180));
+    }
 
     @Test
     void mockModeReadsTheSyntheticDirectory() {
