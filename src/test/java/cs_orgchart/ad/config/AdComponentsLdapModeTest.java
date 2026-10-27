@@ -2,6 +2,7 @@ package cs_orgchart.ad.config;
 
 import cs_orgchart.ad.client.AdDirectoryClient;
 import cs_orgchart.ad.client.LdapAdDirectoryClient;
+import cs_orgchart.ad.mapper.AdEmployeeMapper;
 import cs_orgchart.ad.mapper.DepartmentNormalizer;
 import cs_orgchart.ad.mapper.FunctionResolver;
 import cs_orgchart.ad.sync.AuthCircuitBreaker;
@@ -49,6 +50,7 @@ class AdComponentsLdapModeTest {
         registry.add("AD_LDAP_BASE_DN", () -> "OU=Countries,OU=CCG,DC=corp,DC=example");
         registry.add("AD_LDAP_BIND_DN", () -> "svc-orgchart@corp.example");
         registry.add("AD_LDAP_BIND_PASSWORD", () -> "test-only-secret");
+        registry.add("AD_LDAP_COUNTRIES", () -> " kz, uz ,,");
     }
 
     @AfterAll
@@ -71,6 +73,11 @@ class AdComponentsLdapModeTest {
         assertThat(context.getBeanNamesForType(DepartmentNormalizer.class)).hasSize(1);
         assertThat(context.getBeanNamesForType(FunctionResolver.class)).hasSize(1);
         assertThat(context.getBeanNamesForType(LdapOperations.class)).isEmpty();
+    }
+
+    @Test
+    void countriesOfTheEnvironmentAreTheWhitelistOfTheMapper() {
+        assertThat(context.getBean(AdEmployeeMapper.class).allowedCountries()).containsExactly("KZ", "UZ");
     }
 
     @Test

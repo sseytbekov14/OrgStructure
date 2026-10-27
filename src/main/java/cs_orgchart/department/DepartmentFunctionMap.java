@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * Which site function a normalized AD department belongs to (spec v2.1 §5.5): the row for
+ * Which site function a normalized AD department belongs to (spec v3 §5.5): the row for
  * {@code (deptLevel2, deptLevel3)} first, then the row for {@code (deptLevel2, null)}.
  */
 @Entity

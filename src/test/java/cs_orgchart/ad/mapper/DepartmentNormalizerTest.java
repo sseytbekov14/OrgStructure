@@ -13,7 +13,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * The department normalizer (spec v2.1 §5.2) on every test case of §5.4.
+ * The department normalizer (spec v3 §5.2) on every test case of §5.4.
  */
 class DepartmentNormalizerTest {
 

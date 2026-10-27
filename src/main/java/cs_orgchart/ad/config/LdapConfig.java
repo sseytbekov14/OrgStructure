@@ -18,7 +18,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * The LDAP connection of AD_SYNC_MODE=ldap (spec v2.1 §4.1, §8.1): LDAPS only, objectGUID as binary, connect and read
+ * The LDAP connection of AD_SYNC_MODE=ldap (spec v3 §4.1, §8.1): LDAPS only, objectGUID as binary, connect and read
  * timeouts, TLS trust from AD_LDAP_TRUSTSTORE_PATH for this connection only. Building it never connects: the first
  * bind happens at the first sync. Unusable settings do not stop the application: every AD read then fails with
  * {@link AdErrorCode#CONFIG} (or {@link AdErrorCode#TLS} for the truststore) and the message says what to fix.

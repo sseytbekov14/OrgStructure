@@ -3,7 +3,7 @@ package cs_orgchart.ad.client;
 import lombok.Getter;
 
 /**
- * An AD read that failed, with an actionable message (spec v2.1 §7) and its {@link AdErrorCode}. Messages never
+ * An AD read that failed, with an actionable message (spec v3 §7) and its {@link AdErrorCode}. Messages never
  * contain the bind password.
  */
 @Getter

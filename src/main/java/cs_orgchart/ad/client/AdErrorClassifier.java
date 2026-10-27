@@ -17,7 +17,7 @@ import java.util.regex.Pattern;
 
 /**
  * Turns an LDAP failure (JNDI, Spring LDAP, TLS, socket) into an {@link AdDirectoryException} with a distinct,
- * actionable message (spec v2.1 §7). The checks run over the whole cause chain, most specific first.
+ * actionable message (spec v3 §7). The checks run over the whole cause chain, most specific first.
  */
 public final class AdErrorClassifier {
 

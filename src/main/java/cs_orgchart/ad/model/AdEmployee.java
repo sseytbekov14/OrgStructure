@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * One user entry as read from Active Directory (spec v2.1 §4.3): values trimmed, empty ones null,
+ * One user entry as read from Active Directory (spec v3 §4.3): values trimmed, empty ones null,
  * {@code enabled} from userAccountControl and {@code countryCode} from the DN. The department is the raw AD value.
  */
 public record AdEmployee(

@@ -8,7 +8,7 @@ import com.unboundid.util.ssl.SSLUtil;
 import com.unboundid.util.ssl.TrustAllTrustManager;
 import cs_orgchart.ad.config.AdLdapProperties;
 import cs_orgchart.ad.config.LdapConfig;
-import cs_orgchart.ad.model.AdEmployee;
+import cs_orgchart.ad.model.AdRecord;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -31,7 +31,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * LDAPS with the truststore of AD_LDAP_TRUSTSTORE_PATH (spec v2.1 §8.1): the certificate of the domain controller is
+ * LDAPS with the truststore of AD_LDAP_TRUSTSTORE_PATH (spec v3 §8.1): the certificate of the domain controller is
  * trusted for the LDAP connection only. The JVM-wide trust (used by the SAML metadata fetch and every other TLS
  * connection) is not changed.
  */
@@ -91,9 +91,9 @@ class LdapsTruststoreTest {
         SSLContext defaultContext = SSLContext.getDefault();
         SSLSocketFactory defaultHttps = HttpsURLConnection.getDefaultSSLSocketFactory();
 
-        List<AdEmployee> employees = LdapConfig.client(ldaps(truststore.toString(), STORE_PASSWORD)).fetchAll();
+        List<AdRecord> records = LdapConfig.client(ldaps(truststore.toString(), STORE_PASSWORD)).fetchAll();
 
-        assertThat(employees).hasSize(11);
+        assertThat(records).hasSize(14);
         assertThat(System.getProperty("javax.net.ssl.trustStore")).isEqualTo(truststoreProperty);
         assertThat(System.getProperty("javax.net.ssl.trustStorePassword")).isNull();
         assertThat(SSLContext.getDefault()).isSameAs(defaultContext);

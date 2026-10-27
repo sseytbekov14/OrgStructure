@@ -8,7 +8,7 @@ import java.time.Instant;
 import java.util.Optional;
 
 /**
- * Protects the bind account from being locked (spec v2.1 §7 step 1): after a run that failed with invalid credentials
+ * Protects the bind account from being locked (spec v3 §7 step 1): after a run that failed with invalid credentials
  * ({@link AdErrorCode#AUTH}), scheduled and startup runs are suspended until a manual run or a restart of the
  * application (the state is in memory only). Nothing is retried in a loop: each suspended run is refused without
  * contacting AD.

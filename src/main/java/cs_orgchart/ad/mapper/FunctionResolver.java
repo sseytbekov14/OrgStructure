@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Normalized department → function shown on the site, {@code cs} (spec v2.1 §5.5): the department_function_map row
+ * Normalized department → function shown on the site, {@code cs} (spec v3 §5.5): the department_function_map row
  * for (level 2, level 3) first, then the row for (level 2, any level 3); otherwise level 2 itself, reported once per
  * sync run as "Unmapped function". Also the default group of a person without an overlay group.
  */

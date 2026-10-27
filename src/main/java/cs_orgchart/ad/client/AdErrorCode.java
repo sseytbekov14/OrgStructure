@@ -1,7 +1,7 @@
 package cs_orgchart.ad.client;
 
 /**
- * Why an AD read failed; stored as {@code ad_sync_log.error_code} (spec v2.1 §6.2, §7).
+ * Why an AD read failed; stored as {@code ad_sync_log.error_code} (spec v3 §6.2, §7).
  */
 public enum AdErrorCode {
     /** Invalid credentials (LDAP error 49): scheduled and startup syncs are suspended (AuthCircuitBreaker) */

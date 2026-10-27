@@ -12,7 +12,7 @@ import java.time.ZoneOffset;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * After invalid credentials only a manual run (or a restart) contacts AD again (spec v2.1 §7 step 1).
+ * After invalid credentials only a manual run (or a restart) contacts AD again (spec v3 §7 step 1).
  */
 class AuthCircuitBreakerTest {
 

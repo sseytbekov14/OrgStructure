@@ -1,6 +1,7 @@
 package cs_orgchart.ad.config;
 
 import cs_orgchart.ad.client.AdDirectoryClient;
+import cs_orgchart.ad.mapper.AdEmployeeMapper;
 import cs_orgchart.ad.mapper.DepartmentNormalizer;
 import cs_orgchart.ad.mapper.FunctionResolver;
 import cs_orgchart.ad.sync.AuthCircuitBreaker;
@@ -44,9 +45,10 @@ class AdComponentsOffTest {
 
     @Test
     void noAdComponentExists() {
-        for (Class<?> type : List.of(AdDirectoryClient.class, AuthCircuitBreaker.class, DepartmentNormalizer.class,
-                FunctionResolver.class, DepartmentDictionaries.class, AdLdapProperties.class, AdConfig.class,
-                ContextSource.class, LdapOperations.class, LdapHealthIndicator.class)) {
+        for (Class<?> type : List.of(AdDirectoryClient.class, AdEmployeeMapper.class, AuthCircuitBreaker.class,
+                DepartmentNormalizer.class, FunctionResolver.class, DepartmentDictionaries.class,
+                AdLdapProperties.class, AdConfig.class, ContextSource.class, LdapOperations.class,
+                LdapHealthIndicator.class)) {
             assertThat(context.getBeanNamesForType(type)).as(type.getSimpleName()).isEmpty();
         }
     }

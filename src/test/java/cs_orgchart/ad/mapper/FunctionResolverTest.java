@@ -11,7 +11,7 @@ import java.util.TreeMap;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Normalized department → site function and default group (spec v2.1 §5.5).
+ * Normalized department → site function and default group (spec v3 §5.5).
  */
 class FunctionResolverTest {
 

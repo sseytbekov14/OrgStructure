@@ -3,6 +3,7 @@ package cs_orgchart.ad.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import cs_orgchart.ad.client.AdDirectoryClient;
 import cs_orgchart.ad.client.MockAdDirectoryClient;
+import cs_orgchart.ad.mapper.AdEmployeeMapper;
 import cs_orgchart.ad.mapper.DepartmentNormalizer;
 import cs_orgchart.ad.mapper.FunctionResolver;
 import cs_orgchart.ad.sync.AuthCircuitBreaker;
@@ -51,6 +52,11 @@ public class AdConfig {
                                                             DepartmentGeneralNodeRepository generalNodes,
                                                             DepartmentFunctionMapRepository functionMap) {
         return new JpaDepartmentDictionaries(aliases, generalNodes, functionMap);
+    }
+
+    @Bean
+    public AdEmployeeMapper adEmployeeMapper(AdLdapProperties properties) {
+        return new AdEmployeeMapper(properties.getLdap().allowedCountries());
     }
 
     @Bean

@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The dictionaries of spec v2.1 §5.3 and §5.5 in memory, for the tests without a database.
+ * The dictionaries of spec v3 §5.3 and §5.5 in memory, for the tests without a database.
  * {@code JpaDepartmentDictionariesTest} checks that the migration V4 seeds exactly these.
  */
 public final class SpecDepartmentDictionaries implements DepartmentDictionaries {

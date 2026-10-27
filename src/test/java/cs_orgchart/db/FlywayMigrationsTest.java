@@ -1,5 +1,7 @@
 package cs_orgchart.db;
 
+import cs_orgchart.ad.sync.AdSyncLog;
+import cs_orgchart.ad.sync.AdSyncLogRepository;
 import cs_orgchart.employee.Employee;
 import cs_orgchart.employee.EmployeeRepository;
 import cs_orgchart.employee.override.EmployeeOverride;
@@ -47,12 +49,15 @@ class FlywayMigrationsTest {
     @Autowired
     private EntityManager entityManager;
 
+    @Autowired
+    private AdSyncLogRepository syncLog;
+
     @Test
     void allMigrationsAreApplied() {
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY installed_rank",
                 String.class);
-        assertThat(versions).containsExactly("1", "2", "3", "4", "5");
+        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6");
     }
 
     @Test
@@ -202,7 +207,8 @@ class FlywayMigrationsTest {
         insertEmployee("case");
 
         assertThatThrownBy(() -> jdbc.update(
-                "INSERT INTO employees (ad_guid, dn, login, upn, display_name) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO employees (ad_guid, dn, login, upn, display_name, country_code)"
+                        + " VALUES (?, ?, ?, ?, ?, 'KZ')",
                 UUID.randomUUID(), "CN=other", "other", "CASE@MIGRATION.TEST", "Other"))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ux_employees_upn_lower");
@@ -214,10 +220,57 @@ class FlywayMigrationsTest {
         insertEmployee("dn");
 
         assertThatThrownBy(() -> jdbc.update(
-                "INSERT INTO employees (ad_guid, dn, login, upn, display_name) VALUES (?, ?, ?, ?, ?)",
+                "INSERT INTO employees (ad_guid, dn, login, upn, display_name, country_code)"
+                        + " VALUES (?, ?, ?, ?, ?, 'KZ')",
                 UUID.randomUUID(), "cn=DN,ou=migration,dc=test", "other", "other@migration.test", "Other"))
                 .isInstanceOf(DataIntegrityViolationException.class)
                 .hasMessageContaining("ux_employees_dn_lower");
+    }
+
+    // --- V6 (spec v3 §4.4, §6.1, §6.2) ---------------------------------------------------------------------
+
+    @Test
+    void syncLogHasTheSkippedCount() {
+        assertThat(jdbc.queryForObject("SELECT data_type FROM information_schema.columns"
+                        + " WHERE table_schema = current_schema() AND table_name = 'ad_sync_log'"
+                        + " AND column_name = 'skipped_count'", String.class))
+                .isEqualTo("integer");
+    }
+
+    @Test
+    @Transactional
+    void syncLogStoresTheSkippedCount() {
+        AdSyncLog saved = syncLog.save(AdSyncLog.builder().status("SUCCESS").triggerType("MANUAL")
+                .fetchedCount(217).skippedCount(2).build());
+        entityManager.flush();
+        entityManager.clear();
+
+        assertThat(syncLog.findById(saved.getId())).hasValueSatisfying(log -> {
+            assertThat(log.getFetchedCount()).isEqualTo(217);
+            assertThat(log.getSkippedCount()).isEqualTo(2);
+        });
+    }
+
+    @Test
+    @Transactional
+    void syncedEmployeeWithoutCountryIsRejected() {
+        assertThatThrownBy(() -> jdbc.update(
+                "INSERT INTO employees (ad_guid, dn, login, upn, display_name, is_external)"
+                        + " VALUES (?, ?, ?, ?, ?, FALSE)",
+                UUID.randomUUID(), "CN=nocountry,OU=Migration,DC=test", "nocountry", "nocountry@migration.test",
+                "Migration, nocountry"))
+                .isInstanceOf(DataIntegrityViolationException.class)
+                .hasMessageContaining("ck_employees_country");
+    }
+
+    @Test
+    @Transactional
+    void externalWithoutCountryIsAccepted() {
+        Employee partner = employees.save(employee("partner").countryCode(null).external(true).build());
+        entityManager.flush();
+
+        assertThat(jdbc.queryForObject("SELECT country_code IS NULL AND is_external FROM employees WHERE id = ?",
+                Boolean.class, partner.getId())).isTrue();
     }
 
     // --- seeds (spec §5.3, §5.5) ---------------------------------------------------------------------------
@@ -301,14 +354,16 @@ class FlywayMigrationsTest {
                 .dn("CN=" + name + ",OU=Migration,DC=test")
                 .login(name)
                 .upn(name + "@migration.test")
-                .displayName("Migration, " + name);
+                .displayName("Migration, " + name)
+                .countryCode("KZ");
     }
 
     private long insertEmployee(String name) {
         Employee e = employee(name).build();
         return jdbc.queryForObject(
-                "INSERT INTO employees (ad_guid, dn, login, upn, display_name) VALUES (?, ?, ?, ?, ?) RETURNING id",
-                Long.class, e.getAdGuid(), e.getDn(), e.getLogin(), e.getUpn(), e.getDisplayName());
+                "INSERT INTO employees (ad_guid, dn, login, upn, display_name, country_code) VALUES (?, ?, ?, ?, ?, ?)"
+                        + " RETURNING id",
+                Long.class, e.getAdGuid(), e.getDn(), e.getLogin(), e.getUpn(), e.getDisplayName(), e.getCountryCode());
     }
 
     private void insertOverride(long employeeId, String cs, Integer headRank) {

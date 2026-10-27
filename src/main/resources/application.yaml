@@ -85,7 +85,7 @@ auth:
     system-admin-emails: ${SYSTEM_ADMIN_EMAILS:}
     hr-editor-emails: ${HR_EDITOR_EMAILS:}
 
-# Employees from Active Directory (docs/OrgChart_AD_Integration_Spec_v2.1.md, section 8). AD_SYNC_MODE empty: no AD
+# Employees from Active Directory (docs/OrgChart_AD_Integration_Spec_v3.md, section 8). AD_SYNC_MODE empty: no AD
 # components at all. Nothing connects to AD at start: the first connection is made by the first sync.
 ad:
   sync:
@@ -102,9 +102,12 @@ ad:
     base-dn: ${AD_LDAP_BASE_DN:}
     bind-dn: ${AD_LDAP_BIND_DN:}
     bind-password: ${AD_LDAP_BIND_PASSWORD:}
-    # empty: Central Services users with enabled accounts (AdLdapProperties.DEFAULT_FILTER, spec section 4.2)
+    # empty: Central Services users with enabled accounts, without copilot-* (AdLdapProperties.DEFAULT_FILTER,
+    # spec section 4.2)
     filter: ${AD_LDAP_FILTER:}
     page-size: ${AD_LDAP_PAGE_SIZE:500}
+    # Country OUs (OU=<XX>,OU=Countries) whose employees are synced; records of other OUs are skipped (section 4.4)
+    countries: ${AD_LDAP_COUNTRIES:KZ,UZ,AZ,GE,AM,KG}
     truststore-path: ${AD_LDAP_TRUSTSTORE_PATH:}
     truststore-password: ${AD_LDAP_TRUSTSTORE_PASSWORD:}
     connect-timeout: 10s

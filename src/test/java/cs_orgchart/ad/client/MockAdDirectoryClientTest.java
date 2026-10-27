@@ -2,11 +2,15 @@ package cs_orgchart.ad.client;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import cs_orgchart.ad.config.AdLdapProperties;
+import cs_orgchart.ad.mapper.AdEmployeeMapper;
+import cs_orgchart.ad.mapper.AdEmployeeMapper.SkipReason;
 import cs_orgchart.ad.mapper.DepartmentNormalizer;
 import cs_orgchart.ad.mapper.DepartmentsCsv;
 import cs_orgchart.ad.mapper.FunctionResolver;
 import cs_orgchart.ad.mapper.NormalizedDepartment;
 import cs_orgchart.ad.model.AdEmployee;
+import cs_orgchart.ad.model.AdRecord;
 import cs_orgchart.department.SpecDepartmentDictionaries;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.io.ClassPathResource;
@@ -29,7 +33,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 class MockAdDirectoryClientTest {
 
     private final MockAdDirectoryClient client = new MockAdDirectoryClient(new ObjectMapper());
-    private final List<AdEmployee> employees = client.fetchAll();
+    private final AdEmployeeMapper mapper = new AdEmployeeMapper(new AdLdapProperties.Ldap().allowedCountries());
+    private final List<AdRecord> records = client.fetchAll();
+    private final AdEmployeeMapper.Batch batch = mapper.mapAll(records);
+    private final List<AdEmployee> employees = batch.employees();
     private final Map<String, AdEmployee> byUpn = employees.stream()
             .collect(Collectors.toMap(AdEmployee::upn, Function.identity()));
     private final DepartmentNormalizer normalizer = new DepartmentNormalizer(SpecDepartmentDictionaries.INSTANCE);
@@ -45,20 +52,38 @@ class MockAdDirectoryClientTest {
     }
 
     @Test
-    void disabledAndAuditUsersAreLeftOut() {
-        assertThat(byUpn).doesNotContainKeys("ppearl@kz.example", "qquince@kz.example");
-        assertThat(client.findByUpn("ppearl@kz.example")).hasValueSatisfying(e -> assertThat(e.enabled()).isFalse());
-        assertThat(client.findByUpn("qquince@kz.example"))
-                .hasValueSatisfying(e -> assertThat(e.department()).startsWith("Audit"));
+    void testOuAndBlankDisplayNameUsersAreFetchedButNotInTheMapperOutput() {
+        assertThat(records).hasSize(43);
+        assertThat(records).extracting(r -> r.get("sAMAccountName")).contains("tdev01", "bblank");
+
+        assertThat(byUpn).doesNotContainKeys("tdev01@kz.example", "bblank@kz.example");
+        assertThat(batch.skipped()).containsExactlyInAnyOrderEntriesOf(Map.of(
+                SkipReason.COUNTRY_NOT_ALLOWED, 1, SkipReason.BLANK_DISPLAY_NAME, 1, SkipReason.MISSING_REQUIRED, 0));
+        assertThat(employees.size() + batch.skippedCount()).isEqualTo(records.size());
+        assertThat(employees).allSatisfy(e -> assertThat(e.countryCode()).isNotNull());
     }
 
     @Test
-    void managerOutsideCentralServicesIsFoundByDnOnly() {
+    void disabledAuditAndCopilotUsersAreLeftOutByTheFilter() {
+        assertThat(records).extracting(r -> r.get("sAMAccountName"))
+                .doesNotContain("ppearl", "qquince", "copilot-agent01", "rrust");
+        assertThat(client.findByUpn("ppearl@kz.example")).hasValueSatisfying(
+                r -> assertThat(((AdEmployeeMapper.Mapped) mapper.map(r)).employee().enabled()).isFalse());
+        assertThat(client.findByUpn("qquince@kz.example"))
+                .hasValueSatisfying(r -> assertThat(r.get("department").toString()).startsWith("Audit"));
+        assertThat(client.findByUpn("COPILOT-AGENT01@kz.example")).isPresent();
+    }
+
+    @Test
+    void managerOutsideCentralServicesIsFoundByDnAndMappedAsExternal() {
         AdEmployee head = byUpn.get("aamber@kz.example");
 
         assertThat(byUpn).doesNotContainKey("rrust@kz.example");
-        assertThat(client.findByDn(head.managerDn()))
-                .hasValueSatisfying(m -> assertThat(m.department()).startsWith("Advisory"));
+        AdRecord manager = client.findByDn(head.managerDn()).orElseThrow();
+        assertThat(mapper.mapExternal(manager)).isInstanceOfSatisfying(AdEmployeeMapper.Mapped.class, m -> {
+            assertThat(m.employee().department()).startsWith("Advisory");
+            assertThat(m.employee().countryCode()).isNull();
+        });
     }
 
     @Test
@@ -98,11 +123,14 @@ class MockAdDirectoryClientTest {
     }
 
     @Test
-    void edgeCasesOfSpecSection9() {
-        AdEmployee noManager = byUpn.get("kkhaki@kz.example");
-        assertThat(noManager.managerDn()).isNull();
-        assertThat(noManager.pmUpn()).isNull();
+    void severalPeopleHaveNeitherManagerNorPm() {
+        assertThat(employees).filteredOn(e -> e.managerDn() == null && e.pmUpn() == null)
+                .extracting(AdEmployee::login)
+                .containsExactlyInAnyOrder("kkhaki", "ssand", "wwheat", "nnickel");
+    }
 
+    @Test
+    void edgeCasesOfSpecSection9() {
         assertThat(byUpn.get("ffern@kz.example").jobTitle()).isNull();
 
         Set<String> upns = byUpn.keySet();
@@ -119,12 +147,12 @@ class MockAdDirectoryClientTest {
         assertThat(localParts.get(byLocalPart.pmUpn().substring(0, byLocalPart.pmUpn().indexOf('@')))).isEqualTo(1);
 
         AdEmployee pmNotManager = byUpn.get("ppeach@kz.example");
-        AdEmployee manager = client.findByDn(pmNotManager.managerDn()).orElseThrow();
-        assertThat(manager.upn()).isNotEqualTo(pmNotManager.pmUpn());
+        AdRecord manager = client.findByDn(pmNotManager.managerDn()).orElseThrow();
+        assertThat(manager.get("userPrincipalName")).isNotEqualTo(pmNotManager.pmUpn());
     }
 
     @Test
-    void everyManagerAndPmOfTheFixtureExists() {
+    void everyManagerOfTheFixtureExists() {
         for (AdEmployee e : employees) {
             if (e.managerDn() != null) {
                 assertThat(client.findByDn(e.managerDn())).as("manager of " + e.upn()).isPresent();

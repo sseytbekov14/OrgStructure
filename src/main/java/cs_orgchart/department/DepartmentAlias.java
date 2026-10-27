@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * A spelling of a department segment in AD and the name it is shown with (spec v2.1 §5.3), e.g.
+ * A spelling of a department segment in AD and the name it is shown with (spec v3 §5.3), e.g.
  * {@code f&o} → {@code Facilities & Operations}.
  */
 @Entity

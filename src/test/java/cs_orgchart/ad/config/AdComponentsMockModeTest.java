@@ -2,6 +2,7 @@ package cs_orgchart.ad.config;
 
 import cs_orgchart.ad.client.AdDirectoryClient;
 import cs_orgchart.ad.client.MockAdDirectoryClient;
+import cs_orgchart.ad.mapper.AdEmployeeMapper;
 import cs_orgchart.CsOrgchartApplication;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,10 +27,14 @@ class AdComponentsMockModeTest {
     @Autowired
     private AdDirectoryClient client;
 
+    @Autowired
+    private AdEmployeeMapper mapper;
+
     @Test
     void mockModeReadsTheSyntheticDirectory() {
         assertThat(client).isInstanceOf(MockAdDirectoryClient.class);
-        assertThat(client.fetchAll()).hasSize(41);
+        assertThat(client.fetchAll()).hasSize(43);
+        assertThat(mapper.mapAll(client.fetchAll()).employees()).hasSize(41);
     }
 
     @Test

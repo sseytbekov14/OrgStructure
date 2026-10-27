@@ -2,7 +2,7 @@ package cs_orgchart.ad.client;
 
 import cs_orgchart.ad.config.AdLdapProperties;
 import cs_orgchart.ad.mapper.AdEmployeeMapper;
-import cs_orgchart.ad.model.AdEmployee;
+import cs_orgchart.ad.model.AdRecord;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ldap.control.PagedResultsDirContextProcessor;
 import org.springframework.ldap.core.ContextMapper;
@@ -25,10 +25,11 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * AD_SYNC_MODE=ldap (spec v2.1 §4): a paged subtree search under AD_LDAP_BASE_DN with AD_LDAP_FILTER, all pages on
+ * AD_SYNC_MODE=ldap (spec v3 §4): a paged subtree search under AD_LDAP_BASE_DN with AD_LDAP_FILTER, all pages on
  * ONE connection (paging cookies belong to the connection that made them), only the attributes of §4.3. Single users
  * are looked up under the base DN first, then under the domain root. Every failure is an {@link AdDirectoryException};
- * nothing is retried here (a wrong password must not lock the account).
+ * nothing is retried here (a wrong password must not lock the account). The entries are returned as they are, without
+ * validation (AdEmployeeMapper, spec v3 §4.4).
  */
 @Slf4j
 public class LdapAdDirectoryClient implements AdDirectoryClient {
@@ -64,34 +65,24 @@ public class LdapAdDirectoryClient implements AdDirectoryClient {
     }
 
     @Override
-    public List<AdEmployee> fetchAll() {
+    public List<AdRecord> fetchAll() {
         ensureUsable();
         long started = System.nanoTime();
         try {
             return SingleContextSource.doWithSingleContext(contextSource, operations -> {
-                List<AdEmployee> employees = new ArrayList<>();
+                List<AdRecord> records = new ArrayList<>();
                 int pages = 0;
-                int skipped = 0;
                 PagedResultsDirContextProcessor pager = new PagedResultsDirContextProcessor(pageSize);
                 boolean more;
                 do {
-                    List<Map<String, Object>> entries =
-                            operations.search(baseDn, filter, controls(), ENTRY, pager);
+                    records.addAll(operations.search(baseDn, filter, controls(), ENTRY, pager));
                     pages++;
-                    for (Map<String, Object> entry : entries) {
-                        Optional<AdEmployee> employee = map(entry);
-                        if (employee.isPresent()) {
-                            employees.add(employee.get());
-                        } else {
-                            skipped++;
-                        }
-                    }
                     more = pager.hasMore();
                     pager = new PagedResultsDirContextProcessor(pageSize, pager.getCookie());
                 } while (more);
-                log.info("AD fetch: {} entries in {} page(s) of up to {}, {} skipped, {} ms", employees.size(), pages,
-                        pageSize, skipped, (System.nanoTime() - started) / 1_000_000);
-                return employees;
+                log.info("AD fetch: {} entries in {} page(s) of up to {}, {} ms", records.size(), pages, pageSize,
+                        (System.nanoTime() - started) / 1_000_000);
+                return records;
             }, true, true, false);
         } catch (RuntimeException e) {
             throw AdErrorClassifier.classify(e, target);
@@ -99,17 +90,17 @@ public class LdapAdDirectoryClient implements AdDirectoryClient {
     }
 
     @Override
-    public Optional<AdEmployee> findByDn(String dn) {
+    public Optional<AdRecord> findByDn(String dn) {
         return findOne("distinguishedName", dn);
     }
 
     @Override
-    public Optional<AdEmployee> findByUpn(String upn) {
+    public Optional<AdRecord> findByUpn(String upn) {
         return findOne("userPrincipalName", upn);
     }
 
     /** Under the base DN, then under the domain root; one connection for both */
-    private Optional<AdEmployee> findOne(String attribute, String value) {
+    private Optional<AdRecord> findOne(String attribute, String value) {
         ensureUsable();
         if (value == null || value.isBlank()) {
             return Optional.empty();
@@ -117,7 +108,7 @@ public class LdapAdDirectoryClient implements AdDirectoryClient {
         String query = "(&" + USERS + "(" + attribute + "=" + LdapEncoder.filterEncode(value.trim()) + "))";
         try {
             return SingleContextSource.doWithSingleContext(contextSource, operations -> {
-                Optional<AdEmployee> found = searchOne(operations, baseDn, query);
+                Optional<AdRecord> found = searchOne(operations, baseDn, query);
                 if (found.isEmpty() && !domainRoot.isEmpty() && !domainRoot.equalsIgnoreCase(baseDn)) {
                     found = searchOne(operations, domainRoot, query);
                 }
@@ -128,20 +119,8 @@ public class LdapAdDirectoryClient implements AdDirectoryClient {
         }
     }
 
-    private Optional<AdEmployee> searchOne(LdapOperations operations, String base, String query) {
-        return operations.search(base, query, controls(), ENTRY).stream()
-                .map(this::map)
-                .flatMap(Optional::stream)
-                .findFirst();
-    }
-
-    private Optional<AdEmployee> map(Map<String, Object> entry) {
-        try {
-            return Optional.of(AdEmployeeMapper.map(entry));
-        } catch (IllegalArgumentException e) {
-            log.warn("{}", e.getMessage());
-            return Optional.empty();
-        }
+    private Optional<AdRecord> searchOne(LdapOperations operations, String base, String query) {
+        return operations.search(base, query, controls(), ENTRY).stream().findFirst();
     }
 
     private void ensureUsable() {
@@ -159,7 +138,7 @@ public class LdapAdDirectoryClient implements AdDirectoryClient {
     }
 
     /** One entry as attribute name → first value; the DN of the entry when AD did not return distinguishedName */
-    private static final ContextMapper<Map<String, Object>> ENTRY = context -> {
+    private static final ContextMapper<AdRecord> ENTRY = context -> {
         DirContextAdapter adapter = (DirContextAdapter) context;
         Map<String, Object> entry = new HashMap<>();
         for (String name : AdEmployeeMapper.AD_ATTRIBUTES) {
@@ -169,7 +148,7 @@ public class LdapAdDirectoryClient implements AdDirectoryClient {
             }
         }
         entry.putIfAbsent("distinguishedName", adapter.getNameInNamespace());
-        return entry;
+        return new AdRecord(entry);
     };
 
     /** DC=go1,DC=kworld,DC=kpmg,DC=com of OU=Countries,OU=CCG,DC=go1,DC=kworld,DC=kpmg,DC=com */

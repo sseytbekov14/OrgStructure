@@ -8,7 +8,7 @@ import java.net.InetAddress;
 import java.net.Socket;
 
 /**
- * TLS sockets for the LDAP connection only (spec v2.1 §8.1): JNDI creates them through
+ * TLS sockets for the LDAP connection only (spec v3 §8.1): JNDI creates them through
  * {@code java.naming.ldap.factory.socket}, which takes a class name with a static {@link #getDefault()}, so the
  * trust settings are held here. The JVM-wide truststore ({@code javax.net.ssl.*}) stays untouched: the SAML
  * metadata fetch from Entra and every other TLS connection keep the default one.

@@ -14,7 +14,9 @@ import com.unboundid.ldap.sdk.controls.SimplePagedResultsControl;
 import cs_orgchart.ad.config.AdLdapProperties;
 import cs_orgchart.ad.config.LdapConfig;
 import cs_orgchart.ad.mapper.AdEmployeeMapper;
+import cs_orgchart.ad.mapper.AdEmployeeMapper.SkipReason;
 import cs_orgchart.ad.model.AdEmployee;
+import cs_orgchart.ad.model.AdRecord;
 import cs_orgchart.ad.sync.AuthCircuitBreaker;
 import cs_orgchart.ad.sync.SyncTrigger;
 import org.junit.jupiter.api.AfterAll;
@@ -25,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import java.net.ServerSocket;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -32,6 +35,7 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 /**
  * {@link LdapAdDirectoryClient} against an in-memory LDAP server shaped like the AD of spec §2.1 (schema checks off):
@@ -70,11 +74,14 @@ class LdapAdDirectoryClientTest {
         counter.reset();
     }
 
-    /** The tree of the tests: 12 Central Services users (one unusable), and users the filter must leave out */
+    /**
+     * The tree of the tests: 14 entries match the filter, 11 of them can be stored (one without objectGUID, one under
+     * OU=Test for Dev Team, one without displayName); users the filter must leave out.
+     */
     static void addDirectory(InMemoryDirectoryServer directory) throws Exception {
         directory.add("dn: " + ROOT, "objectClass: domain", "dc: corp");
-        for (String ou : List.of("OU=CCG," + ROOT, BASE, "OU=KZ," + BASE, "OU=UZ," + BASE, "OU=Service," + ROOT,
-                "OU=Partners," + ROOT)) {
+        for (String ou : List.of("OU=CCG," + ROOT, BASE, "OU=KZ," + BASE, "OU=UZ," + BASE,
+                "OU=Test for Dev Team," + BASE, "OU=Service," + ROOT, "OU=Partners," + ROOT)) {
             directory.add("dn: " + ou, "objectClass: organizationalUnit");
         }
         String[] departments = {
@@ -96,11 +103,16 @@ class LdapAdDirectoryClientTest {
         minimal.addAttribute("department", "CS/QRM/QRM/QRM General");
         minimal.addAttribute("userAccountControl", "512");
         directory.add(minimal);
-        // Matches the filter but cannot be stored: skipped
+        // Match the filter but cannot be stored: skipped by the mapper (spec §4.4)
         Entry noGuid = user("noguid", "KZ", "CS/ITS/ITS/ITS General", 512);
         noGuid.removeAttribute("objectGUID");
         directory.add(noGuid);
+        directory.add(user("tdev", "Test for Dev Team", "CS/ITS/ITS/ITS General", 512));
+        Entry noName = user("noname", "KZ", "CS/Finance/Finance/Finance General", 512);
+        noName.removeAttribute("displayName");
+        directory.add(noName);
         // Left out by the filter
+        directory.add(user("copilot-agent01", "KZ", "CS/ITS/ITS/ITS General", 512));
         directory.add(user("disabled", "KZ", "CS/ITS/ITS/ITS General", 514));
         directory.add(user("auditor", "KZ", "Audit/Financial Services", 512));
         directory.add(user("csvlike", "KZ", "CSV Team/Data", 512));
@@ -152,25 +164,48 @@ class LdapAdDirectoryClientTest {
         return new LdapAdDirectoryClient(LdapConfig.contextSource(settings), settings);
     }
 
+    private final AdEmployeeMapper mapper = new AdEmployeeMapper(new AdLdapProperties.Ldap().allowedCountries());
+
+    private List<AdEmployee> employees() {
+        return mapper.mapAll(client(PASSWORD, 500).fetchAll()).employees();
+    }
+
+    private static Set<String> logins(List<AdRecord> records) {
+        return records.stream().map(r -> String.valueOf(r.get("sAMAccountName"))).collect(Collectors.toSet());
+    }
+
     // --- fetchAll ------------------------------------------------------------------------------------------------
 
     @Test
-    void realFilterReturnsEnabledCentralServicesUsersOnly() {
-        List<AdEmployee> employees = client(PASSWORD, 500).fetchAll();
+    void realFilterReturnsEnabledCentralServicesUsersWithoutCopilotAccounts() {
+        List<AdRecord> records = client(PASSWORD, 500).fetchAll();
 
-        Set<String> logins = employees.stream().map(AdEmployee::login).collect(Collectors.toSet());
-        assertThat(logins).hasSize(11)
-                .contains("user00", "user09", "minimal")
-                .doesNotContain("disabled", "auditor", "csvlike", "partner", "noguid");
+        assertThat(logins(records)).hasSize(14)
+                .contains("user00", "user09", "minimal", "noguid", "tdev", "noname")
+                .doesNotContain("copilot-agent01", "disabled", "auditor", "csvlike", "partner");
+    }
+
+    @Test
+    void testOuAndBlankDisplayNameEntriesPassThroughClientAndMapperAndAreSkipped() {
+        List<AdRecord> records = client(PASSWORD, 500).fetchAll();
+
+        AdEmployeeMapper.Batch batch = assertDoesNotThrow(() -> mapper.mapAll(records));
+
+        assertThat(batch.employees()).hasSize(11);
+        assertThat(batch.employees()).extracting(AdEmployee::login).doesNotContain("noguid", "tdev", "noname");
+        assertThat(batch.employees()).allSatisfy(e -> assertThat(e.countryCode()).isIn("KZ", "UZ"));
+        assertThat(batch.skipped()).containsExactlyInAnyOrderEntriesOf(Map.of(
+                SkipReason.COUNTRY_NOT_ALLOWED, 1, SkipReason.BLANK_DISPLAY_NAME, 1, SkipReason.MISSING_REQUIRED, 1));
+        assertThat(batch.employees().size() + batch.skippedCount()).isEqualTo(records.size());
     }
 
     @Test
     void allPagesComeOverOneConnectionWithOneBind() {
-        List<AdEmployee> employees = client(PASSWORD, 3).fetchAll();
+        List<AdRecord> records = client(PASSWORD, 3).fetchAll();
 
-        assertThat(employees).hasSize(11);
-        // 12 matching entries (one skipped) in pages of 3
-        assertThat(counter.searches).hasSize(4);
+        assertThat(records).hasSize(14);
+        // 14 matching entries in pages of 3
+        assertThat(counter.searches).hasSize(5);
         assertThat(counter.searches).allSatisfy(s -> assertThat(s.paged()).isTrue());
         assertThat(counter.searches.stream().map(Op::connection).distinct()).hasSize(1);
         assertThat(counter.binds).hasSize(1);
@@ -179,15 +214,17 @@ class LdapAdDirectoryClientTest {
 
     @Test
     void objectGuidIsReadAsBinaryAndConverted() {
-        AdEmployee minimal = client(PASSWORD, 500).fetchAll().stream()
-                .filter(e -> e.login().equals("minimal")).findFirst().orElseThrow();
+        assertThat(client(PASSWORD, 500).fetchAll()).filteredOn(r -> "minimal".equals(r.get("sAMAccountName")))
+                .singleElement().satisfies(r -> assertThat(r.get("objectGUID")).isInstanceOf(byte[].class));
 
+        AdEmployee minimal = employees().stream()
+                .filter(e -> e.login().equals("minimal")).findFirst().orElseThrow();
         assertThat(minimal.adGuid()).isEqualTo(guid(50));
     }
 
     @Test
     void attributesAreMappedAndMissingOnesAreNull() {
-        List<AdEmployee> employees = client(PASSWORD, 500).fetchAll();
+        List<AdEmployee> employees = employees();
         AdEmployee full = employees.stream().filter(e -> e.login().equals("user01")).findFirst().orElseThrow();
         AdEmployee minimal = employees.stream().filter(e -> e.login().equals("minimal")).findFirst().orElseThrow();
 
@@ -213,18 +250,20 @@ class LdapAdDirectoryClientTest {
     @Test
     void findByUpnFindsAUserOfAnyDepartment() {
         assertThat(client(PASSWORD, 500).findByUpn("AUDITOR@kz.example"))
-                .hasValueSatisfying(e -> assertThat(e.department()).isEqualTo("Audit/Financial Services"));
+                .hasValueSatisfying(r -> assertThat(r.get("department")).isEqualTo("Audit/Financial Services"));
     }
 
     @Test
     void findByDnOutsideTheBaseDnFallsBackToTheDomainRoot() {
         LdapAdDirectoryClient client = client(PASSWORD, 500);
 
-        assertThat(client.findByDn("CN=partner,OU=Partners," + ROOT))
-                .hasValueSatisfying(e -> {
-                    assertThat(e.login()).isEqualTo("partner");
-                    assertThat(e.countryCode()).isNull();
-                });
+        AdRecord partner = client.findByDn("CN=partner,OU=Partners," + ROOT).orElseThrow();
+        // Outside OU=Countries: as a Central Services employee it would be skipped, as an external it is kept
+        assertThat(mapper.map(partner)).isInstanceOf(AdEmployeeMapper.Skipped.class);
+        assertThat(mapper.mapExternal(partner)).isInstanceOfSatisfying(AdEmployeeMapper.Mapped.class, m -> {
+            assertThat(m.employee().login()).isEqualTo("partner");
+            assertThat(m.employee().countryCode()).isNull();
+        });
         assertThat(counter.searches).hasSize(2);
         assertThat(counter.searches.get(1).base()).isEqualToIgnoringCase(ROOT);
         assertThat(counter.binds).hasSize(1);

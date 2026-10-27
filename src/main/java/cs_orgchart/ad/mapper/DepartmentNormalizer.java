@@ -12,7 +12,7 @@ import java.util.Locale;
 import java.util.Map;
 
 /**
- * Raw AD {@code department} of a Central Services employee → {@code dept_level1..4} (spec v2.1 §5.2):
+ * Raw AD {@code department} of a Central Services employee → {@code dept_level1..4} (spec v3 §5.2):
  * <ol>
  *   <li>split by "/", trim, drop empty parts;</li>
  *   <li>replace each part by its alias (any case); a function or general node name takes the dictionary spelling;

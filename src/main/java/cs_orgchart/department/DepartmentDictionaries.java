@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * The dictionaries of the department normalizer and the function resolver (spec v2.1 §5.3, §5.5): from the database
+ * The dictionaries of the department normalizer and the function resolver (spec v3 §5.3, §5.5): from the database
  * in the application ({@link JpaDepartmentDictionaries}), in memory in the tests.
  */
 public interface DepartmentDictionaries {

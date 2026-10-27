@@ -10,7 +10,7 @@ import org.hibernate.annotations.UpdateTimestamp;
 import java.time.Instant;
 
 /**
- * Presentation data AD does not have (spec v2.1 §6.4): one row per person per site function, edited by admins.
+ * Presentation data AD does not have (spec v3 §6.4): one row per person per site function, edited by admins.
  * The AD sync never touches it. At most one person per function holds each {@code headRank}.
  */
 @Entity

@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 /**
- * The node appended to a department that names only its function (spec v2.1 §5.3), e.g.
+ * The node appended to a department that names only its function (spec v3 §5.3), e.g.
  * {@code ITS} → {@code ITS General}.
  */
 @Entity

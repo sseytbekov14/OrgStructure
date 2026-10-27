@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 import java.time.Instant;
 
 /**
- * One AD sync run (spec v2.1 §6.2, §7): its trigger, outcome and counts.
+ * One AD sync run (spec v3 §6.2, §7): its trigger, outcome and counts.
  */
 @Entity
 @Table(name = "ad_sync_log")
@@ -38,8 +38,13 @@ public class AdSyncLog {
     @Column(name = "trigger_type", nullable = false, length = 16)
     private String triggerType;
 
+    /** Records that passed validation (spec §4.4): what is upserted */
     @Column(name = "fetched_count")
     private Integer fetchedCount;
+
+    /** Records skipped by the §4.4 rules; the LDAP result size is fetched + skipped */
+    @Column(name = "skipped_count")
+    private Integer skippedCount;
 
     @Column(name = "inserted_count")
     private Integer insertedCount;

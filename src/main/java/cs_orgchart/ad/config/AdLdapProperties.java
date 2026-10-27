@@ -5,19 +5,27 @@ import lombok.ToString;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Set;
 
 /**
- * The AD_* settings of the AD sync (spec v2.1 §4.1, §8), mapped in application.yaml. Read only when AD_SYNC_MODE is
+ * The AD_* settings of the AD sync (spec v3 §4.1, §8), mapped in application.yaml. Read only when AD_SYNC_MODE is
  * set ({@link AdConfig}).
  */
 @Data
 @ConfigurationProperties("ad")
 public class AdLdapProperties {
 
-    /** Spec §4.2: Central Services users, enabled accounts only */
+    /** Spec §4.2: Central Services users, enabled accounts only, no technical copilot-* accounts */
     public static final String DEFAULT_FILTER = "(&(objectCategory=person)(objectClass=user)"
             + "(|(department=Central Services*)(department=CS/*)(department=CS /*)(department=CS))"
-            + "(!(userAccountControl:1.2.840.113556.1.4.803:=2)))";
+            + "(!(userAccountControl:1.2.840.113556.1.4.803:=2))"
+            + "(!(sAMAccountName=copilot-*)))";
+
+    /** Spec §4.4: the country OUs whose employees are synced */
+    public static final String DEFAULT_COUNTRIES = "KZ,UZ,AZ,GE,AM,KG";
 
     private final Sync sync = new Sync();
     private final Ldap ldap = new Ldap();
@@ -51,6 +59,8 @@ public class AdLdapProperties {
         private String filter = "";
         /** AD_LDAP_PAGE_SIZE (AD returns at most 1000 per page) */
         private int pageSize = 500;
+        /** AD_LDAP_COUNTRIES: comma-separated country OUs; records of other OUs are skipped */
+        private String countries = DEFAULT_COUNTRIES;
         /** AD_LDAP_TRUSTSTORE_PATH: CA certificates trusted for the LDAP connection only (spec §8.1) */
         private String truststorePath = "";
         /** AD_LDAP_TRUSTSTORE_PASSWORD */
@@ -61,6 +71,24 @@ public class AdLdapProperties {
 
         public String effectiveFilter() {
             return filter == null || filter.isBlank() ? DEFAULT_FILTER : filter.trim();
+        }
+
+        /** {@link #countries} trimmed, upper case, blanks ignored; nothing left: {@link #DEFAULT_COUNTRIES} */
+        public Set<String> allowedCountries() {
+            Set<String> allowed = parseCountries(countries);
+            return allowed.isEmpty() ? parseCountries(DEFAULT_COUNTRIES) : allowed;
+        }
+
+        private static Set<String> parseCountries(String list) {
+            Set<String> parsed = new LinkedHashSet<>();
+            if (list != null) {
+                for (String code : list.split(",")) {
+                    if (!code.isBlank()) {
+                        parsed.add(code.trim().toUpperCase(Locale.ROOT));
+                    }
+                }
+            }
+            return Collections.unmodifiableSet(parsed);
         }
     }
 }

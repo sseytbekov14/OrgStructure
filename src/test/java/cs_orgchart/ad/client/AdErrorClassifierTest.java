@@ -16,7 +16,7 @@ import java.security.cert.CertificateException;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Each kind of LDAP failure gets its own error code and an actionable message (spec v2.1 §7).
+ * Each kind of LDAP failure gets its own error code and an actionable message (spec v3 §7).
  */
 class AdErrorClassifierTest {
 

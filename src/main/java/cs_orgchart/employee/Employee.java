@@ -10,7 +10,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * An employee as read from Active Directory (spec v2.1 §4.3, §6.1). Not the same as {@link cs_orgchart.model.Employee},
+ * An employee as read from Active Directory (spec v3 §4.3, §6.1). Not the same as {@link cs_orgchart.model.Employee},
  * which is the in-memory record the site shows today (Excel).
  *
  * <p>AD is the source of these facts; presentation data lives in
@@ -100,7 +100,7 @@ public class Employee {
     @Column(name = "pm_id")
     private Long pmId;
 
-    /** From the DN: OU=&lt;XX&gt;,OU=Countries */
+    /** From the DN: OU=&lt;XX&gt;,OU=Countries, one of AD_LDAP_COUNTRIES; null only for external rows */
     @Column(name = "country_code", length = 8)
     private String countryCode;
 
