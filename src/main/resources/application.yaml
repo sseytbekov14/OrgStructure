@@ -7,6 +7,10 @@ spring:
     exclude:
       # The accounts of the password form come from AUTH_PASSWORD_USERS (SecurityConfig), never Boot's default user
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+      # Spring LDAP is used only by the AD sync, with its own connection (ad.ldap, AdConfig): no default LDAP
+      # connection to localhost and no LDAP health check (it would query AD on every /actuator/health)
+      - org.springframework.boot.autoconfigure.ldap.LdapAutoConfiguration
+      - org.springframework.boot.actuate.autoconfigure.ldap.LdapHealthContributorAutoConfiguration
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:OrgStructure}?ssl=true&sslmode=require
     username: ${DB_USER:postgres}
@@ -80,6 +84,31 @@ auth:
   roles:
     system-admin-emails: ${SYSTEM_ADMIN_EMAILS:}
     hr-editor-emails: ${HR_EDITOR_EMAILS:}
+
+# Employees from Active Directory (docs/OrgChart_AD_Integration_Spec_v2.1.md, section 8). AD_SYNC_MODE empty: no AD
+# components at all. Nothing connects to AD at start: the first connection is made by the first sync.
+ad:
+  sync:
+    enabled: ${AD_SYNC_ENABLED:false}
+    # mock (synthetic users of mock/ad-employees.json) | ldap
+    mode: ${AD_SYNC_MODE:}
+    # "-" disables the scheduler
+    cron: "${AD_SYNC_CRON:0 */30 * * * *}"
+    on-startup: ${AD_SYNC_ON_STARTUP:false}
+    min-ratio: ${AD_SYNC_MIN_RATIO:0.5}
+  ldap:
+    # ldaps:// only; the certificate is checked against AD_LDAP_TRUSTSTORE_PATH, for this connection only
+    url: ${AD_LDAP_URL:}
+    base-dn: ${AD_LDAP_BASE_DN:}
+    bind-dn: ${AD_LDAP_BIND_DN:}
+    bind-password: ${AD_LDAP_BIND_PASSWORD:}
+    # empty: Central Services users with enabled accounts (AdLdapProperties.DEFAULT_FILTER, spec section 4.2)
+    filter: ${AD_LDAP_FILTER:}
+    page-size: ${AD_LDAP_PAGE_SIZE:500}
+    truststore-path: ${AD_LDAP_TRUSTSTORE_PATH:}
+    truststore-password: ${AD_LDAP_TRUSTSTORE_PASSWORD:}
+    connect-timeout: 10s
+    read-timeout: 60s
 
 management:
   endpoints:

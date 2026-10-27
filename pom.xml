@@ -112,6 +112,12 @@
 			<artifactId>flyway-database-postgresql</artifactId>
 		</dependency>
 
+		<!-- Spring LDAP — reading employees from Active Directory (ad/), paged search on one connection -->
+		<dependency>
+			<groupId>org.springframework.ldap</groupId>
+			<artifactId>spring-ldap-core</artifactId>
+		</dependency>
+
 		<!-- Apache POI — reading Excel (.xlsx) -->
 		<dependency>
 			<groupId>org.apache.poi</groupId>
@@ -147,6 +153,12 @@
 		<dependency>
 			<groupId>com.h2database</groupId>
 			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- In-memory LDAP server of the AD client tests (paging, objectGUID, LDAPS, wrong password) -->
+		<dependency>
+			<groupId>com.unboundid</groupId>
+			<artifactId>unboundid-ldapsdk</artifactId>
 			<scope>test</scope>
 		</dependency>
 

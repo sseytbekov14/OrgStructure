@@ -1,0 +1,20 @@
+[
+  { "upn": "ccoral@kz.example",   "cs": "F&O",     "headRank": 1, "areaOfDuties": "Facilities",         "jobDescription": "Offices and operations" },
+  { "upn": "aamber@kz.example",   "cs": "F&O",     "headRank": 2, "areaOfDuties": "Administration",     "jobDescription": "Executive office" },
+  { "upn": "eebony@kz.example",   "cs": "F&O",     "groupName": "UZ", "areaOfDuties": "Facilities UZ", "jobDescription": "Office support" },
+  { "upn": "ggold@kz.example",    "cs": "Tenders", "headRank": 1, "areaOfDuties": "Tenders",            "jobDescription": "Proposals" },
+  { "upn": "iindigo@kz.example",  "cs": "Tenders", "groupName": "GE", "areaOfDuties": "Tenders GE",    "jobDescription": "Proposals" },
+  { "upn": "kkhaki@kz.example",   "cs": "ITS",     "headRank": 1, "areaOfDuties": "IT strategy",        "jobDescription": "IT leadership" },
+  { "upn": "llemon@kz.example",   "cs": "ITS",     "headRank": 2, "areaOfDuties": "IT operations",      "jobDescription": "Infrastructure" },
+  { "upn": "mmint@kz.example",    "cs": "ITS",     "groupName": "Service Desk", "areaOfDuties": "Workplace IT", "jobDescription": "User support" },
+  { "upn": "qquartz@kz.example",  "cs": "QRM",     "headRank": 1, "areaOfDuties": "Risk management",    "jobDescription": "Quality and risk" },
+  { "upn": "tteal@kz.example",    "cs": "OGC",     "headRank": 1, "areaOfDuties": "Legal",              "jobDescription": "Contracts" },
+  { "upn": "xxanadu@kz.example",  "cs": "Finance", "headRank": 1, "areaOfDuties": "Finance",            "jobDescription": "Financial control" },
+  { "upn": "yyellow@kz.example",  "cs": "Finance", "headRank": 2, "areaOfDuties": "Reporting",          "jobDescription": "Management reporting" },
+  { "upn": "aazure@kz.example",   "cs": "Finance", "groupName": "GE", "areaOfDuties": "Accounting GE", "jobDescription": "Bookkeeping" },
+  { "upn": "ccyan@kz.example",    "cs": "Markets", "headRank": 1, "areaOfDuties": "Marketing",          "jobDescription": "Brand and events" },
+  { "upn": "ggarnet@kz.example",  "cs": "People",  "headRank": 1, "areaOfDuties": "HR",                 "jobDescription": "People strategy" },
+  { "upn": "jjet@kz.example",     "cs": "People",  "headRank": 2, "areaOfDuties": "Learning",           "jobDescription": "Trainings" },
+  { "upn": "hhoney@kz.example",   "cs": "People",  "groupName": "HR Administration", "areaOfDuties": "HR administration", "jobDescription": "Employee records" },
+  { "upn": "hhoney@kz.example",   "cs": "F&O",     "groupName": "Office support", "areaOfDuties": "Office administration", "jobDescription": "Access cards", "managerOverrideUpn": "ccoral@kz.example" }
+]
