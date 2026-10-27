@@ -493,6 +493,7 @@ function openEmployeeProfile(employee) {
   const dialog = ensureProfileDialog();
   profileEmployee = employee;
   document.getElementById("profileBody").innerHTML = renderProfile(employee);
+  if (typeof window.onProfileRendered === "function") window.onProfileRendered(employee, document.getElementById("profileBody"));
 
   if (!dialog.open) {
     profileReturnFocus = document.activeElement;

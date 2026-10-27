@@ -1143,6 +1143,7 @@ async function loadFunctionData({ refresh = false } = {}) {
     document.getElementById('funcCount').textContent = `${employeeDirectory.length} employees`;
 
     renderChart();
+    if (typeof window.onFunctionRendered === 'function') window.onFunctionRendered(cs, employeeDirectory);
 
     const target = !refresh && params.get('emp');
     if (target) {

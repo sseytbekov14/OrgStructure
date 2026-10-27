@@ -7,6 +7,7 @@ import cs_orgchart.department.DepartmentFunctionMapRepository;
 import cs_orgchart.department.DepartmentGeneralNodeRepository;
 import cs_orgchart.department.JpaDepartmentDictionaries;
 import cs_orgchart.employee.override.EmployeeOverrideRepository;
+import cs_orgchart.employee.override.OverlayChanged;
 import cs_orgchart.model.Employee;
 import cs_orgchart.service.OrgStreamService;
 import jakarta.annotation.PostConstruct;
@@ -15,6 +16,9 @@ import org.springframework.context.event.EventListener;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
@@ -49,6 +53,8 @@ public class DbEmployeeDirectory {
         this.orgStream = orgStream;
         this.readOnly = new TransactionTemplate(transactions);
         this.readOnly.setReadOnly(true);
+        // Own transaction: after a commit (admin edit) the finished one is still bound to the thread
+        this.readOnly.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
         // Own dictionaries (not the AD sync's beans): db mode also works with AD_SYNC_MODE empty
         this.dictionaries = new JpaDepartmentDictionaries(aliases, generalNodes, functionMap);
         this.assembler = new EmployeeDtoAssembler(new FunctionResolver(dictionaries), parentSource);
@@ -75,6 +81,12 @@ public class DbEmployeeDirectory {
     public void onEmployeesSynced(EmployeesSynced synced) {
         load();
         orgStream.publishOrgUpdated("ad-sync");
+    }
+
+    /** An admin edit: rebuilt once its transaction has committed, so org-updated never announces uncommitted data */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void onOverlayChanged(OverlayChanged change) {
+        rebuild();
     }
 
     /**
