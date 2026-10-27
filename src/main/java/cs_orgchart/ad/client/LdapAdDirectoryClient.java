@@ -151,7 +151,7 @@ public class LdapAdDirectoryClient implements AdDirectoryClient {
         return new AdRecord(entry);
     };
 
-    /** DC=go1,DC=kworld,DC=kpmg,DC=com of OU=Countries,OU=CCG,DC=go1,DC=kworld,DC=kpmg,DC=com */
+    /** DC=corp,DC=example,DC=com of OU=Countries,OU=Org,DC=corp,DC=example,DC=com */
     static String domainRoot(String baseDn) {
         try {
             List<Rdn> rdns = new LdapName(baseDn).getRdns();

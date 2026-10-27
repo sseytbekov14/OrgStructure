@@ -285,8 +285,8 @@ class LdapAdDirectoryClientTest {
 
     @Test
     void domainRootIsTheDcPartOfTheBaseDn() {
-        assertThat(LdapAdDirectoryClient.domainRoot("OU=Countries,OU=CCG,DC=go1,DC=kworld,DC=kpmg,DC=com"))
-                .isEqualTo("DC=go1,DC=kworld,DC=kpmg,DC=com");
+        assertThat(LdapAdDirectoryClient.domainRoot("OU=Countries,OU=Org,DC=corp,DC=example,DC=com"))
+                .isEqualTo("DC=corp,DC=example,DC=com");
         assertThat(LdapAdDirectoryClient.domainRoot("not a dn")).isEmpty();
     }
 
