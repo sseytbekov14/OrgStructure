@@ -39,8 +39,8 @@ import java.util.function.Supplier;
 @Service
 public class OverrideAdminService {
 
-    static final int GROUP_MAX = 256;
-    static final int TEXT_MAX = 500;
+    public static final int GROUP_MAX = 256;
+    public static final int TEXT_MAX = 500;
 
     private final EmployeeRepository employees;
     private final EmployeeOverrideRepository overlay;
@@ -259,8 +259,8 @@ public class OverrideAdminService {
         return employee;
     }
 
-    /** Trimmed, empty → null, at most {@code max} characters, no HTML */
-    static String clean(String field, String value, int max) {
+    /** Trimmed, empty → null, at most {@code max} characters, no HTML (admin edits and the Excel import) */
+    public static String clean(String field, String value, int max) {
         if (value == null) {
             return null;
         }

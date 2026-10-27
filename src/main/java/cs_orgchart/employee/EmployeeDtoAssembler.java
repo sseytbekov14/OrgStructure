@@ -123,6 +123,14 @@ public class EmployeeDtoAssembler {
                 return override;
             }
         }
+        return adParent(employee, byId, parentSource);
+    }
+
+    /**
+     * The parent from AD without overrides: the ORG_PARENT_SOURCE relation, else the other one; a disabled parent
+     * counts as none. Also used by the Excel importer to decide where a manager override is needed.
+     */
+    public static Employee adParent(Employee employee, Map<Long, Employee> byId, ParentSource parentSource) {
         Long first = parentSource == ParentSource.PM ? employee.getPmId() : employee.getManagerId();
         Long fallback = parentSource == ParentSource.PM ? employee.getManagerId() : employee.getPmId();
         Employee parent = usable(employee, first == null ? null : byId.get(first));

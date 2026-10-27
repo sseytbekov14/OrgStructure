@@ -53,6 +53,13 @@ app:
   employees:
     source: ${EMPLOYEE_SOURCE:excel}
     parent-source: ${ORG_PARENT_SOURCE:pm}
+  # One-off import of group, heads and texts from the Excel file (app.data.excel-path) into employee_overrides
+  # (OverridesImportProperties, spec section 13 Phase 5c)
+  overrides-import:
+    from-excel: ${OVERRIDES_IMPORT_FROM_EXCEL:false}
+    dry-run: ${OVERRIDES_IMPORT_DRY_RUN:false}
+    report-path: ${OVERRIDES_IMPORT_REPORT_PATH:logs/overrides-import-report.json}
+    max-manager-override-ratio: ${OVERRIDES_IMPORT_MAX_MANAGER_OVERRIDE_RATIO:0.10}
   data:
     excel-path: c:/Projects/OrgStructure/data/result_new.xlsx
     photos-path: c:/Projects/OrgStructure/photos
