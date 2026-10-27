@@ -40,6 +40,11 @@ app:
   data:
     excel-path: c:/Projects/OrgStructure/data/result_new.xlsx
     photos-path: c:/Projects/OrgStructure/photos
+  # Requests for an alias host (comma-separated, any case) are redirected to the same address on the canonical
+  # host before sign-in (CanonicalHostFilter, docs/SSO.md); empty: off. Status 302 or 301.
+  canonical-host: ${APP_CANONICAL_HOST:}
+  alias-hosts: ${APP_ALIAS_HOSTS:}
+  alias-redirect-status: ${APP_ALIAS_REDIRECT_STATUS:302}
 
 # How people get in (AuthMode): AUTH_SSO_ENABLED=true - sign-in with Microsoft Entra ID (SAML);
 # AUTH_SSO_ENABLED=false - open to everyone without sign-in (as before SSO), or the password form when

@@ -249,6 +249,7 @@ docker logs -f csorgchart                              # строка "SSO with 
 | То же, `invalid_signature` | лог | Сертификат Entra сменился, а OrgChart прочитал метаданные до этого (или устаревший `file:`) | Перезапустить; обновить файл |
 | То же, `invalid_in_response_to` / `no saved authentication request was found` | лог | Ответ пришёл без cookie сессии: SameSite не `None`, нет `Secure`, сайт открыт по http; вход начат в другой вкладке; прошло больше `SESSION_TIMEOUT` | Проверить cookie (раздел 6, шаг 7.6) и `https`; повторить вход |
 | То же, `invalid_assertion … NotOnOrAfter / NotBefore` (**часы**) | лог | Часы WSL отстали или убежали (типично после сна ноутбука / хоста) | `date -u` в WSL; `sudo hwclock -s` или `wsl --shutdown`; NTP на Windows |
+| «Sign-in did not complete» при входе по короткому адресу `https://ccaorgchart` | адресная строка | Вход начат не на основном хосте: cookie сессии не уходит на Reply URL | Раздел 11: `APP_CANONICAL_HOST`, `APP_ALIAS_HOSTS` |
 | Бесконечные переходы OrgChart ↔ Microsoft | DevTools → Network | Браузер не сохраняет `JSESSIONID` (Secure на http, политика браузера) | Только `https`; не задавать `SERVER_SERVLET_SESSION_COOKIE_SECURE=false` при SSO |
 | «Access is not granted», `reason=DOMAIN_NOT_ALLOWED` | лог (`attributes=[…]` показывает, какие claims пришли) | Адрес не на `SAML_ALLOWED_EMAIL_DOMAINS` | Добавить домен или очистить переменную |
 | «Access is not granted», `reason=NO_ADDRESS` | лог; в `attributes=[]` нет `emailaddress`/`name` | Фильтр доменов включён, а Entra не прислал ни e-mail, ни UPN | Добавить claims в Entra (раздел 3, п. 2) |
@@ -310,3 +311,40 @@ Entra не нужен. Тесты SSO работают с поддельным I
 - **Браузер:** `SameSite=None; Secure` при настоящем cross-site POST через `netsh portproxy` с TLS в приложении, политики браузеров компании.
 - **Часы:** расхождение часов WSL с Microsoft.
 - **Портал My Apps:** вход из него (проверить, что идёт через Sign on URL).
+
+---
+
+## 11. Короткий адрес `https://ccaorgchart`
+
+Сайт открывается по двум адресам: основному `https://ccaorgchart.go1.kworld.kpmg.com` и короткому `https://ccaorgchart`. Короткий адрес **не обслуживает вход сам**, а сразу перенаправляет на основной с тем же путём и параметрами (`CanonicalHostFilter`, до Spring Security):
+
+```
+https://ccaorgchart/function.html?cs=ITS  ->  302  ->  https://ccaorgchart.go1.kworld.kpmg.com/function.html?cs=ITS
+```
+
+**Почему редирект, а не SAML на двух адресах.** Entity ID и Reply URL (`SAML_ACS_URL`) в Entra — один адрес, основной. Cookie сессии привязан к хосту, который открыл человек. Если вход начат на `ccaorgchart`, Entra возвращает ответ на `ccaorgchart.go1…`, куда cookie короткого адреса не уходит. OrgChart не находит свой запрос и показывает «Sign-in did not complete» (`invalid_in_response_to`). Второй Reply URL и второй cookie означали бы правку SAML-настроек и Entra. Редирект до входа оставляет одну схему входа: вся работа идёт на основном адресе.
+
+| Переменная | Пример | Примечание |
+|---|---|---|
+| `APP_CANONICAL_HOST` | `ccaorgchart.go1.kworld.kpmg.com` | Только имя хоста, без `https://`, порта и пути (иначе старт отказывает). Тот же хост, что в `SAML_ENTITY_ID` / `SAML_ACS_URL`. |
+| `APP_ALIAS_HOSTS` | `ccaorgchart` | Короткие имена через запятую, регистр не важен. Порт из запроса сохраняется (`ccaorgchart:8082` → `…kpmg.com:8082`). |
+| `APP_ALIAS_REDIRECT_STATUS` | `302` | `302` (по умолчанию) или `301`. `301` браузеры кэшируют надолго: ставить только после проверки. |
+
+Пустой `APP_CANONICAL_HOST` или `APP_ALIAS_HOSTS` — фильтр выключен (по умолчанию, local, тесты). Запросы на основной хост, `localhost`, IP-адрес и без заголовка `Host` проходят без изменений, поэтому `curl http://localhost:8082/actuator/health` работает как раньше. В лог (DEBUG) пишется только хост, без параметров запроса.
+
+Если сервис подключает `.env` через `env_file`, переменные приходят оттуда. Если `environment` перечисляется явно (раздел 4), добавить `APP_CANONICAL_HOST=${APP_CANONICAL_HOST:-}`, `APP_ALIAS_HOSTS=${APP_ALIAS_HOSTS:-}` и `APP_ALIAS_REDIRECT_STATUS=${APP_ALIAS_REDIRECT_STATUS:-302}`. Пример в `.env.example`.
+
+**Условия, без которых редирект не поможет:**
+- **DNS:** короткое имя `ccaorgchart` должно разрешаться на клиентах (DNS-суффикс домена или отдельная запись) в тот же сервер.
+- **TLS-сертификат** (`SERVER_SSL_KEY_STORE`) должен содержать в SAN **оба** имени: `ccaorgchart` и `ccaorgchart.go1.kworld.kpmg.com`. Иначе браузер покажет ошибку сертификата раньше, чем дойдёт до редиректа. Проверка: `openssl s_client -connect ccaorgchart:443 -servername ccaorgchart </dev/null 2>/dev/null | openssl x509 -noout -ext subjectAltName`.
+
+**Проверка:**
+
+```bash
+curl -kI https://ccaorgchart/
+# HTTP/1.1 302
+# Location: https://ccaorgchart.go1.kworld.kpmg.com/
+curl -kI https://ccaorgchart.go1.kworld.kpmg.com/actuator/health   # без редиректа
+```
+
+В браузере обе ссылки должны заканчиваться на `ccaorgchart.go1.kworld.kpmg.com` и проходить вход через Microsoft.
