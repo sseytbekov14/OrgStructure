@@ -1,6 +1,9 @@
 # The "test" profile of the security tests: an in-memory database and no data files (no PostgreSQL needed).
 # Accounts of the password form are made per test class (hashes computed at run time, nothing stored here).
+# The migrations are PostgreSQL-only (partial and functional indexes): here Hibernate makes the tables itself.
 spring:
+  flyway:
+    enabled: false
   jpa:
     open-in-view: false
     show-sql: false

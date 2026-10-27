@@ -34,13 +34,19 @@ class ApplicationStartTest {
                 .hasMessageContaining("AUTH_SSO_ENABLED and AUTH_PASSWORD_ENABLED are both true");
     }
 
-    /** No database or data files needed: the start fails before they matter, or does not touch them. */
+    /**
+     * No database or data files needed: the start fails before they matter, or does not touch them. JPA still
+     * starts before the SAML check, and the Flyway migrations are PostgreSQL-only: as in the "test" profile,
+     * Hibernate makes the tables in H2.
+     */
     private static final String[] IN_MEMORY = {
             "--spring.datasource.url=jdbc:h2:mem:start-test;DB_CLOSE_DELAY=-1",
             "--spring.datasource.driver-class-name=org.h2.Driver",
             "--spring.datasource.username=sa",
             "--spring.datasource.password=",
             "--spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.H2Dialect",
+            "--spring.flyway.enabled=false",
+            "--spring.jpa.hibernate.ddl-auto=create-drop",
             "--app.data.excel-path=target/test-data/no-such.xlsx",
             "--app.data.photos-path=target/test-data/photos"
     };

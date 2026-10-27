@@ -102,6 +102,16 @@
 			<scope>runtime</scope>
 		</dependency>
 
+		<!-- Flyway — database schema migrations (src/main/resources/db/migration) -->
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-core</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.flywaydb</groupId>
+			<artifactId>flyway-database-postgresql</artifactId>
+		</dependency>
+
 		<!-- Apache POI — reading Excel (.xlsx) -->
 		<dependency>
 			<groupId>org.apache.poi</groupId>
