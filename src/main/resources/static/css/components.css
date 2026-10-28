@@ -32,7 +32,14 @@
   width: auto;
   max-width: none;
 }
-/* Shown until the owner places the official file at /images/kpmg-logo.svg (or .png) */
+/* The official logo (images/kpmg-logo.png, blue) on a white badge: readable on the blue header and on white pages */
+.brand-logo--image {
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--color-white);
+  box-shadow: 0 0 0 1px rgba(10, 20, 40, 0.08);
+}
+/* Shown until the official file is at /images/kpmg-logo.png (or .svg) */
 .brand-logo--placeholder {
   padding: 0 var(--space-2);
   border: 1px dashed currentColor;

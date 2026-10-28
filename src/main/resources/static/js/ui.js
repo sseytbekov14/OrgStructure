@@ -267,12 +267,13 @@ function createCollapsible(options = {}) {
 
 /* ---------- Brand logo ---------- */
 
-const BRAND_LOGO_FILES = ["/images/kpmg-logo.svg", "/images/kpmg-logo.png"];
+// kpmg-logo.png: the blue KPMG logo (images/kpmg_blue.png, cropped to the logo); PNG first: no 404 on every page
+const BRAND_LOGO_FILES = ["/images/kpmg-logo.png", "/images/kpmg-logo.svg"];
 
 /**
- * Every .brand-logo--placeholder shows the official logo file once the owner has placed it in /images/ (svg, else
- * png). The file is shown as it is (height from CSS, width auto: aspect ratio kept); while it is missing the
- * clearly marked placeholder stays.
+ * Every .brand-logo--placeholder shows the official logo file once it is in /images/ (png, else svg), on a white
+ * badge (.brand-logo--image: the blue logo stays readable on the blue header). The file is shown as it is (height from
+ * CSS, width auto: aspect ratio kept); while it is missing the clearly marked placeholder stays.
  */
 function initBrandLogo() {
   const placeholders = [...document.querySelectorAll(".brand-logo--placeholder")];
@@ -283,6 +284,7 @@ function initBrandLogo() {
     probe.onload = () => {
       placeholders.forEach((holder) => {
         holder.classList.remove("brand-logo--placeholder");
+        holder.classList.add("brand-logo--image");
         holder.replaceChildren(uiEl("img", { src: BRAND_LOGO_FILES[index], alt: "KPMG" }));
       });
       window.BRAND_FAVICON = BRAND_LOGO_FILES[index];

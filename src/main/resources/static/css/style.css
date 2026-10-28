@@ -84,7 +84,7 @@ a {
 }
 
 .app-header .brand-logo {
-  height: 28px;
+  height: 32px;
   color: var(--color-on-brand);
   text-decoration: none;
   border-radius: var(--radius-sm);
