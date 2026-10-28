@@ -534,12 +534,18 @@ function addAdminLink() {
   header.appendChild(link);
 }
 
+// The admin scripts in order (async=false keeps the order of dynamically added scripts)
+const ADMIN_SCRIPTS = ["/js/validation.js?v=3.0", ADMIN_SCRIPT];
+
 function loadAdminScript() {
   if (document.querySelector("script[data-admin-tools]")) return;
-  const script = document.createElement("script");
-  script.src = ADMIN_SCRIPT;
-  script.setAttribute("data-admin-tools", "");
-  document.body.appendChild(script);
+  ADMIN_SCRIPTS.forEach((src) => {
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = false;
+    script.setAttribute("data-admin-tools", "");
+    document.body.appendChild(script);
+  });
 }
 
 /** Loads the admin tools when the signed-in person is an admin; resolves to true in that case */

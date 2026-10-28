@@ -2826,3 +2826,167 @@ button.person-row:hover {
     overflow-x: auto;
   }
 }
+
+/* ---------- Heads: main head primary, additional heads below (U3) ---------- */
+.head-card--main {
+  border-width: 2px;
+  border-color: var(--color-brand);
+  box-shadow: var(--shadow-md);
+}
+.head-cards--additional {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.head-card--additional {
+  min-width: 0;
+  max-width: 280px;
+  padding: var(--space-2) var(--space-3);
+  border-color: var(--color-border);
+  box-shadow: var(--shadow-sm);
+  transform: scale(0.94);
+}
+.head-card--additional .head-card-name {
+  font-size: var(--font-size-md);
+}
+.emp-card--additional-head {
+  border-color: var(--color-brand);
+}
+.emp-card-chip {
+  align-self: flex-start;
+  margin-top: var(--space-1);
+}
+
+/* ---------- Edit form and heads panel (U3) ---------- */
+.admin-edit-context {
+  margin: 0 0 var(--space-3);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-semibold);
+}
+.admin-field-meta {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.admin-ad-hint {
+  font-style: italic;
+}
+.admin-current {
+  color: var(--color-warning);
+}
+.admin-form-alert {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-soft);
+  color: var(--color-warning);
+}
+.admin-remove-btn {
+  margin-right: auto;
+  color: var(--color-danger);
+}
+.admin-heads-panel {
+  margin-bottom: var(--space-4);
+}
+.admin-heads-summary {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-left: auto;
+  margin-right: var(--space-2);
+}
+.admin-heads-label {
+  display: block;
+  margin: var(--space-2) 0 var(--space-1);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.admin-heads-main {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  padding: var(--space-3);
+  border: 2px solid var(--color-brand);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+.admin-heads-main .admin-heads-label {
+  flex-basis: 100%;
+  margin: 0;
+}
+.admin-heads-person {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  flex: 1;
+}
+.admin-heads-person .admin-heads-name {
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+.admin-heads-person--main .admin-heads-name {
+  font-size: var(--font-size-lg);
+}
+.admin-heads-person .admin-heads-title {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+.admin-heads-additional .admin-heads-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.admin-heads-additional .admin-heads-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--color-divider);
+}
+.admin-heads-buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+.admin-heads-group {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+}
+/* The heads block is only the holder of the collapsible panel now (the old framed block is gone) */
+.admin-heads {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+}
+.admin-heads-additional .admin-heads-item {
+  grid-template-columns: none;
+  border: 0;
+  border-bottom: 1px solid var(--color-divider);
+  border-radius: 0;
+}
+.admin-heads-person .admin-heads-name,
+.admin-heads-person .admin-heads-title {
+  display: inline;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+.collapsible-header::after {
+  flex-shrink: 0;
+  margin-left: var(--space-1);
+}

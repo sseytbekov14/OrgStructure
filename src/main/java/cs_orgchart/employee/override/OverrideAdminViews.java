@@ -33,10 +33,14 @@ public final class OverrideAdminViews {
     /**
      * A person of the site with their overlay row in that function (null: none)
      *
-     * @param group the group shown on the site (HEAD for a head, else the overlay or the default group)
+     * @param group             the group shown on the site (HEAD for a head, else the overlay or the default group)
+     * @param isPrimaryFunction cs is the person's own function from AD (removing the row resets to the AD data);
+     *                          false: an extra function (removing the row takes the person out of it)
+     * @param adDefaultGroup    the group AD gives the person in cs (only in the own function, else null)
      */
     public record MemberView(Long employeeId, String name, String email, String jobTitle, String countryCode,
-                             String cs, String group, OverrideView override) {
+                             String cs, String group, OverrideView override, boolean isPrimaryFunction,
+                             String adDefaultGroup) {
     }
 
     /**
@@ -49,7 +53,7 @@ public final class OverrideAdminViews {
     public record HeadsRequest(List<Long> employeeIds, List<Long> expectedHeads, boolean confirmRemoveAllHeads) {
     }
 
-    public record HeadView(Long employeeId, String name, String jobTitle, int rank) {
+    public record HeadView(Long employeeId, String name, String jobTitle, String countryCode, int rank) {
     }
 
     /**

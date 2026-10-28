@@ -65,7 +65,9 @@ function openDialog(options = {}) {
   uiEl("div", { class: "ui-dialog-header" },
     uiEl("h2", { class: "ui-dialog-title", id: titleId, text: options.title || "" }), closeButton),
   body, footer);
-  const backdrop = uiEl("div", { class: "ui-dialog-backdrop" }, dialog);
+  // A native modal <dialog> as the backdrop: it joins the top layer, so it also opens above another modal
+  // dialog (the profile card) and makes the rest of the page inert
+  const backdrop = uiEl("dialog", { class: "ui-dialog-backdrop" }, dialog);
 
   const handle = { element: dialog, body, footer, closed };
 
@@ -82,6 +84,7 @@ function openDialog(options = {}) {
   function close(value = null) {
     if (isClosed) return;
     isClosed = true;
+    if (backdrop.open && typeof backdrop.close === "function") backdrop.close();
     backdrop.remove();
     const index = uiDialogStack.indexOf(handle);
     if (index >= 0) uiDialogStack.splice(index, 1);
@@ -118,7 +121,9 @@ function openDialog(options = {}) {
   backdrop.addEventListener("click", (event) => {
     if (event.target === backdrop && options.closeOnBackdrop !== false) requestClose("backdrop");
   });
-  dialog.addEventListener("keydown", (event) => {
+  // The browser's own ESC handling is replaced by requestClose (beforeClose may keep the dialog open)
+  backdrop.addEventListener("cancel", (event) => event.preventDefault());
+  backdrop.addEventListener("keydown", (event) => {
     if (uiDialogStack[uiDialogStack.length - 1] !== handle) return;
     if (event.key === "Escape") {
       event.preventDefault();
@@ -142,6 +147,7 @@ function openDialog(options = {}) {
   });
 
   document.body.append(backdrop);
+  if (typeof backdrop.showModal === "function") backdrop.showModal();
   uiDialogStack.push(handle);
   const target = options.initialFocus || dialog.querySelector("[data-autofocus]")
     || uiFocusable(body)[0] || footer.querySelector("button") || dialog;
@@ -177,10 +183,20 @@ function confirmDialog(options = {}) {
 function uiToastHost() {
   let host = document.querySelector(".ui-toasts");
   if (!host) {
-    host = uiEl("div", { class: "ui-toasts", role: "status", "aria-live": "polite" });
+    // A manual popover: in the top layer, so a toast also shows above an open modal dialog
+    host = uiEl("div", { class: "ui-toasts", role: "status", "aria-live": "polite", popover: "manual" });
     document.body.append(host);
   }
   return host;
+}
+
+/** Brings the toasts above the newest modal dialog (the top layer is ordered by showing time) */
+function uiRaiseToasts(host) {
+  if (typeof host.showPopover !== "function") return;
+  try {
+    if (host.matches(":popover-open")) host.hidePopover();
+    host.showPopover();
+  } catch (e) { /* popover not supported: the toasts stay in the page */ }
 }
 
 /**
@@ -206,6 +222,7 @@ function toast(message, type = "info", options = {}) {
   element.append(uiEl("button", { type: "button", class: "ui-toast-close", "aria-label": "Dismiss", text: "×",
     onclick: dismiss }));
   host.append(element);
+  uiRaiseToasts(host);
   timer = setTimeout(dismiss, options.duration ?? (options.undo ? 8000 : 5000));
   return { element, dismiss };
 }

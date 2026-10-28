@@ -1,7 +1,10 @@
 package cs_orgchart.employee.override;
 
 import cs_orgchart.department.DepartmentFunctionMapRepository;
+import cs_orgchart.employee.DbEmployeeDirectory;
 import cs_orgchart.employee.Employee;
+import cs_orgchart.employee.EmployeeDtoAssembler;
+import cs_orgchart.employee.EmployeeDtoAssembler.AdPlacement;
 import cs_orgchart.employee.EmployeeDirectory;
 import cs_orgchart.employee.EmployeeRepository;
 import cs_orgchart.employee.EmployeeSourceProperties;
@@ -12,6 +15,7 @@ import cs_orgchart.employee.override.OverrideAdminViews.MemberView;
 import cs_orgchart.employee.override.OverrideAdminViews.OverrideRequest;
 import cs_orgchart.employee.override.OverrideAdminViews.OverrideView;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,6 +45,8 @@ public class OverrideAdminService {
 
     public static final int GROUP_MAX = 256;
     public static final int TEXT_MAX = 500;
+    /** Heads of one function at most (U3: validation of the heads input) */
+    public static final int MAX_HEADS = 20;
 
     private final EmployeeRepository employees;
     private final EmployeeOverrideRepository overlay;
@@ -48,10 +54,13 @@ public class OverrideAdminService {
     private final EmployeeDirectory directory;
     private final EmployeeSourceProperties source;
     private final ApplicationEventPublisher events;
+    private final ObjectProvider<DbEmployeeDirectory> dbDirectory;
 
     public OverrideAdminService(EmployeeRepository employees, EmployeeOverrideRepository overlay,
                                 DepartmentFunctionMapRepository functionMap, EmployeeDirectory directory,
-                                EmployeeSourceProperties source, ApplicationEventPublisher events) {
+                                EmployeeSourceProperties source, ApplicationEventPublisher events,
+                                ObjectProvider<DbEmployeeDirectory> dbDirectory) {
+        this.dbDirectory = dbDirectory;
         this.employees = employees;
         this.overlay = overlay;
         this.functionMap = functionMap;
@@ -92,10 +101,22 @@ public class OverrideAdminService {
                 continue;
             }
             EmployeeOverride row = rowsOfFunction.get(e.getId());
+            AdPlacement placement = adPlacement(e.getId());
+            boolean primary = placement != null && Objects.equals(placement.cs(), e.getCs());
             members.add(new MemberView(e.getId(), e.getName(), e.getEmail(), e.getJobTitle(), e.getCountryCode(),
-                    e.getCs(), e.getGroup(), row == null ? null : OverrideView.of(row)));
+                    e.getCs(), e.getGroup(), row == null ? null : OverrideView.of(row), primary,
+                    primary ? placement.defaultGroup() : null));
         }
         return members;
+    }
+
+    /** Where AD alone puts the person, or null (no db directory, unknown person) */
+    private AdPlacement adPlacement(Long employeeId) {
+        DbEmployeeDirectory db = dbDirectory.getIfAvailable();
+        if (db == null) {
+            return null;
+        }
+        return employees.findById(employeeId).map(db::adPlacement).orElse(null);
     }
 
     @Transactional(readOnly = true)
@@ -116,11 +137,22 @@ public class OverrideAdminService {
         if (request == null) {
             throw AdminEditException.badRequest("BODY_MISSING", "the fields are missing");
         }
-        String groupName = clean("groupName", request.groupName(), GROUP_MAX);
-        String areaOfDuties = clean("areaOfDuties", request.areaOfDuties(), TEXT_MAX);
-        String jobDescription = clean("jobDescription", request.jobDescription(), TEXT_MAX);
-
         EmployeeOverride row = overlay.findByEmployeeIdAndCs(employeeId, cs).orElse(null);
+        FieldRules.Errors errors = new FieldRules.Errors();
+        String groupName = keptOrChecked(errors, FieldRules.GROUP_NAME, request.groupName(),
+                row == null ? null : row.getGroupName());
+        String areaOfDuties = keptOrChecked(errors, FieldRules.AREA_OF_DUTIES, request.areaOfDuties(),
+                row == null ? null : row.getAreaOfDuties());
+        String jobDescription = keptOrChecked(errors, FieldRules.JOB_DESCRIPTION, request.jobDescription(),
+                row == null ? null : row.getJobDescription());
+        boolean groupChanged = row == null || !Objects.equals(groupName, row.getGroupName());
+        if (groupChanged && EmployeeDtoAssembler.HEAD.equalsIgnoreCase(groupName)) {
+            // A group named HEAD would show a non-head as a head of the function
+            errors.add("groupName", "RESERVED", "HEAD is reserved for the heads of the function: use the Function"
+                    + " heads panel.");
+        }
+        errors.throwIfAny();
+
         boolean created = row == null;
         if (created) {
             if (request.version() != null) {
@@ -186,6 +218,10 @@ public class OverrideAdminService {
             throw AdminEditException.badRequest("BODY_MISSING", "employeeIds and expectedHeads are required");
         }
         List<Long> wanted = request.employeeIds();
+        if (wanted.size() > MAX_HEADS) {
+            throw new FieldValidationException(Map.of("employeeIds", new FieldRules.Problem("TOO_MANY",
+                    "A function can have at most " + MAX_HEADS + " heads.")));
+        }
         if (new HashSet<>(wanted).size() != wanted.size() || wanted.contains(null)) {
             throw AdminEditException.badRequest("DUPLICATE", "every head may be listed once");
         }
@@ -259,7 +295,18 @@ public class OverrideAdminService {
         return employee;
     }
 
-    /** Trimmed, empty → null, at most {@code max} characters, no HTML (admin edits and the Excel import) */
+    /**
+     * A value sent back exactly as stored is kept as it is (values from before the U3 rules, e.g. from the Excel
+     * import, must not block the edit of another field); any other value goes through the field rules.
+     */
+    private static String keptOrChecked(FieldRules.Errors errors, FieldRules.Rule rule, String raw, String stored) {
+        if (stored != null && stored.equals(raw)) {
+            return stored;
+        }
+        return errors.apply(rule, raw);
+    }
+
+    /** Trimmed, empty → null, at most {@code max} characters, no HTML (the Excel import) */
     public static String clean(String field, String value, int max) {
         if (value == null) {
             return null;
@@ -290,7 +337,7 @@ public class OverrideAdminService {
             if (e == null || !e.isEnabled() || e.isExternal()) {
                 hidden++;
             } else {
-                visible.add(new HeadView(e.getId(), e.getDisplayName(), e.getJobTitle(), rank++));
+                visible.add(new HeadView(e.getId(), e.getDisplayName(), e.getJobTitle(), e.getCountryCode(), rank++));
             }
         }
         return new HeadsView(cs, visible, hidden);

@@ -268,9 +268,11 @@ function employeeKey(emp) {
 
 /* ---------- Cards ---------- */
 
-function renderHeadCard(emp) {
+// variant: 'main' (the main head, rank 1) or 'additional' (other heads, shown smaller below the main head)
+function renderHeadCard(emp, variant = '') {
+  const variantClass = variant ? ` head-card--${variant}` : '';
   return `
-    <button type="button" class="head-card" data-emp-id="${emp._id}" aria-label="Open profile of ${escapeHtml(emp.name || 'employee')}">
+    <button type="button" class="head-card${variantClass}" data-emp-id="${emp._id}" aria-label="Open profile of ${escapeHtml(emp.name || 'employee')}${variant === 'additional' ? ', additional head' : ''}">
       ${renderAvatar(emp, 'lg')}
       <span class="head-card-info">
         <span class="head-card-name">${escapeHtml(emp.name || '—')}</span>
@@ -280,13 +282,14 @@ function renderHeadCard(emp) {
   `;
 }
 
-function renderEmpCard(emp) {
+function renderEmpCard(emp, { additionalHead = false } = {}) {
   return `
-    <button type="button" class="emp-card" data-emp-id="${emp._id}" aria-label="Open profile of ${escapeHtml(emp.name || 'employee')}">
+    <button type="button" class="emp-card${additionalHead ? ' emp-card--additional-head' : ''}" data-emp-id="${emp._id}" aria-label="Open profile of ${escapeHtml(emp.name || 'employee')}${additionalHead ? ', additional head' : ''}">
       ${renderAvatar(emp, 'md')}
       <span class="emp-card-info">
         <span class="emp-card-name">${escapeHtml(emp.name || '—')}</span>
         <span class="emp-card-job">${escapeHtml(emp.jobTitle || '—')}</span>
+        ${additionalHead ? '<span class="chip emp-card-chip">Head</span>' : ''}
       </span>
     </button>
   `;
@@ -350,9 +353,13 @@ function renderGroupsView(employees) {
     html += `
       <div class="head-section">
         <div class="head-cards" style="position: relative;">
-          ${headEmps.map(emp => renderHeadCard(emp)).join('')}
+          ${renderHeadCard(headEmps[0], headEmps.length > 1 ? 'main' : '')}
           ${hasChildren ? `<button class="tree-toggle-btn" aria-expanded="true" onclick="toggleHeadSection(event, this)" aria-label="Toggle head section"></button>` : ''}
         </div>
+        ${headEmps.length > 1 ? `
+        <div class="head-cards head-cards--additional" role="group" aria-label="Additional heads">
+          ${headEmps.slice(1).map(emp => renderHeadCard(emp, 'additional')).join('')}
+        </div>` : ''}
         <div class="connector-v"></div>
       </div>
     `;
@@ -531,8 +538,23 @@ function buildTree(employees) {
     roots = [mainHead];
   }
 
+  // From the database the other heads (rank 2..n) follow directly below the main head, in head_rank order
+  const mainHeadNode = roots.length === 1 && roots[0].emp?.group?.trim().toUpperCase() === 'HEAD' ? roots[0] : null;
+  const additionalHeads = fromDb && mainHeadNode
+    ? nodes.filter(node => node !== mainHeadNode && node.emp.group?.trim().toUpperCase() === 'HEAD')
+    : [];
+  additionalHeads.forEach(node => {
+    if (node.parent && node.parent !== mainHeadNode) {
+      node.parent.children = node.parent.children.filter(child => child !== node);
+      node.parent = mainHeadNode;
+      mainHeadNode.children.push(node);
+    }
+    node.isAdditionalHead = true;
+  });
+  const headOrder = node => (node.isAdditionalHead ? nodes.indexOf(node) : Number.MAX_SAFE_INTEGER);
+
   const sortChildren = node => {
-    node.children.sort((a, b) => compareEmployeesByHierarchy(a.emp, b.emp));
+    node.children.sort((a, b) => headOrder(a) - headOrder(b) || compareEmployeesByHierarchy(a.emp, b.emp));
     node.children.forEach(sortChildren);
   };
   roots.forEach(sortChildren);
@@ -682,7 +704,8 @@ function initTree() {
 
   const holder = document.createElement('div');
   tree.nodes.forEach(node => {
-    holder.innerHTML = node.isHead ? renderHeadCard(node.emp) : renderEmpCard(node.emp);
+    holder.innerHTML = node.isHead ? renderHeadCard(node.emp)
+      : renderEmpCard(node.emp, { additionalHead: !!node.isAdditionalHead });
     const card = holder.firstElementChild;
     card.hidden = true;
     stage.appendChild(card);

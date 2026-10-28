@@ -1,0 +1,560 @@
+{
+  "description": "Shared vectors of FieldRules.java and static/js/validation.js (U3). A vector with 'normalized' is valid and normalizes to that value (null: empty); a vector with 'code' is refused with that code. Escapes are JSON escapes. 'repeat': [unit, times] builds the input (plus 'suffix'); 'valid': true means it normalizes to itself; 'normalizedRepeat' (plus 'normalizedSuffix') builds the expected normalized value.",
+  "rules": {
+    "groupName": {
+      "label": "Group",
+      "min": 2,
+      "max": 60,
+      "required": false
+    },
+    "areaOfDuties": {
+      "label": "Area of duties",
+      "min": 0,
+      "max": 120,
+      "required": false
+    },
+    "jobDescription": {
+      "label": "Job description",
+      "min": 0,
+      "max": 200,
+      "required": false
+    }
+  },
+  "messages": {
+    "TOO_SHORT": "Group needs at least 2 characters.",
+    "TOO_LONG": "Area of duties can have at most 120 characters.",
+    "CONTROL": "Job description must not contain control characters.",
+    "INVISIBLE": "Group must not contain invisible or text-direction characters.",
+    "MARKUP": "Group must not contain < > or `.",
+    "SCRIPT": "Area of duties must not contain javascript:, data: or vbscript:.",
+    "FORMULA": "Job description must not start with = + or @.",
+    "CHARACTERS": "Group contains characters that are not allowed: $ *."
+  },
+  "messageInputs": {
+    "TOO_SHORT": [
+      "groupName",
+      "x"
+    ],
+    "TOO_LONG": [
+      "areaOfDuties",
+      {
+        "repeat": [
+          "a",
+          121
+        ]
+      }
+    ],
+    "CONTROL": [
+      "jobDescription",
+      "Bell\u0007"
+    ],
+    "INVISIBLE": [
+      "groupName",
+      "Team​A"
+    ],
+    "MARKUP": [
+      "groupName",
+      "<b>Team</b>"
+    ],
+    "SCRIPT": [
+      "areaOfDuties",
+      "see javascript:alert(1)"
+    ],
+    "FORMULA": [
+      "jobDescription",
+      "=SUM(A1)"
+    ],
+    "CHARACTERS": [
+      "groupName",
+      "Team $ * $"
+    ]
+  },
+  "vectors": [
+    {
+      "field": "groupName",
+      "input": null,
+      "normalized": null
+    },
+    {
+      "field": "groupName",
+      "input": "",
+      "normalized": null
+    },
+    {
+      "field": "groupName",
+      "input": "   ",
+      "normalized": null
+    },
+    {
+      "field": "groupName",
+      "input": "IT Operations",
+      "normalized": "IT Operations"
+    },
+    {
+      "field": "groupName",
+      "input": "  IT   Operations  ",
+      "normalized": "IT Operations"
+    },
+    {
+      "field": "groupName",
+      "input": "IT\tOperations",
+      "normalized": "IT Operations"
+    },
+    {
+      "field": "groupName",
+      "input": "IT  Operations",
+      "normalized": "IT Operations"
+    },
+    {
+      "field": "groupName",
+      "input": "IT Ops",
+      "normalized": "IT Ops"
+    },
+    {
+      "field": "areaOfDuties",
+      "input": "Line one\nline two",
+      "normalized": "Line one line two"
+    },
+    {
+      "field": "areaOfDuties",
+      "input": "Line one\r\n line two",
+      "normalized": "Line one line two"
+    },
+    {
+      "field": "groupName",
+      "input": "Café team",
+      "normalized": "Café team"
+    },
+    {
+      "field": "groupName",
+      "input": "HR & Admin",
+      "normalized": "HR & Admin"
+    },
+    {
+      "field": "groupName",
+      "input": "R&D / QA, Ops.",
+      "normalized": "R&D / QA, Ops."
+    },
+    {
+      "field": "groupName",
+      "input": "Ops: Tier 1; Tier 2",
+      "normalized": "Ops: Tier 1; Tier 2"
+    },
+    {
+      "field": "groupName",
+      "input": "Ops - EU – Asia — US",
+      "normalized": "Ops - EU – Asia — US"
+    },
+    {
+      "field": "groupName",
+      "input": "Team (Almaty)",
+      "normalized": "Team (Almaty)"
+    },
+    {
+      "field": "groupName",
+      "input": "O'Neil’s \"team\"",
+      "normalized": "O'Neil’s \"team\""
+    },
+    {
+      "field": "groupName",
+      "input": "C++ #1 100% _x_!?",
+      "normalized": "C++ #1 100% _x_!?"
+    },
+    {
+      "field": "groupName",
+      "input": "Отдел кадров",
+      "normalized": "Отдел кадров"
+    },
+    {
+      "field": "groupName",
+      "input": "Қазақстан өү",
+      "normalized": "Қазақстан өү"
+    },
+    {
+      "field": "groupName",
+      "input": "საქართველო",
+      "normalized": "საქართველო"
+    },
+    {
+      "field": "groupName",
+      "input": "Հայաստան",
+      "normalized": "Հայաստան"
+    },
+    {
+      "field": "groupName",
+      "input": "O’zbekiston",
+      "normalized": "O’zbekiston"
+    },
+    {
+      "field": "groupName",
+      "input": "مالية",
+      "normalized": "مالية"
+    },
+    {
+      "field": "groupName",
+      "input": "财务",
+      "normalized": "财务"
+    },
+    {
+      "field": "groupName",
+      "input": "Team 2٣",
+      "normalized": "Team 2٣"
+    },
+    {
+      "field": "groupName",
+      "input": "UZ",
+      "normalized": "UZ"
+    },
+    {
+      "field": "groupName",
+      "input": "x",
+      "code": "TOO_SHORT"
+    },
+    {
+      "field": "groupName",
+      "input": "  x  ",
+      "code": "TOO_SHORT"
+    },
+    {
+      "field": "groupName",
+      "input": "é",
+      "code": "TOO_SHORT"
+    },
+    {
+      "field": "groupName",
+      "input": "ab",
+      "normalized": "ab"
+    },
+    {
+      "field": "groupName",
+      "input": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
+      "normalized": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+    },
+    {
+      "field": "areaOfDuties",
+      "input": "a",
+      "normalized": "a"
+    },
+    {
+      "field": "groupName",
+      "repeat": [
+        "a",
+        60
+      ],
+      "valid": true
+    },
+    {
+      "field": "groupName",
+      "repeat": [
+        "a",
+        61
+      ],
+      "code": "TOO_LONG"
+    },
+    {
+      "field": "groupName",
+      "repeat": [
+        "é",
+        59
+      ],
+      "suffix": "é",
+      "normalizedRepeat": [
+        "é",
+        60
+      ]
+    },
+    {
+      "field": "groupName",
+      "repeat": [
+        "é",
+        60
+      ],
+      "suffix": "é",
+      "code": "TOO_LONG"
+    },
+    {
+      "field": "groupName",
+      "repeat": [
+        "Ж",
+        60
+      ],
+      "valid": true
+    },
+    {
+      "field": "areaOfDuties",
+      "repeat": [
+        "a",
+        120
+      ],
+      "valid": true
+    },
+    {
+      "field": "areaOfDuties",
+      "repeat": [
+        "a",
+        121
+      ],
+      "code": "TOO_LONG"
+    },
+    {
+      "field": "areaOfDuties",
+      "repeat": [
+        "a ",
+        60
+      ],
+      "normalizedRepeat": [
+        "a ",
+        59
+      ],
+      "normalizedSuffix": "a"
+    },
+    {
+      "field": "jobDescription",
+      "repeat": [
+        "a",
+        200
+      ],
+      "valid": true
+    },
+    {
+      "field": "jobDescription",
+      "repeat": [
+        "a",
+        201
+      ],
+      "code": "TOO_LONG"
+    },
+    {
+      "field": "jobDescription",
+      "repeat": [
+        "a  ",
+        100
+      ],
+      "normalizedRepeat": [
+        "a ",
+        99
+      ],
+      "normalizedSuffix": "a"
+    },
+    {
+      "field": "groupName",
+      "input": "Team\u0000A",
+      "code": "CONTROL"
+    },
+    {
+      "field": "jobDescription",
+      "input": "Bell\u0007",
+      "code": "CONTROL"
+    },
+    {
+      "field": "jobDescription",
+      "input": "Esc\u001b[0m",
+      "code": "CONTROL"
+    },
+    {
+      "field": "jobDescription",
+      "input": "Del",
+      "code": "CONTROL"
+    },
+    {
+      "field": "jobDescription",
+      "input": "C1",
+      "code": "CONTROL"
+    },
+    {
+      "field": "jobDescription",
+      "input": "Vertical\u000btab",
+      "code": "CONTROL"
+    },
+    {
+      "field": "groupName",
+      "input": "Team​A",
+      "code": "INVISIBLE"
+    },
+    {
+      "field": "groupName",
+      "input": "Team‌A",
+      "code": "INVISIBLE"
+    },
+    {
+      "field": "groupName",
+      "input": "Team‍A",
+      "code": "INVISIBLE"
+    },
+    {
+      "field": "groupName",
+      "input": "Team‎A",
+      "code": "INVISIBLE"
+    },
+    {
+      "field": "groupName",
+      "input": "Team‏A",
+      "code": "INVISIBLE"
+    },
+    {
+      "field": "groupName",
+      "input": "‮Team",
+      "code": "INVISIBLE"
+    },
+    {
+      "field": "groupName",
+      "input": "Team‪",
+      "code": "INVISIBLE"
+    },
+    {
+      "field": "groupName",
+      "input": "Team⁦A⁩",
+      "code": "INVISIBLE"
+    },
+    {
+      "field": "groupName",
+      "input": "﻿Team",
+      "code": "INVISIBLE"
+    },
+    {
+      "field": "areaOfDuties",
+      "input": "Pay​roll",
+      "code": "INVISIBLE"
+    },
+    {
+      "field": "groupName",
+      "input": "<b>Team</b>",
+      "code": "MARKUP"
+    },
+    {
+      "field": "areaOfDuties",
+      "input": "<img src=x onerror=alert(1)>",
+      "code": "MARKUP"
+    },
+    {
+      "field": "areaOfDuties",
+      "input": "a > b",
+      "code": "MARKUP"
+    },
+    {
+      "field": "jobDescription",
+      "input": "run `rm`",
+      "code": "MARKUP"
+    },
+    {
+      "field": "jobDescription",
+      "input": "\"><script>alert(1)</script>",
+      "code": "MARKUP"
+    },
+    {
+      "field": "areaOfDuties",
+      "input": "see javascript:alert(1)",
+      "code": "SCRIPT"
+    },
+    {
+      "field": "areaOfDuties",
+      "input": "JavaScript:void(0)",
+      "code": "SCRIPT"
+    },
+    {
+      "field": "areaOfDuties",
+      "input": "data:text/html,x",
+      "code": "SCRIPT"
+    },
+    {
+      "field": "areaOfDuties",
+      "input": "VBScript:msgbox",
+      "code": "SCRIPT"
+    },
+    {
+      "field": "jobDescription",
+      "input": "Big data: analytics",
+      "code": "SCRIPT"
+    },
+    {
+      "field": "jobDescription",
+      "input": "Big data analytics",
+      "normalized": "Big data analytics"
+    },
+    {
+      "field": "jobDescription",
+      "input": "=SUM(A1)",
+      "code": "FORMULA"
+    },
+    {
+      "field": "jobDescription",
+      "input": "+7 777",
+      "code": "FORMULA"
+    },
+    {
+      "field": "jobDescription",
+      "input": "@team",
+      "code": "FORMULA"
+    },
+    {
+      "field": "jobDescription",
+      "input": "  =1+1",
+      "code": "FORMULA"
+    },
+    {
+      "field": "groupName",
+      "input": "Team +1",
+      "normalized": "Team +1"
+    },
+    {
+      "field": "jobDescription",
+      "input": "-Leading dash",
+      "normalized": "-Leading dash"
+    },
+    {
+      "field": "groupName",
+      "input": "Team $ * $",
+      "code": "CHARACTERS"
+    },
+    {
+      "field": "groupName",
+      "input": "Team {x}",
+      "code": "CHARACTERS"
+    },
+    {
+      "field": "groupName",
+      "input": "a@b.kz team",
+      "code": "CHARACTERS"
+    },
+    {
+      "field": "groupName",
+      "input": "Team \\ back",
+      "code": "CHARACTERS"
+    },
+    {
+      "field": "groupName",
+      "input": "Team | pipe",
+      "code": "CHARACTERS"
+    },
+    {
+      "field": "groupName",
+      "input": "Team €",
+      "code": "CHARACTERS"
+    },
+    {
+      "field": "groupName",
+      "input": "Team 😀",
+      "code": "CHARACTERS"
+    },
+    {
+      "field": "groupName",
+      "input": "Team em",
+      "code": "CHARACTERS"
+    },
+    {
+      "field": "groupName",
+      "input": "Soft­hyphen",
+      "code": "CHARACTERS"
+    },
+    {
+      "field": "groupName",
+      "input": "Team [1]",
+      "code": "CHARACTERS"
+    },
+    {
+      "field": "groupName",
+      "input": "Team ~ ^ =",
+      "code": "CHARACTERS"
+    }
+  ]
+}

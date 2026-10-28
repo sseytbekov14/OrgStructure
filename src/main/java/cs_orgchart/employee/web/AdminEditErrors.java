@@ -2,6 +2,7 @@ package cs_orgchart.employee.web;
 
 import cs_orgchart.access.AdminsController;
 import cs_orgchart.employee.override.AdminEditException;
+import cs_orgchart.employee.override.FieldValidationException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,6 +11,7 @@ import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
@@ -23,6 +25,20 @@ public class AdminEditErrors {
     @ExceptionHandler(AdminEditException.class)
     public ResponseEntity<Map<String, Object>> refused(AdminEditException e) {
         return answer(e.getStatus(), e.getCode(), e.getMessage());
+    }
+
+    /** 400 with every refused field: {"errors": {field: {code, message}}} (U3) */
+    @ExceptionHandler(FieldValidationException.class)
+    public ResponseEntity<Map<String, Object>> invalidFields(FieldValidationException e) {
+        Map<String, Object> errors = new LinkedHashMap<>();
+        e.getProblems().forEach((field, problem) ->
+                errors.put(field, Map.of("code", problem.code(), "message", problem.message())));
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", HttpStatus.BAD_REQUEST.value());
+        body.put("code", "VALIDATION");
+        body.put("message", "Some fields are not valid.");
+        body.put("errors", errors);
+        return ResponseEntity.badRequest().body(body);
     }
 
     @ExceptionHandler({ObjectOptimisticLockingFailureException.class, DataIntegrityViolationException.class})

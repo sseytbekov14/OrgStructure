@@ -79,6 +79,10 @@ check('profile card of a manager row', fn.run(`renderPersonRow(${JSON.stringify(
 check('employee card', fn.run(`renderEmpCard({ ...${JSON.stringify(evil)}, _id: 0 })`));
 check('head card', fn.run(`renderHeadCard({ ...${JSON.stringify(evilHead)}, _id: 1 })`));
 check('group columns', fn.run(`renderGroupsView(${data}.map((e, i) => ({ ...e, _id: i })))`));
+check('main head card (U3)', fn.run(`renderHeadCard({ ...${JSON.stringify(evilHead)}, _id: 1 }, 'main')`));
+check('additional head card (U3)', fn.run(`renderHeadCard({ ...${JSON.stringify(evilHead)}, _id: 1 }, 'additional')`));
+check('additional head in the tree (U3)', fn.run(`renderEmpCard({ ...${JSON.stringify(evil)}, _id: 0 }, { additionalHead: true })`));
+check('groups view with two heads (U3)', fn.run(`renderGroupsView([${JSON.stringify(evilHead)}, { ...${JSON.stringify(evilHead)}, id: 10 }].map((e, i) => ({ ...e, _id: i })))`));
 check('tree label (group of a child)', fn.run(`escapeHtml(slotLabel({ emp: { group: 'Other' } }, { emp: ${JSON.stringify(evil)} }))`));
 check('search highlight', fn.run(`highlightText(${JSON.stringify(evil.areaOfDuties)}, 'duties')`));
 

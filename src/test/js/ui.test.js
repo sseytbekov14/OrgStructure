@@ -161,6 +161,27 @@ test('collapsible: aria-expanded, aria-controls, hidden body, state in sessionSt
   assertEqual(again.header.getAttribute('aria-expanded'), 'true', 'restored from sessionStorage');
 });
 
+// Regression (found in the U3 browser run): a dialog opened from the profile card (a native modal <dialog>) was
+// below it and could not be clicked. Dialogs are native modal dialogs now (top layer, the page behind is inert).
+test('dialog: shown as a native modal dialog and closed again', async () => {
+  const { ctx, document } = page();
+  const handle = ctx.run(`openDialog({ title: 'T' })`);
+  const backdrop = document.querySelector('.ui-dialog-backdrop');
+  assertEqual(backdrop.tagName, 'DIALOG');
+  assertTrue(backdrop.open, 'opened with showModal');
+  const cancel = new Event('cancel');
+  backdrop.dispatchEvent(cancel);
+  assertTrue(cancel.defaultPrevented, 'the browser ESC close is replaced by requestClose');
+  handle.close();
+  assertTrue(!backdrop.open && !backdrop.isConnected, 'closed and removed');
+});
+
+test('toasts are a manual popover (above modal dialogs)', () => {
+  const { ctx, document } = page();
+  ctx.run(`toast('Saved')`);
+  assertEqual(document.querySelector('.ui-toasts').getAttribute('popover'), 'manual');
+});
+
 test('uiEl never parses HTML', () => {
   const { ctx } = page();
   const node = ctx.run(`uiEl('p', { text: '<b>bold</b>' })`);

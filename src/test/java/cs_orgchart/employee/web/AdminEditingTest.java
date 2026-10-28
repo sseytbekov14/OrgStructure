@@ -231,7 +231,7 @@ class AdminEditingTest {
         long version = row("mmint", "ITS").getVersion();
         for (Map<String, Object> bad : List.of(
                 Map.<String, Object>of("areaOfDuties", XSS, "version", version),
-                Map.<String, Object>of("jobDescription", "x".repeat(501), "version", version),
+                Map.<String, Object>of("jobDescription", "x".repeat(201), "version", version),
                 Map.<String, Object>of("groupName", "g".repeat(257), "version", version),
                 Map.<String, Object>of("groupName", "Team <b>", "version", version))) {
             mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), admin, bad))
@@ -241,7 +241,7 @@ class AdminEditingTest {
         assertThat(jdbc.queryForObject("SELECT count(*) FROM employee_overrides WHERE area_of_duties LIKE '%<%'"
                 + " OR job_description LIKE '%<%' OR group_name LIKE '%<%'", Long.class)).isZero();
         mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), admin,
-                Map.of("jobDescription", "x".repeat(500), "version", version))).andExpect(status().isOk());
+                Map.of("jobDescription", "x".repeat(200), "version", version))).andExpect(status().isOk());
     }
 
     @Test

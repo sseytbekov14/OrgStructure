@@ -89,6 +89,11 @@ public class DbEmployeeDirectory {
         rebuild();
     }
 
+    /** Where AD alone puts the person (function and default group), with the dictionaries of the last build */
+    public synchronized EmployeeDtoAssembler.AdPlacement adPlacement(cs_orgchart.employee.Employee employee) {
+        return assembler.adPlacement(employee);
+    }
+
     /**
      * The directory from the database, without telling the pages (startup, photo changes)
      *

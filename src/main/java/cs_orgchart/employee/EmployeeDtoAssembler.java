@@ -42,6 +42,20 @@ public class EmployeeDtoAssembler {
     private record Row(cs_orgchart.model.Employee dto, Short headRank) {
     }
 
+    /**
+     * Where AD alone puts a person (spec §5.5): the site function (null: none or hidden) and the default group in it
+     */
+    public record AdPlacement(String cs, String defaultGroup) {
+    }
+
+    public AdPlacement adPlacement(Employee employee) {
+        NormalizedDepartment department = new NormalizedDepartment(employee.getDeptLevel1(),
+                employee.getDeptLevel2(), employee.getDeptLevel3(), employee.getDeptLevel4(), List.of());
+        FunctionResolver.Resolution adFunction = functions.resolve(department);
+        String cs = adFunction.csName() != null && adFunction.visible() ? adFunction.csName() : null;
+        return new AdPlacement(cs, cs == null ? null : functions.defaultGroup(department));
+    }
+
     public List<cs_orgchart.model.Employee> assemble(List<Employee> employees, List<EmployeeOverride> overlay,
                                                      Map<String, String> photoFiles) {
         Map<Long, Employee> byId = new HashMap<>();

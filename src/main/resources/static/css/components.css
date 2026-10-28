@@ -533,3 +533,38 @@
   position: relative; /* keeps absolutely positioned children (visually-hidden) inside the scroll box */
   overflow-x: auto;
 }
+
+/* Native modal <dialog> used as the backdrop (top layer, above other modal dialogs) */
+dialog.ui-dialog-backdrop {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  border: 0;
+  overflow: auto;
+}
+dialog.ui-dialog-backdrop:not([open]) {
+  display: none;
+}
+dialog.ui-dialog-backdrop::backdrop {
+  background: transparent;
+}
+/* Toasts as a manual popover (top layer): no popover defaults */
+.ui-toasts[popover] {
+  inset: auto var(--space-4) var(--space-4) auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+@media (max-width: 480px) {
+  .ui-toasts[popover] {
+    inset: auto var(--space-4) var(--space-4) var(--space-4);
+  }
+}
+
+.collapsible-header[aria-expanded="true"]::after {
+  transform: translateY(3px) rotate(-135deg);
+}
