@@ -33,7 +33,7 @@ class StoredXssTest {
     private static final Pattern SINK = Pattern.compile("innerHTML|outerHTML|insertAdjacentHTML|document\\.write");
 
     @ParameterizedTest(name = "{0}: {1} reviewed HTML sinks")
-    @CsvSource({"admin.js, 0", "common.js, 2", "function.js, 10", "main.js, 7", "org-stream.js, 1", "favicon.js, 0",
+    @CsvSource({"admin.js, 0", "common.js, 2", "function.js, 10", "main.js, 7", "org-stream.js, 0", "favicon.js, 0",
             "admin-page.js, 0", "ui.js, 0", "validation.js, 0", "admin-groups.js, 0", "admin-faq.js, 0"})
     void htmlSinksAreTheReviewedOnes(String file, long reviewed) throws IOException {
         String code = Files.readString(JS.resolve(file), StandardCharsets.UTF_8);

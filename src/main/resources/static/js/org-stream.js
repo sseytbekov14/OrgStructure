@@ -1,32 +1,8 @@
 let orgEventSource = null;
-let orgToastTimer = null;
-
-function ensureOrgToastHost() {
-  let host = document.getElementById("orgToastHost");
-  if (host) return host;
-
-  host = document.createElement("div");
-  host.id = "orgToastHost";
-  host.className = "org-toast-host";
-  host.innerHTML = '<div class="org-toast" id="orgToast">Data updated</div>';
-  document.body.appendChild(host);
-  return host;
-}
-
+// The shared toast of ui.js (every page that listens to the stream loads it). U7: the old fallback is gone; it
+// declared a local "toast" that shadowed ui.js's toast(), so typeof toast threw and no refresh was announced.
 function showOrgToast(message = "Data updated") {
-  // The shared toast of ui.js when the page has it
-  if (typeof toast === "function") { toast(message, "info", { duration: 2600 }); return; }
-  const host = ensureOrgToastHost();
-  const toast = host.querySelector(".org-toast");
-  if (!toast) return;
-
-  toast.textContent = message;
-  toast.classList.add("is-visible");
-
-  clearTimeout(orgToastTimer);
-  orgToastTimer = setTimeout(() => {
-    toast.classList.remove("is-visible");
-  }, 2600);
+  if (typeof toast === "function") toast(message, "info", { duration: 2600 });
 }
 
 async function handleOrgStreamRefresh(payload) {

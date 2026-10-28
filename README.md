@@ -92,6 +92,79 @@ INSERT INTO app_admins(login_name, note) VALUES ('name@kpmg.kz', 'why');
 The comparison ignores case. To revoke access, delete the row or set `enabled = FALSE`. People who are not admins
 see no admin controls, do not load the admin script, and every `/api/manage/**` call answers 403.
 
+## Admin guide
+
+Admin features need `EMPLOYEE_SOURCE=db` (with `excel` they answer 409 "requires EMPLOYEE_SOURCE=db" and the pages
+hide their controls). The FAQ is the exception: it is edited in both modes. Every change is saved at once, shown to
+all open pages within seconds (server-sent events) and written to the log with the admin, ids and field names only.
+
+- **Access**: see "How to grant admin access" above. The Admin page (`/admin.html`, header link "Admin") has the tabs
+  *Hidden people* (all admins) and *Administrators* (super admins).
+- **Edit a person**: open the card, *Edit*. Group, area of duties and job description of the person in the function
+  shown in the title (a person in two functions is edited per function). The hint under each field shows what Active
+  Directory gives. If someone else saved meanwhile, *Reload values* shows the saved values and keeps your text.
+- **Reset / remove**: in the edit form, *Reset to AD data* (the person's own function: manual changes go, the person
+  stays with the AD data) or *Remove from function* (an extra function: the person leaves it).
+- **Function heads**: the collapsible *Function heads* panel of a function page. One *main head* (root of the tree)
+  and *additional heads*; *Make main*, reorder, remove, add (members of the function first, *All employees* for
+  anybody). A hidden person cannot be a head.
+- **Groups**: *Manage groups* on a function page. Groups from Active Directory (the department) are registered
+  automatically and keep their name; admins create groups, rename them, move them left/right and delete empty ones.
+  *Add people* / *Move to group…* move a person (one group per function, Undo in the message); *Remove from group*
+  returns a person to the group from Active Directory (refused when that is the group they are in).
+- **Hide / restore**: *Hide from site* on a card. The person disappears from the tree, groups and search for everyone;
+  the people reporting to them are shown under the next manager. Restore them on the Admin page, *Hidden people*.
+  The AD sync never changes this.
+- **FAQ & Request Guidelines**: *Edit FAQ* in the panel of a function page. Sections of guidelines, mailboxes or
+  questions; add, remove and reorder sections and items; *Preview* before *Save*.
+- **Validation rules** (the same in the browser and on the server, `FieldRules` / `FaqRules` and
+  `static/js/validation.js`): texts are normalized (Unicode NFC, tabs and no-break spaces to spaces, repeated spaces
+  collapsed, trimmed); refused are HTML characters `< >` (and backtick in labels), control characters, zero-width and
+  text-direction characters, `javascript:` / `data:` / `vbscript:` and, in the FAQ, every link other than `https://` or
+  `mailto:`. Labels (group, area of duties, job description, group names) allow letters, digits, spaces and
+  `& / , . : ; - – — ( ) ' ’ " + # % _ ! ?` and must not start with `= + @`. Limits: group name 2-60, area of
+  duties 120, job description 200, hide reason 200; FAQ section title 80, guideline 500, mailbox name 200, question
+  200, answer 2000, 12 sections, 30 items per section. HEAD and Other are reserved group names.
+
+| Method | Path | Who |
+|---|---|---|
+| GET | `/api/me/roles` | everyone (signed in; open site: anonymous answer) |
+| GET | `/api/functions/{cs}/faq` | everyone who may see the site |
+| GET | `/api/people/{id}/external` | everyone who may see the site (managers outside Central Services only) |
+| GET | `/api/manage/overrides?cs=&q=` | admins |
+| PUT / DELETE | `/api/manage/overrides/{employeeId}?cs=` | admins |
+| GET / PUT | `/api/manage/functions/{cs}/heads` | admins |
+| GET / POST | `/api/manage/functions/{cs}/groups` | admins |
+| PUT / DELETE | `/api/manage/groups/{id}` | admins |
+| POST | `/api/manage/groups/{id}/members` | admins |
+| DELETE | `/api/manage/groups/{id}/members/{employeeId}` | admins |
+| POST / DELETE | `/api/manage/employees/{id}/hide` | admins |
+| GET | `/api/manage/hidden` | admins |
+| PUT | `/api/manage/functions/{cs}/faq` | admins |
+| GET | `/admin.html` | admins |
+| GET / POST | `/api/manage/admins` | super admins |
+| DELETE | `/api/manage/admins/{id}` | super admins |
+| POST | `/api/admin/ad-sync[?dryRun=true]`, GET `/api/admin/ad-sync/log` | super admins (`SYSTEM_ADMIN_EMAILS`) |
+
+## UI conventions
+
+- **Design tokens** live in `static/css/tokens.css` only: colors (KPMG-inspired palette; text/background pairs are
+  checked for WCAG AA by `src/test/js/contrast.test.js`), the font stack `Univers, "Segoe UI", Arial, sans-serif`,
+  font sizes, spacing (4 px scale), radii, shadows, focus ring, z-index and motion (`prefers-reduced-motion` is
+  respected). One edit of a token retunes the site; `style.css` and `components.css` use only tokens.
+- **Components** (`static/css/components.css`, `static/js/ui.js`): buttons (`btn-primary`, `btn-secondary`,
+  `btn-ghost`, `btn-danger`), form fields (`field`, `field-label`, `field-help`, `field-error`, `field-counter`),
+  chips and badges, cards, the segmented control, `createCollapsible`, `openDialog` / `confirmDialog` (native modal
+  dialog, focus trap, ESC, focus return), `toast(message, type, {undo})`, skeleton / empty / error states, tables.
+- **Rules**: UI language English; no `alert()`, `confirm()` or `prompt()`; no `innerHTML` in new code (DOM APIs and
+  `textContent`; `StoredXssTest` pins the reviewed HTML sinks of each script); no external fonts, CDNs or scripts;
+  visible keyboard focus everywhere; layouts from 360 px up.
+- **Logo**: the header shows `/images/kpmg-logo.svg` (or `.png`) once the official file is placed there; until then
+  a clearly marked placeholder.
+- **Optional browser checks** (dev only, not part of the build): `e2e/` with its own `package.json` (Playwright with
+  the installed Edge, axe-core): screenshots, axe, keyboard walk-through, performance. Start the app, then for example
+  `cd e2e; npm install; $env:E2E_USER='dev'; $env:E2E_PASSWORD='<password>'; node axe.mjs`.
+
 ## Конфигурация
 
 Основные пути задаются в `src/main/resources/application.yaml`:

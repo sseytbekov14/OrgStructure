@@ -318,31 +318,6 @@ a {
   flex: 1;
 }
 
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-.section-label {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-}
-
-.section-desc {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
-}
-
-.orbit-section-header {
-  justify-content: center;
-  margin-bottom: var(--space-4);
-}
-
 /* ---------- Index: function tiles around the central node ---------- */
 .functions-orbit-shell {
   position: relative;
@@ -664,15 +639,6 @@ a {
   border-top: 2px solid var(--color-divider);
 }
 
-.section-block-label {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  color: var(--color-text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: var(--space-3);
-}
-
 /* ---------- Groups view: columns (layout computed by function.js) ---------- */
 .org-grid {
   display: flex;
@@ -748,10 +714,6 @@ a {
   background: var(--color-accent);
 }
 
-.col-flag {
-  font-size: var(--font-size-lg);
-}
-
 .col-title {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
@@ -794,34 +756,6 @@ a {
 }
 
 /* ---------- "Data updated" toast (org-stream.js) ---------- */
-.org-toast-host {
-  position: fixed;
-  top: calc(var(--header-h) + var(--space-3));
-  right: var(--space-4);
-  z-index: var(--z-toast);
-  pointer-events: none;
-}
-
-.org-toast {
-  min-width: 220px;
-  max-width: min(360px, calc(100vw - 2 * var(--space-4)));
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-md);
-  background: var(--color-brand);
-  color: var(--color-on-brand);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  box-shadow: var(--shadow-md);
-  overflow-wrap: anywhere;
-  opacity: 0;
-  transform: translateY(-8px);
-  transition: opacity var(--motion-normal) var(--ease), transform var(--motion-normal) var(--ease);
-}
-
-.org-toast.is-visible {
-  opacity: 1;
-  transform: translateY(0);
-}
 
 .no-results {
   text-align: center;
@@ -910,12 +844,7 @@ a {
     gap: var(--space-2);
   }
 
-  .section-header,
-  .orbit-section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-1);
-  }
+  
 
   .orbit-panel {
     padding: var(--space-3);
@@ -953,16 +882,9 @@ a {
     font-size: var(--font-size-md);
   }
 
-  .org-toast-host {
-    top: calc(var(--header-h) + var(--space-2));
-    right: var(--space-3);
-    left: var(--space-3);
-  }
+  
 
-  .org-toast {
-    max-width: none;
-    min-width: 0;
-  }
+  
 }
 
 /* Narrow phones (360-480 px): compact header */
@@ -2520,28 +2442,6 @@ button.person-row:hover {
 
 /* ---------- Admin editing (SYSTEM_ADMIN, admin.js) ---------- */
 
-.admin-dialog {
-  width: min(560px, calc(100% - 32px));
-}
-
-.admin-dialog-body {
-  padding: var(--space-6) var(--space-6) var(--space-5);
-}
-
-.admin-title {
-  margin: 0;
-  font-size: var(--font-size-xl);
-  line-height: var(--line-height-tight);
-  color: var(--color-text);
-  overflow-wrap: anywhere;
-}
-
-.admin-subtitle {
-  margin: var(--space-1) 0 var(--space-4);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-}
-
 .admin-form {
   display: grid;
   gap: var(--space-2);
@@ -2590,27 +2490,11 @@ button.person-row:hover {
   margin-top: var(--space-4);
 }
 
-.admin-danger {
-  color: var(--color-danger);
-}
-
-.admin-danger:hover {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
-  background: var(--color-danger-soft);
-}
-
 .admin-status {
   min-height: 1.2em;
   margin: var(--space-3) 0 0;
   font-size: var(--font-size-sm);
   color: var(--color-danger);
-}
-
-.admin-hint {
-  margin: var(--space-1) 0 0;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-secondary);
 }
 
 .admin-warning {
@@ -2630,30 +2514,6 @@ button.person-row:hover {
   border-radius: var(--radius-lg);
 }
 
-.admin-heads-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-3);
-}
-
-.admin-heads-heading {
-  margin: 0;
-  font-size: var(--font-size-lg);
-  color: var(--color-text);
-}
-
-.admin-badge {
-  padding: 1px var(--space-2);
-  border-radius: var(--radius-pill);
-  background: var(--color-accent-soft);
-  color: var(--color-brand);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-bold);
-  text-transform: uppercase;
-}
-
 .admin-heads-list {
   display: grid;
   gap: var(--space-2);
@@ -2670,11 +2530,6 @@ button.person-row:hover {
   padding: var(--space-1) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-}
-
-.admin-heads-rank {
-  font-weight: var(--font-weight-bold);
-  color: var(--color-brand);
 }
 
 .admin-heads-name {
@@ -2789,28 +2644,6 @@ button.person-row:hover {
   min-width: 560px;
 }
 
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin: var(--space-3) 0;
-  font-size: var(--font-size-md);
-}
-
-.admin-table th,
-.admin-table td {
-  text-align: left;
-  vertical-align: top;
-  padding: var(--space-2);
-  border-bottom: 1px solid var(--color-divider);
-  overflow-wrap: anywhere;
-}
-
-.admin-table th {
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-}
-
 .admin-add-form {
   max-width: 480px;
 }
@@ -2821,10 +2654,7 @@ button.person-row:hover {
   }
 
   /* Five columns do not fit a phone: the table scrolls inside the panel, not the page */
-  .admin-table {
-    display: block;
-    overflow-x: auto;
-  }
+  
 }
 
 /* ---------- Heads: main head primary, additional heads below (U3) ---------- */
@@ -3341,4 +3171,9 @@ button.person-row:hover {
 }
 .person-row-external .person-row-badge {
   font-size: 11px;
+}
+
+/* U7 (axe): no transparency on the text of the profile band */
+.profile-title {
+  opacity: 1;
 }
