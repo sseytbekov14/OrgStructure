@@ -255,7 +255,7 @@ function employeeKey(emp) {
 function renderHeadCard(emp, variant = '') {
   const variantClass = variant ? ` head-card--${variant}` : '';
   return `
-    <button type="button" class="head-card${variantClass}" data-emp-id="${emp._id}" aria-label="Open profile of ${escapeHtml(emp.name || 'employee')}${variant === 'additional' ? ', additional head' : ''}">
+    <button type="button" class="head-card${variantClass}" data-emp-id="${emp._id}" title="${escapeHtml([emp.name, emp.jobTitle, personLocation(emp)].filter(Boolean).join('\n'))}" aria-label="Open profile of ${escapeHtml(emp.name || 'employee')}${variant === 'additional' ? ', additional head' : ''}">
       ${renderAvatar(emp, 'lg')}
       <span class="head-card-info">
         <span class="head-card-name">${escapeHtml(emp.name || '—')}</span>
@@ -266,16 +266,21 @@ function renderHeadCard(emp, variant = '') {
 }
 
 // groupChip (Tree view, U4): the person's group as a chip, so that a move shows in both views
+// The tree card (groupChip) has a fixed height: its location is in the tooltip; the group cards show the location
+// line and the counselee count (renderCardFacts, U6). Long texts are clamped with the full text as a tooltip.
 function renderEmpCard(emp, { additionalHead = false, groupChip = false } = {}) {
   const group = groupChip && emp.group && emp.group.trim().toUpperCase() !== 'HEAD' ? emp.group : '';
+  const location = personLocation(emp);
+  const tooltip = [emp.name, emp.jobTitle, groupChip ? location : ''].filter(Boolean).join('\n');
   return `
-    <button type="button" class="emp-card${additionalHead ? ' emp-card--additional-head' : ''}" data-emp-id="${emp._id}" aria-label="Open profile of ${escapeHtml(emp.name || 'employee')}${additionalHead ? ', additional head' : ''}${group ? `, group ${escapeHtml(group)}` : ''}">
+    <button type="button" class="emp-card${additionalHead ? ' emp-card--additional-head' : ''}" data-emp-id="${emp._id}" title="${escapeHtml(tooltip)}" aria-label="Open profile of ${escapeHtml(emp.name || 'employee')}${additionalHead ? ', additional head' : ''}${group ? `, group ${escapeHtml(group)}` : ''}${location ? `, ${escapeHtml(location)}` : ''}">
       ${renderAvatar(emp, 'md')}
       <span class="emp-card-info">
         <span class="emp-card-name">${escapeHtml(emp.name || '—')}</span>
         <span class="emp-card-job">${escapeHtml(emp.jobTitle || '—')}</span>
         ${additionalHead ? '<span class="chip emp-card-chip">Head</span>' : ''}
         ${group ? `<span class="chip emp-card-chip emp-card-group" title="${escapeHtml(group)}">${escapeHtml(group)}</span>` : ''}
+        ${groupChip ? '' : renderCardFacts(emp)}
       </span>
     </button>
   `;
@@ -1136,6 +1141,33 @@ function bindChartEvents() {
   document.getElementById('funcSearchNext').addEventListener('click', () => stepSearch(1));
 }
 
+/** U6: placeholder cards while the employees load (DOM only) */
+function showChartSkeleton() {
+  const chart = document.getElementById('orgChart');
+  if (!chart) return;
+  const cards = Array.from({ length: 6 }, () => {
+    const card = document.createElement('div');
+    card.className = 'emp-card emp-card-skeleton';
+    const avatar = document.createElement('span');
+    avatar.className = 'skeleton skeleton-avatar';
+    const lines = document.createElement('span');
+    lines.className = 'emp-card-info';
+    ['skeleton skeleton-line', 'skeleton skeleton-line skeleton-line--short'].forEach((className) => {
+      const line = document.createElement('span');
+      line.className = className;
+      lines.appendChild(line);
+    });
+    card.append(avatar, lines);
+    return card;
+  });
+  const grid = document.createElement('div');
+  grid.className = 'chart-skeleton';
+  grid.setAttribute('aria-busy', 'true');
+  grid.setAttribute('aria-label', 'Loading the employees');
+  grid.append(...cards);
+  chart.replaceChildren(grid);
+}
+
 async function loadFunctionData({ refresh = false } = {}) {
   const params = new URLSearchParams(window.location.search);
   const cs = params.get('cs');
@@ -1148,6 +1180,7 @@ async function loadFunctionData({ refresh = false } = {}) {
     document.getElementById('funcTitle').textContent = cs;
     renderFaqBanner(cs);
     logPageVisit(cs);
+    showChartSkeleton();
   } else if (!FaqState.editing) {
     // An admin changed the FAQ (SSE): show the new one, unless this page is editing it
     renderFaqBanner(cs);

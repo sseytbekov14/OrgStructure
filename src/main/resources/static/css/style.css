@@ -3247,3 +3247,98 @@ button.person-row:hover {
   width: 100%;
   margin-top: var(--space-2);
 }
+
+/* ---------- Unified employee card (U6) ---------- */
+.card-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px var(--space-2);
+  margin-top: 2px;
+  min-width: 0;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-muted);
+}
+.card-location {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.card-counselees {
+  white-space: nowrap;
+}
+.emp-card-name,
+.head-card-name,
+.result-name,
+.result-title {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.profile-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-6);
+  margin: var(--space-3) 0 0;
+}
+.profile-fact dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.profile-fact dd {
+  margin: 0;
+  color: var(--color-text);
+  overflow-wrap: anywhere;
+}
+.profile-text {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.person-row-external {
+  flex-wrap: wrap;
+}
+.person-row-badge {
+  margin-left: auto;
+}
+.external-badge {
+  margin-bottom: var(--space-3);
+}
+.external-facts {
+  flex-direction: column;
+}
+.chart-skeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-4) 0;
+}
+.emp-card-skeleton {
+  pointer-events: none;
+}
+.skeleton-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.skeleton-line {
+  width: 80%;
+  height: 12px;
+  margin: 4px 0;
+}
+.skeleton-line--short {
+  width: 50%;
+}
+
+.person-row-external .person-row-body {
+  flex: 1 1 160px;
+  min-width: 140px;
+}
+.person-row-external .person-row-badge {
+  font-size: 11px;
+}

@@ -42,7 +42,9 @@ public class AdEmployeeMapper {
             "objectGUID", "distinguishedName", "sAMAccountName", "userPrincipalName",
             "mail", "displayName", "givenName", "sn", "title", "department", "company",
             "manager", "kPMG-User-PerformanceManagerUPN", "physicalDeliveryOfficeName",
-            "l", "telephoneNumber", "mobile", "employeeID", "userAccountControl", "whenChanged"
+            "l", "telephoneNumber", "mobile", "employeeID", "userAccountControl", "whenChanged",
+            // U6: Country/Region name and the two-letter country code
+            "co", "c"
     };
 
     /** Skipped records logged one by one per run; the rest only in the summary line */
@@ -83,6 +85,9 @@ public class AdEmployeeMapper {
     private static final String NOT_AVAILABLE = "n/a";
     private static final int ACCOUNT_DISABLE = 0x2;
     private static final int COUNTRY_CODE_MAX = 8;
+    /** U6: co is stored in employees.country_name VARCHAR(128) */
+    static final int COUNTRY_NAME_MAX = 128;
+    private static final java.util.regex.Pattern TWO_LETTERS = java.util.regex.Pattern.compile("[A-Za-z]{2}");
     private static final Pattern GENERALIZED_TIME =
             Pattern.compile("(\\d{14})(?:[.,](\\d{1,9}))?(Z|[+-]\\d{4})?");
     private static final DateTimeFormatter GENERALIZED_TIME_SECONDS = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
@@ -234,7 +239,9 @@ public class AdEmployeeMapper {
                 text(record.get("employeeID")),
                 enabled,
                 generalizedTime(record.get("whenChanged")),
-                countryCode));
+                countryCode,
+                limited(text(record.get("co")), COUNTRY_NAME_MAX),
+                countryIso(record.get("c"))));
     }
 
     /**
@@ -354,6 +361,20 @@ public class AdEmployeeMapper {
         String text = (value instanceof byte[] bytes ? new String(bytes, StandardCharsets.UTF_8)
                 : String.valueOf(value)).trim();
         return text.isEmpty() ? null : text;
+    }
+
+    /** U6: at most max characters (code points); a longer value is cut, never a reason to skip the record */
+    static String limited(String text, int max) {
+        if (text == null || text.codePointCount(0, text.length()) <= max) {
+            return text;
+        }
+        return text.substring(0, text.offsetByCodePoints(0, max)).trim();
+    }
+
+    /** U6: c as an ISO code: exactly two letters, upper case; anything else is null */
+    static String countryIso(Object value) {
+        String text = text(value);
+        return text != null && TWO_LETTERS.matcher(text).matches() ? text.toUpperCase(java.util.Locale.ROOT) : null;
     }
 
     private static UUID guidOrNull(Object value) {

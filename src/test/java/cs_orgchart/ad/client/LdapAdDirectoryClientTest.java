@@ -140,6 +140,9 @@ class LdapAdDirectoryClientTest {
         entry.addAttribute("manager", "CN=partner,OU=Partners," + ROOT);
         entry.addAttribute("kPMG-User-PerformanceManagerUPN", "partner@kz.example");
         entry.addAttribute("l", "Almaty");
+        // U6: Country/Region name and the two-letter code (c in lower case: upper-cased by the mapper)
+        entry.addAttribute("co", "Country of " + country);
+        entry.addAttribute("c", country.toLowerCase());
         entry.addAttribute("userAccountControl", String.valueOf(uac));
         entry.addAttribute("whenChanged", "20261023081530.0Z");
         return entry;
@@ -235,6 +238,9 @@ class LdapAdDirectoryClientTest {
         assertThat(full.pmUpn()).isEqualTo("partner@kz.example");
         assertThat(full.enabled()).isTrue();
         assertThat(full.adWhenChanged()).isNotNull();
+        assertThat(full.city()).isEqualTo("Almaty");
+        assertThat(full.countryName()).as("co is requested and mapped").isEqualTo("Country of UZ");
+        assertThat(full.countryIso()).isEqualTo("UZ");
 
         assertThat(minimal.dn()).isEqualToIgnoringCase("CN=minimal,OU=KZ," + BASE);
         assertThat(minimal.countryCode()).isEqualTo("KZ");
@@ -243,6 +249,8 @@ class LdapAdDirectoryClientTest {
         assertThat(minimal.managerDn()).isNull();
         assertThat(minimal.pmUpn()).isNull();
         assertThat(minimal.adWhenChanged()).isNull();
+        assertThat(minimal.countryName()).isNull();
+        assertThat(minimal.countryIso()).isNull();
     }
 
     // --- lookups -------------------------------------------------------------------------------------------------

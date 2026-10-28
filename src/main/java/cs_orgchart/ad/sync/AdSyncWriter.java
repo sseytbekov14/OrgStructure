@@ -134,6 +134,8 @@ public class AdSyncWriter {
         changed |= set(row::getCountryCode, row::setCountryCode, external ? null : e.countryCode());
         changed |= set(row::getOffice, row::setOffice, e.office());
         changed |= set(row::getCity, row::setCity, e.city());
+        changed |= set(row::getCountryName, row::setCountryName, e.countryName());
+        changed |= set(row::getCountryIso, row::setCountryIso, e.countryIso());
         changed |= set(row::getPhone, row::setPhone, e.phone());
         changed |= set(row::getMobile, row::setMobile, e.mobile());
         changed |= set(row::getAdWhenChanged, row::setAdWhenChanged, e.adWhenChanged());

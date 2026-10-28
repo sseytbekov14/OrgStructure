@@ -50,7 +50,8 @@ const evil = {
   id: 7, parentId: null, countryCode: 'KZ', cs: 'ITS',
   name: `Doe, ${PAYLOAD}`, email: 'doe@kz.example', jobTitle: `Engineer ${PAYLOAD}`, group: `Team ${PAYLOAD}`,
   areaOfDuties: `Duties ${PAYLOAD}`, jobDescription: `Description ${PAYLOAD}`, pm: `Boss ${PAYLOAD}`,
-  pmEmail: 'boss@kz.example', pmJobTitle: `Chief ${PAYLOAD}`, photoUrl: '/photos/default.jpg', gradeOrder: 6
+  pmEmail: 'boss@kz.example', pmJobTitle: `Chief ${PAYLOAD}`, photoUrl: '/photos/default.jpg', gradeOrder: 6,
+  city: `City ${PAYLOAD}`, country: `Country ${PAYLOAD}`, pmId: 99, pmExternal: true
 };
 const evilHead = { ...evil, id: 8, group: 'HEAD', name: `Head ${PAYLOAD}` };
 const evilCountry = { ...evil, id: 9, group: 'UZ', name: `Country ${PAYLOAD}` };
@@ -84,6 +85,8 @@ check('additional head card (U3)', fn.run(`renderHeadCard({ ...${JSON.stringify(
 check('additional head in the tree (U3)', fn.run(`renderEmpCard({ ...${JSON.stringify(evil)}, _id: 0 }, { additionalHead: true })`));
 check('groups view with two heads (U3)', fn.run(`renderGroupsView([${JSON.stringify(evilHead)}, { ...${JSON.stringify(evilHead)}, id: 10 }].map((e, i) => ({ ...e, _id: i })))`));
 check('tree label (group of a child)', fn.run(`escapeHtml(slotLabel({ emp: { group: 'Other' } }, { emp: ${JSON.stringify(evil)} }))`));
+check('card facts (U6)', fn.run(`renderCardFacts(${JSON.stringify(evil)})`));
+check('external manager row (U6)', fn.run(`renderPersonRow(findManager(${JSON.stringify(evil)}))`));
 check('search highlight', fn.run(`highlightText(${JSON.stringify(evil.areaOfDuties)}, 'duties')`));
 
 // start page search

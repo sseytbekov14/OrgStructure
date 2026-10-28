@@ -351,7 +351,7 @@ class EmployeeDtoAssemblerTest {
         List<Map<String, Object>> rows = new ObjectMapper().readValue(json, List.class);
         assertThat(rows.get(1)).containsOnlyKeys("name", "cs", "group", "jobTitle", "email", "pm", "pmEmail",
                 "pmJobTitle", "photoUrl", "gradeOrder", "areaOfDuties", "jobDescription", "id", "parentId",
-                "countryCode");
+                "countryCode", "pmId", "pmExternal");
         assertThat(json).doesNotContain("+000", "Office\"", "phone", "mobile", "office");
     }
 }

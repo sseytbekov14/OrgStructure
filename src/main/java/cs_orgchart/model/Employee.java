@@ -45,4 +45,20 @@ public class Employee {
     /** Position of the group in the Groups view (U4: sort order of the function's groups); null: no group object */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Integer groupOrder;
+
+    /** U6: AD l */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String city;
+
+    /** U6: AD co, else the English name of the country of AD c */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String country;
+
+    /** U6: {@link #id} of the effective manager, also when they are outside Central Services */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Long pmId;
+
+    /** U6: the effective manager is outside Central Services (limited card, GET /api/people/{pmId}/external) */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Boolean pmExternal;
 }

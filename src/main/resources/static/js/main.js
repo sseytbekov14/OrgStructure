@@ -236,17 +236,17 @@ function renderSearchResults() {
           <button type="button" class="result-main" data-result-index="${index}" aria-label="Open profile of ${escapeHtml(employee.name || "employee")}">
             ${renderAvatar(employee, "md")}
             <span class="result-body">
-              <span class="result-name">${highlightText(employee.name || "—", searchQuery)}</span>
-              <span class="result-title">${highlightText(employee.jobTitle || "", searchQuery)}</span>
+              <span class="result-name" title="${escapeHtml(employee.name || "")}">${highlightText(employee.name || "—", searchQuery)}</span>
+              <span class="result-title" title="${escapeHtml(employee.jobTitle || "")}">${highlightText(employee.jobTitle || "", searchQuery)}</span>
               <span class="result-tags">
                 ${employee.cs ? `<span class="result-tag result-tag-function">${highlightText(employee.cs, searchQuery)}</span>` : ""}
                 ${employee.group ? `<span class="result-tag result-tag-group">${highlightText(employee.group, searchQuery)}</span>` : ""}
               </span>
+              ${renderCardFacts(employee)}
               ${renderMatchContext(employee, searchQuery)}
             </span>
-            <span class="result-pm">${employee.pm ? `PM <b>${escapeHtml(employee.pm)}</b>` : ""}</span>
+            <span class="result-pm">${employee.pm ? `Reports to <b>${escapeHtml(employee.pm)}</b>` : ""}</span>
           </button>
-          ${employee.email ? `<button type="button" class="icon-btn" data-copy="${escapeHtml(employee.email)}" aria-label="Copy email of ${escapeHtml(employee.name || "employee")}">${ICONS.copy}</button>` : ""}
         </div>
       `;
     })
@@ -378,12 +378,6 @@ document.getElementById("searchSection").addEventListener("click", (event) => {
 
   if (event.target.closest("[data-clear-search]")) {
     clearSearch();
-    return;
-  }
-
-  const copyBtn = event.target.closest("[data-copy]");
-  if (copyBtn) {
-    copyText(copyBtn.dataset.copy, "Email copied");
     return;
   }
 

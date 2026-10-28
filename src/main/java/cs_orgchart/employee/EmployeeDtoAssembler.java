@@ -169,7 +169,24 @@ public class EmployeeDtoAssembler {
                 .parentId(parent != null && !parent.isExternal() ? parent.getId() : null)
                 .countryCode(employee.getCountryCode())
                 .groupOrder(groupObject == null ? null : groupObject.getSortOrder())
+                .city(employee.getCity())
+                .country(country(employee))
+                .pmId(parent == null ? null : parent.getId())
+                .pmExternal(parent == null ? null : parent.isExternal())
                 .build();
+    }
+
+    /** U6: AD co, else the English name of the two-letter code of AD c, else null */
+    public static String country(Employee employee) {
+        if (employee.getCountryName() != null && !employee.getCountryName().isBlank()) {
+            return employee.getCountryName();
+        }
+        String iso = employee.getCountryIso();
+        if (iso == null || iso.length() != 2) {
+            return null;
+        }
+        String name = Locale.of("", iso).getDisplayCountry(Locale.ENGLISH);
+        return name.isBlank() || name.equalsIgnoreCase(iso) ? null : name;
     }
 
     /** The effective parent, or for a hidden one the next visible manager up the AD chain (U4); null: none */

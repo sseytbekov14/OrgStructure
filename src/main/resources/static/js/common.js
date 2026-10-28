@@ -6,7 +6,6 @@ const MY_REACTIONS_KEY = "orgchart-my-reactions";
 const REPORTS_PREVIEW = 8;
 
 const ICONS = {
-  copy: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
   mail: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
   target: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>',
   chevronRight: '<svg class="person-row-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>',
@@ -55,6 +54,26 @@ function renderAvatar(person, size = "md") {
     return `<span class="avatar avatar-${size}" data-initials="${initials}" aria-hidden="true"><img src="${escapeHtml(photo)}" alt="" loading="lazy" /></span>`;
   }
   return `<span class="avatar avatar-${size}" aria-hidden="true">${initials}</span>`;
+}
+
+/* ---------- Employee cards (U6): the same facts on every card ---------- */
+
+/** "City, Country" of a person (from AD), or "" */
+function personLocation(person) {
+  return [person?.city, person?.country].filter(Boolean).join(", ");
+}
+
+/**
+ * The location line and the counselee count of a card in a list (tree, groups, search): one line each, the full
+ * text as a tooltip. Nothing when there is nothing to show.
+ */
+function renderCardFacts(person, { counselees = true } = {}) {
+  const location = personLocation(person);
+  const count = counselees ? findDirectReports(person).length : 0;
+  if (!location && !count) return "";
+  return `<span class="card-facts">${location
+    ? `<span class="card-location" title="${escapeHtml(location)}">${escapeHtml(location)}</span>` : ""}${count
+    ? `<span class="card-counselees">${count} ${count === 1 ? "counselee" : "counselees"}</span>` : ""}</span>`;
 }
 
 // Broken photo -> initials. Error events do not bubble, so listen in the capture phase.
@@ -108,7 +127,9 @@ function findManager(employee) {
     email: employee.pmEmail || "",
     jobTitle: employee.pmJobTitle || "",
     photoUrl: DEFAULT_PHOTO,
-    external: true
+    external: true,
+    // U6: outside Central Services, with a limited card (GET /api/people/{id}/external)
+    externalId: employee.pmExternal === true && employee.pmId != null ? employee.pmId : null
   };
 }
 
@@ -210,33 +231,58 @@ function logSearchQuery(query, resultsCount) {
     .catch((e) => console.error("Failed to log search", e));
 }
 
-/* ---------- Clipboard & toast ---------- */
+/* ---------- Toast ---------- */
 
 function notify(message, type = "info", options = {}) {
   if (typeof toast === "function") toast(message, type, options);
   else if (typeof showOrgToast === "function") showOrgToast(message);
 }
 
-function copyText(text, successMessage) {
-  const fallback = () => {
-    const area = document.createElement("textarea");
-    area.value = text;
-    area.setAttribute("readonly", "");
-    area.style.position = "fixed";
-    area.style.opacity = "0";
-    document.body.appendChild(area);
-    area.select();
-    let ok = false;
-    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
-    area.remove();
-    notify(ok ? successMessage : "Copy failed. Select the text and copy it manually.");
-  };
+/* ---------- Managers outside Central Services (U6) ---------- */
 
-  if (navigator.clipboard && window.isSecureContext) {
-    navigator.clipboard.writeText(text).then(() => notify(successMessage), fallback);
-  } else {
-    fallback();
+/**
+ * The limited card of a manager outside Central Services: name, badge, job title, e-mail, city and country only;
+ * no counselee list and no admin controls. Built with DOM APIs (ui.js dialog).
+ */
+async function openExternalPerson(id) {
+  let person = null;
+  try {
+    const res = await apiFetch(`/api/people/${encodeURIComponent(id)}/external`);
+    if (res.ok) person = await res.json();
+  } catch (e) { /* shown below */ }
+  if (!person) {
+    notify("This person's card is not available.", "error");
+    return null;
   }
+  const facts = document.createElement("dl");
+  facts.className = "profile-facts external-facts";
+  const fact = (label, value, href) => {
+    if (!value) return;
+    const row = document.createElement("div");
+    row.className = "profile-fact";
+    const dt = document.createElement("dt");
+    dt.textContent = label;
+    const dd = document.createElement("dd");
+    if (href) {
+      const link = document.createElement("a");
+      link.href = href;
+      link.textContent = value;
+      dd.appendChild(link);
+    } else {
+      dd.textContent = value;
+    }
+    row.append(dt, dd);
+    facts.appendChild(row);
+  };
+  fact("Job title", person.jobTitle);
+  fact("Email", person.email, person.email ? `mailto:${person.email}` : null);
+  fact("City", person.city);
+  fact("Country", person.country);
+  const badge = document.createElement("span");
+  badge.className = "badge badge-neutral external-badge";
+  badge.textContent = "Outside Central Services";
+  return openDialog({ title: person.name || "Manager", body: [badge, facts], className: "external-person-dialog",
+    actions: [{ label: "Close", variant: "secondary" }] });
 }
 
 /* ---------- Reactions ---------- */
@@ -345,6 +391,10 @@ function renderPersonRow(person, variant = "", hidden = false) {
 
   const index = OrgDirectory.employees.indexOf(person);
   const hiddenAttr = hidden ? " hidden" : "";
+  if (index < 0 && person.externalId != null) {
+    // U6: a manager outside Central Services opens the limited card
+    return `<button type="button" class="person-row person-row-external ${variant}" data-external-id="${escapeHtml(person.externalId)}"${hiddenAttr}>${body}<span class="badge badge-neutral person-row-badge">Outside Central Services</span>${ICONS.chevronRight}</button>`;
+  }
   if (index < 0) {
     return `<div class="person-row person-row-static ${variant}"${hiddenAttr}>${body}</div>`;
   }
@@ -371,9 +421,13 @@ function renderProfile(employee) {
       ${email ? `
         <div class="profile-contact">
           <span class="profile-contact-label">Email</span>
-          <span class="profile-email">${escapeHtml(email)}</span>
-          <button type="button" class="icon-btn" data-copy="${escapeHtml(email)}" aria-label="Copy email">${ICONS.copy}</button>
+          <a class="profile-email" href="mailto:${escapeHtml(email)}" data-mail="${escapeHtml(email)}">${escapeHtml(email)}</a>
         </div>` : '<div class="profile-contact profile-contact-empty">Email not specified</div>'}
+      ${employee.city || employee.country ? `
+        <dl class="profile-facts">
+          ${employee.city ? `<div class="profile-fact"><dt>City</dt><dd>${escapeHtml(employee.city)}</dd></div>` : ""}
+          ${employee.country ? `<div class="profile-fact"><dt>Country</dt><dd>${escapeHtml(employee.country)}</dd></div>` : ""}
+        </dl>` : ""}
 
       <div class="profile-actions">
         ${email ? `<a class="profile-btn profile-btn-primary" href="mailto:${escapeHtml(email)}" data-mail="${escapeHtml(email)}">${ICONS.mail}Email</a>` : ""}
@@ -401,15 +455,15 @@ function renderProfile(employee) {
 
         <div class="profile-col">
           <section>
-            <h3 class="profile-heading">Performance Manager</h3>
+            <h3 class="profile-heading">Reports to</h3>
             ${manager ? renderPersonRow(manager, "person-row-pm") : '<p class="profile-muted">Not assigned</p>'}
           </section>
           <section>
-            <h3 class="profile-heading">Direct reports <span class="profile-count">${reports.length}</span></h3>
+            <h3 class="profile-heading">Counselees <span class="profile-count">${reports.length}</span></h3>
             ${reports.length
               ? `<div class="person-list">${reports.map((person, index) => renderPersonRow(person, "", index >= REPORTS_PREVIEW)).join("")}</div>
                  ${reports.length > REPORTS_PREVIEW ? `<button type="button" class="profile-show-all" data-show-all-reports>Show all ${reports.length}</button>` : ""}`
-              : '<p class="profile-muted">No direct reports</p>'}
+              : '<p class="profile-muted">No counselees</p>'}
           </section>
         </div>
       </div>
@@ -451,9 +505,9 @@ function ensureProfileDialog() {
       return;
     }
 
-    const copyBtn = event.target.closest("[data-copy]");
-    if (copyBtn) {
-      copyText(copyBtn.dataset.copy, "Email copied");
+    const external = event.target.closest("[data-external-id]");
+    if (external) {
+      openExternalPerson(Number(external.dataset.externalId));
       return;
     }
 

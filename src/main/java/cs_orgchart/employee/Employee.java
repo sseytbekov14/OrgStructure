@@ -110,6 +110,14 @@ public class Employee {
     @Column(name = "city", length = 128)
     private String city;
 
+    /** U6: AD co (Country/Region name) */
+    @Column(name = "country_name", length = 128)
+    private String countryName;
+
+    /** U6: AD c (two-letter code, upper case) */
+    @Column(name = "country_iso", length = 2)
+    private String countryIso;
+
     @Column(name = "phone", length = 64)
     private String phone;
 
