@@ -15,6 +15,8 @@ import cs_orgchart.ad.sync.AdSyncWriter;
 import cs_orgchart.ad.sync.AuthCircuitBreaker;
 import cs_orgchart.ad.sync.MockOverlaySeeder;
 import cs_orgchart.department.DepartmentAliasRepository;
+import cs_orgchart.employee.group.FunctionGroupService;
+import cs_orgchart.employee.visibility.EmployeeVisibilityRepository;
 import cs_orgchart.department.DepartmentDictionaries;
 import cs_orgchart.department.DepartmentFunctionMapRepository;
 import cs_orgchart.department.DepartmentGeneralNodeRepository;
@@ -123,7 +125,8 @@ public class AdConfig {
     @Bean
     @ConditionalOnProperty(name = "ad.sync.mode", havingValue = "mock")
     public MockOverlaySeeder mockOverlaySeeder(EmployeeRepository employees, EmployeeOverrideRepository overrides,
-                                               ObjectMapper json) {
-        return new MockOverlaySeeder(employees, overrides, json);
+                                               ObjectMapper json, FunctionGroupService groups,
+                                               EmployeeVisibilityRepository visibility) {
+        return new MockOverlaySeeder(employees, overrides, json, groups, visibility);
     }
 }

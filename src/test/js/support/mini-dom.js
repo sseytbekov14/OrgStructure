@@ -174,7 +174,6 @@ class Element extends Node {
     this.attributes = {};
     this.style = {};
     this.classList = new ClassList(this);
-    this.value = '';
     this._innerHTML = null;
     const self = this;
     this.dataset = new Proxy({}, {
@@ -183,6 +182,17 @@ class Element extends Node {
       deleteProperty: (t, key) => { self.removeAttribute(`data-${String(key)}`); return true; }
     });
   }
+  // Like the browser: an input's value starts as its value attribute; a select's value is the chosen option's
+  get value() {
+    if (this._value !== undefined) return this._value;
+    if (this.tagName === 'SELECT') {
+      const options = this.querySelectorAll('option');
+      const chosen = options.find((o) => o.hasAttribute('selected')) || options[0];
+      return chosen ? (chosen.getAttribute('value') ?? chosen.textContent) : '';
+    }
+    return this.getAttribute('value') ?? '';
+  }
+  set value(v) { this._value = String(v); }
   get nodeName() { return this.tagName; }
   get localName() { return this.tagName.toLowerCase(); }
   get className() { return this.getAttribute('class') || ''; }

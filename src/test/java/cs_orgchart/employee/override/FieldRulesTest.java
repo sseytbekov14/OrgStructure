@@ -26,7 +26,9 @@ class FieldRulesTest {
     private static final Map<String, Rule> RULES = Map.of(
             "groupName", FieldRules.GROUP_NAME,
             "areaOfDuties", FieldRules.AREA_OF_DUTIES,
-            "jobDescription", FieldRules.JOB_DESCRIPTION);
+            "jobDescription", FieldRules.JOB_DESCRIPTION,
+            "name", FieldRules.GROUP,
+            "reason", FieldRules.HIDE_REASON);
 
     private static JsonNode vectors() throws IOException {
         try (InputStream in = FieldRulesTest.class.getResourceAsStream("/validation-vectors.json")) {

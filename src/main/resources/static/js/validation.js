@@ -4,11 +4,13 @@
 const FIELD_RULES = {
   groupName: { field: "groupName", label: "Group", min: 2, max: 60, required: false },
   areaOfDuties: { field: "areaOfDuties", label: "Area of duties", min: 0, max: 120, required: false },
-  jobDescription: { field: "jobDescription", label: "Job description", min: 0, max: 200, required: false }
+  jobDescription: { field: "jobDescription", label: "Job description", min: 0, max: 200, required: false },
+  name: { field: "name", label: "Group name", min: 2, max: 60, required: true },
+  reason: { field: "reason", label: "Reason", min: 0, max: 200, required: false }
 };
 
-const RULE_SPACES = /[\t\r\n   ]/g;
-const RULE_INVISIBLE = /[​-‏‪-‮⁦-⁩﻿]/;
+const RULE_SPACES = /[\t\r\n\u{00A0}\u{2007}\u{202F}]/gu;
+const RULE_INVISIBLE = /[\u{200B}-\u{200F}\u{202A}-\u{202E}\u{2066}-\u{2069}\u{FEFF}]/u;
 const RULE_MARKUP = /[<>`]/;
 const RULE_SCHEME = /(javascript|data|vbscript):/i;
 const RULE_ALLOWED_CHAR = /^[\p{L}\p{M}\p{Nd} &/,.:;\-–—()'’"+#%_!?]$/u;

@@ -35,6 +35,10 @@ public final class FieldRules {
     public static final Rule GROUP_NAME = new Rule("groupName", "Group", 2, 60, false);
     public static final Rule AREA_OF_DUTIES = new Rule("areaOfDuties", "Area of duties", 0, 120, false);
     public static final Rule JOB_DESCRIPTION = new Rule("jobDescription", "Job description", 0, 200, false);
+    /** U4: the name of a group object (required) */
+    public static final Rule GROUP = new Rule("name", "Group name", 2, 60, true);
+    /** U4: why a person is hidden from the site (optional) */
+    public static final Rule HIDE_REASON = new Rule("reason", "Reason", 0, 200, false);
 
     private static final Pattern SPACES = Pattern.compile("[\\t\\r\\n\\u00A0\\u2007\\u202F]");
     private static final Pattern REPEATED_SPACES = Pattern.compile(" {2,}");

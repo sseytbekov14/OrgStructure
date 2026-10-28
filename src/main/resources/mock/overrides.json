@@ -16,5 +16,6 @@
   { "upn": "ggarnet@kz.example",  "cs": "People",  "headRank": 1, "areaOfDuties": "HR",                 "jobDescription": "People strategy" },
   { "upn": "jjet@kz.example",     "cs": "People",  "headRank": 2, "areaOfDuties": "Learning",           "jobDescription": "Trainings" },
   { "upn": "hhoney@kz.example",   "cs": "People",  "groupName": "HR Administration", "areaOfDuties": "HR administration", "jobDescription": "Employee records" },
-  { "upn": "hhoney@kz.example",   "cs": "F&O",     "groupName": "Office support", "areaOfDuties": "Office administration", "jobDescription": "Access cards", "managerOverrideUpn": "ccoral@kz.example" }
+  { "upn": "hhoney@kz.example",   "cs": "F&O",     "groupName": "Office support", "areaOfDuties": "Office administration", "jobDescription": "Access cards", "managerOverrideUpn": "ccoral@kz.example" },
+  { "upn": "ppeach@kz.example",   "cs": "ITS",     "groupName": "IT PMO", "areaOfDuties": "Project support", "jobDescription": "Moved to IT PMO by an admin" }
 ]

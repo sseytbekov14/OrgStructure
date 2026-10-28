@@ -568,3 +568,16 @@ dialog.ui-dialog-backdrop::backdrop {
 .collapsible-header[aria-expanded="true"]::after {
   transform: translateY(3px) rotate(-135deg);
 }
+
+/* U4 visual fixes: table cells break only long words, buttons never; spacing in dialogs; compact chips on tree cards */
+.table th,
+.table td {
+  overflow-wrap: break-word;
+}
+.table .btn,
+.table td:last-child {
+  white-space: nowrap;
+}
+.ui-dialog-body .field {
+  margin-top: var(--space-3);
+}

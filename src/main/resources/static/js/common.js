@@ -535,7 +535,7 @@ function addAdminLink() {
 }
 
 // The admin scripts in order (async=false keeps the order of dynamically added scripts)
-const ADMIN_SCRIPTS = ["/js/validation.js?v=3.0", ADMIN_SCRIPT];
+const ADMIN_SCRIPTS = ["/js/validation.js?v=3.0", ADMIN_SCRIPT, "/js/admin-groups.js?v=3.0"];
 
 function loadAdminScript() {
   if (document.querySelector("script[data-admin-tools]")) return;

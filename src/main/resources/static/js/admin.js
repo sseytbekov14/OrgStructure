@@ -49,8 +49,49 @@ window.onProfileRendered = async (employee, body) => {
     type: "button", class: "profile-btn admin-edit-btn", "data-admin-edit": true, text: "Edit",
     "aria-label": `Edit ${employee.name || "this person"} in ${employee.cs}`,
     onclick: () => openAdminEditor(employee)
+  }), uiEl("button", {
+    type: "button", class: "profile-btn admin-hide-btn", "data-admin-hide": true, text: "Hide from site",
+    "aria-label": `Hide ${employee.name || "this person"} from the site`,
+    onclick: () => hideFromSite(employee)
   }));
 };
+
+/** U4: "Hide from site" with its dialog (an optional reason is stored for the admin list) */
+async function hideFromSite(employee) {
+  const name = employee.name || "this person";
+  const reasonId = uiId("adminHideReason");
+  const reason = uiEl("input", { class: "input", id: reasonId, type: "text", autocomplete: "off",
+    "aria-describedby": `${reasonId}-error` });
+  const error = uiEl("p", { class: "field-error", id: `${reasonId}-error`, "aria-live": "polite" });
+  const handle = openDialog({
+    title: `Hide ${name} from the site?`,
+    body: [
+      uiEl("p", { text: `${name} will no longer appear in the tree, groups or search for anyone. People reporting to`
+        + " them are shown under their next manager. You can restore them in Admin > Hidden people." }),
+      uiEl("div", { class: "field" }, uiEl("label", { class: "field-label", for: reasonId, text: "Reason (optional)" }),
+        reason, error)],
+    actions: [
+      { label: "Cancel", variant: "secondary" },
+      { label: "Hide", variant: "danger", onClick: async () => {
+        const problem = checkField(FIELD_RULES.reason, normalizeField(reason.value));
+        if (problem) { error.textContent = problem.message; return false; }
+        const res = await adminJson(`/api/manage/employees/${employee.id}/hide`, "POST",
+          { reason: normalizeField(reason.value) });
+        if (!res.ok) {
+          const refusal = await adminRefusal(res);
+          error.textContent = refusal.errors?.reason?.message || refusal.message;
+          return false;
+        }
+        const result = await res.json();
+        toast([`${name} is hidden from the site.`, ...(result.warnings || [])].join(" "), "success");
+        document.getElementById("profileDialog")?.close();
+        if (typeof window.refreshOrgChart === "function") await window.refreshOrgChart();
+        return true;
+      } }
+    ]
+  });
+  return handle;
+}
 
 const ADMIN_EDIT_FIELDS = [
   { name: "groupName", multiline: false,

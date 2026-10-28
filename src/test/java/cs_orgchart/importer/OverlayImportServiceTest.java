@@ -187,6 +187,22 @@ class OverlayImportServiceTest {
                 .extracting(cs_orgchart.model.Employee::getCs).containsExactlyInAnyOrder("People", "F&O");
     }
 
+    /** U4: the group names of the Excel file are group objects of their function, made through the group service */
+    @Test
+    void importedGroupNamesAreGroupsOfTheirFunction() {
+        run();
+
+        List<Map<String, Object>> rows = jdbc.queryForList("SELECT o.cs, o.group_name, g.cs AS group_cs, g.name"
+                + " FROM employee_overrides o LEFT JOIN function_groups g ON g.id = o.group_id"
+                + " WHERE o.group_name IS NOT NULL");
+        assertThat(rows).isNotEmpty().allSatisfy(row -> {
+            assertThat(row.get("name")).as("group object of %s", row).isEqualTo(row.get("group_name"));
+            assertThat(row.get("group_cs")).isEqualTo(row.get("cs"));
+        });
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM employee_overrides WHERE group_name IS NOT NULL"
+                + " AND group_id IS NULL", Long.class)).isZero();
+    }
+
     // --- safety --------------------------------------------------------------------------------------------------
 
     @Test

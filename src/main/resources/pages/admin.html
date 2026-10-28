@@ -29,7 +29,26 @@
     <h1 class="admin-page-title">Admin</h1>
     <p class="field-help" id="adminYou"></p>
 
-    <section class="card admin-panel" id="adminAdmins" aria-labelledby="adminAdminsTitle" hidden>
+    <div class="segmented admin-tabs" role="tablist" aria-label="Admin sections">
+      <button type="button" role="tab" id="adminTabHidden" aria-controls="adminHidden" aria-selected="true">Hidden people</button>
+      <button type="button" role="tab" id="adminTabAdmins" aria-controls="adminAdmins" aria-selected="false" tabindex="-1" hidden>Administrators</button>
+    </div>
+
+    <section class="card admin-panel" id="adminHidden" role="tabpanel" aria-labelledby="adminTabHidden">
+      <h2 class="admin-panel-title">Hidden people</h2>
+      <p class="field-help">Hidden people appear nowhere on the site; the people reporting to them are shown under their
+        next manager. Restoring brings them back at once. The AD sync never changes this list.</p>
+      <div class="table-scroll">
+        <table class="table">
+          <thead>
+            <tr><th scope="col">Name</th><th scope="col">Job title</th><th scope="col">Reason</th><th scope="col">Hidden by</th><th scope="col">Hidden</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+          </thead>
+          <tbody id="adminHiddenRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card admin-panel" id="adminAdmins" role="tabpanel" aria-labelledby="adminTabAdmins" hidden>
       <h2 class="admin-panel-title" id="adminAdminsTitle">Administrators</h2>
       <p class="field-help">People in this list can edit the site. Super admins (SYSTEM_ADMIN_EMAILS on the server)
         are not listed here and cannot be removed here. Use the "you" value the person sees on this page or in
@@ -57,7 +76,6 @@
         <button type="submit" class="btn btn-primary">Add admin</button>
       </form>
     </section>
-    <p class="state-empty" id="adminNotSuper" hidden>Only super admins manage the list of administrators.</p>
   </main>
 
   <script src="/js/ui.js?v=3.0"></script>

@@ -37,6 +37,14 @@ public class EmployeeOverride {
     @Column(name = "group_name", length = 256)
     private String groupName;
 
+    /**
+     * The group of the person in this function (U4, {@link cs_orgchart.employee.group.FunctionGroup}); null: the AD
+     * default group. The application reads this; {@link #groupName} is only kept in step (rollback to the previous
+     * release).
+     */
+    @Column(name = "group_id")
+    private Long groupId;
+
     /** null: not a head; 1: main head (tree root); 2..: additional heads */
     @Column(name = "head_rank")
     private Short headRank;

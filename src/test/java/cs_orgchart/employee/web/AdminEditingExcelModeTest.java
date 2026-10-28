@@ -57,7 +57,19 @@ class AdminEditingExcelModeTest {
                 delete("/api/manage/overrides/1").param("cs", "ITS"),
                 get("/api/manage/functions/ITS/heads"),
                 put("/api/manage/functions/ITS/heads").contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"employeeIds\":[],\"expectedHeads\":[]}"))) {
+                        .content("{\"employeeIds\":[],\"expectedHeads\":[]}"),
+                // U4: groups and hiding
+                get("/api/manage/functions/ITS/groups"),
+                post("/api/manage/functions/ITS/groups").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"name\":\"Team\"}"),
+                put("/api/manage/groups/1").contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}"),
+                delete("/api/manage/groups/1").param("version", "0"),
+                post("/api/manage/groups/1/members").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"employeeIds\":[1]}"),
+                delete("/api/manage/groups/1/members/1"),
+                post("/api/manage/employees/1/hide").contentType(MediaType.APPLICATION_JSON).content("{}"),
+                delete("/api/manage/employees/1/hide"),
+                get("/api/manage/hidden"))) {
             mvc.perform(request.session(admin).cookie(token).header("X-XSRF-TOKEN", token.getValue()))
                     .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.code").value("EDITING_DISABLED"))

@@ -3,15 +3,19 @@ package cs_orgchart.employee;
 import cs_orgchart.ad.mapper.FunctionResolver;
 import cs_orgchart.ad.mapper.NormalizedDepartment;
 import cs_orgchart.employee.EmployeeSourceProperties.ParentSource;
+import cs_orgchart.employee.group.FunctionGroup;
 import cs_orgchart.employee.override.EmployeeOverride;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Database employees + overlay → the employees of the site (spec v3 §10.1, amended: of the new fields only id,
@@ -56,17 +60,48 @@ public class EmployeeDtoAssembler {
         return new AdPlacement(cs, cs == null ? null : functions.defaultGroup(department));
     }
 
+    /** What one build knows besides the employees: groups by id and by (function, name), hidden people */
+    private record Build(Map<Long, Employee> byId, Map<Long, FunctionGroup> groupsById,
+                         Map<String, FunctionGroup> groupsByName, Set<Long> hidden) {
+
+        FunctionGroup groupNamed(String cs, String name) {
+            return name == null ? null : groupsByName.get(nameKey(cs, name));
+        }
+    }
+
+    private static String nameKey(String cs, String name) {
+        return cs + "\n" + name.toLowerCase(Locale.ROOT);
+    }
+
     public List<cs_orgchart.model.Employee> assemble(List<Employee> employees, List<EmployeeOverride> overlay,
+                                                     Map<String, String> photoFiles) {
+        return assemble(employees, overlay, List.of(), Set.of(), photoFiles);
+    }
+
+    /**
+     * U4: the group of a row is its group object (group_id; group_name is no longer read), else the AD default
+     * group in the AD function; groupOrder is the sort order of that group. Hidden people are left out; whoever
+     * reports to them gets the next visible manager up the AD chain (else none: the root).
+     */
+    public List<cs_orgchart.model.Employee> assemble(List<Employee> employees, List<EmployeeOverride> overlay,
+                                                     List<FunctionGroup> groups, Set<Long> hidden,
                                                      Map<String, String> photoFiles) {
         Map<Long, Employee> byId = new HashMap<>();
         employees.forEach(e -> byId.put(e.getId(), e));
         Map<Long, List<EmployeeOverride>> overlayByEmployee = new HashMap<>();
         overlay.forEach(o -> overlayByEmployee.computeIfAbsent(o.getEmployeeId(), k -> new ArrayList<>()).add(o));
+        Map<Long, FunctionGroup> groupsById = new HashMap<>();
+        Map<String, FunctionGroup> groupsByName = new HashMap<>();
+        groups.forEach(g -> {
+            groupsById.put(g.getId(), g);
+            groupsByName.put(nameKey(g.getCs(), g.getName()), g);
+        });
+        Build build = new Build(byId, groupsById, groupsByName, hidden);
 
         List<Row> rows = new ArrayList<>();
         int withoutFunction = 0;
         for (Employee employee : employees) {
-            if (!employee.isEnabled() || employee.isExternal()) {
+            if (!employee.isEnabled() || employee.isExternal() || hidden.contains(employee.getId())) {
                 continue;
             }
             NormalizedDepartment department = new NormalizedDepartment(employee.getDeptLevel1(),
@@ -80,14 +115,21 @@ public class EmployeeDtoAssembler {
                     withoutFunction++;
                     continue;
                 }
-                rows.add(new Row(dto(employee, adFunction.csName(), defaultGroup, null, byId, photoFiles), null));
+                FunctionGroup auto = build.groupNamed(adFunction.csName(), defaultGroup);
+                rows.add(new Row(dto(employee, adFunction.csName(), auto != null ? auto.getName() : defaultGroup,
+                        auto, null, build, photoFiles), null));
             } else {
                 for (EmployeeOverride membership : memberships) {
-                    String group = membership.getHeadRank() != null ? HEAD
-                            : membership.getGroupName() != null ? membership.getGroupName()
-                            : membership.getCs().equals(adFunction.csName()) ? defaultGroup : null;
-                    rows.add(new Row(dto(employee, membership.getCs(), group, membership, byId, photoFiles),
-                            membership.getHeadRank()));
+                    FunctionGroup group = membership.getHeadRank() != null ? null
+                            : membership.getGroupId() != null ? groupsById.get(membership.getGroupId())
+                            : membership.getCs().equals(adFunction.csName())
+                            ? build.groupNamed(membership.getCs(), defaultGroup) : null;
+                    String groupName = membership.getHeadRank() != null ? HEAD
+                            : group != null ? group.getName()
+                            : membership.getGroupId() == null && membership.getCs().equals(adFunction.csName())
+                            ? defaultGroup : null;
+                    rows.add(new Row(dto(employee, membership.getCs(), groupName, group, membership, build,
+                            photoFiles), membership.getHeadRank()));
                 }
             }
         }
@@ -106,10 +148,10 @@ public class EmployeeDtoAssembler {
         return rows.stream().map(Row::dto).toList();
     }
 
-    private cs_orgchart.model.Employee dto(Employee employee, String cs, String group, EmployeeOverride membership,
-                                           Map<Long, Employee> byId, Map<String, String> photoFiles) {
+    private cs_orgchart.model.Employee dto(Employee employee, String cs, String group, FunctionGroup groupObject,
+                                           EmployeeOverride membership, Build build, Map<String, String> photoFiles) {
         String email = employee.getEmail() != null ? employee.getEmail() : employee.getUpn();
-        Employee parent = parent(employee, membership, byId);
+        Employee parent = visibleParent(employee, membership, build);
         return cs_orgchart.model.Employee.builder()
                 .name(employee.getDisplayName())
                 .cs(cs)
@@ -126,7 +168,21 @@ public class EmployeeDtoAssembler {
                 .id(employee.getId())
                 .parentId(parent != null && !parent.isExternal() ? parent.getId() : null)
                 .countryCode(employee.getCountryCode())
+                .groupOrder(groupObject == null ? null : groupObject.getSortOrder())
                 .build();
+    }
+
+    /** The effective parent, or for a hidden one the next visible manager up the AD chain (U4); null: none */
+    private Employee visibleParent(Employee employee, EmployeeOverride membership, Build build) {
+        Employee parent = parent(employee, membership, build.byId());
+        Set<Long> seen = new HashSet<>();
+        while (parent != null && build.hidden().contains(parent.getId()) && seen.add(parent.getId())) {
+            parent = adParent(parent, build.byId(), parentSource);
+        }
+        if (parent == null || build.hidden().contains(parent.getId()) || parent.getId().equals(employee.getId())) {
+            return null;
+        }
+        return parent;
     }
 
     /** The effective parent (spec §10.1), or null */

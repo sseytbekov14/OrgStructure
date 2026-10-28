@@ -226,7 +226,7 @@ class AdSyncServiceTest extends AdSyncTestSupport {
         service.sync(SyncTrigger.MANUAL);
 
         List<EmployeeOverride> rows = overrides.findAll();
-        assertThat(rows).hasSize(18);
+        assertThat(rows).as("mock/overrides.json: 19 rows (U4: + a manual move)").hasSize(19);
         assertThat(rows).filteredOn(o -> o.getEmployeeId().equals(employee("hhoney").getId()))
                 .extracting(EmployeeOverride::getCs).containsExactlyInAnyOrder("People", "F&O");
         assertThat(rows).filteredOn(o -> o.getCs().equals("F&O") && o.getEmployeeId().equals(employee("hhoney").getId()))
@@ -234,7 +234,7 @@ class AdSyncServiceTest extends AdSyncTestSupport {
 
         directory.change("mmint", "title", "Changed");
         service.sync(SyncTrigger.MANUAL);
-        assertThat(overrides.count()).isEqualTo(18);
+        assertThat(overrides.count()).isEqualTo(19);
     }
 
     @Test

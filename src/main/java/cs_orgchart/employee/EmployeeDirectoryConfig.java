@@ -7,6 +7,8 @@ import cs_orgchart.employee.override.EmployeeOverrideRepository;
 import cs_orgchart.service.OrgStreamService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import cs_orgchart.employee.group.FunctionGroupRepository;
+import cs_orgchart.employee.visibility.EmployeeVisibilityRepository;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -27,8 +29,9 @@ public class EmployeeDirectoryConfig {
                                                    DepartmentFunctionMapRepository functionMap, EmployeePhotos photos,
                                                    EmployeeDirectory directory, OrgStreamService orgStream,
                                                    PlatformTransactionManager transactions,
-                                                   EmployeeSourceProperties source) {
+                                                   EmployeeSourceProperties source, FunctionGroupRepository groups,
+                                                   EmployeeVisibilityRepository visibility) {
         return new DbEmployeeDirectory(employees, overlay, aliases, generalNodes, functionMap, photos, directory,
-                orgStream, transactions, source.orgParentSource());
+                orgStream, transactions, source.orgParentSource(), groups, visibility);
     }
 }

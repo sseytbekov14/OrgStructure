@@ -6,7 +6,9 @@ import cs_orgchart.department.DepartmentAliasRepository;
 import cs_orgchart.department.DepartmentFunctionMapRepository;
 import cs_orgchart.department.DepartmentGeneralNodeRepository;
 import cs_orgchart.department.JpaDepartmentDictionaries;
+import cs_orgchart.employee.group.FunctionGroupRepository;
 import cs_orgchart.employee.override.EmployeeOverrideRepository;
+import cs_orgchart.employee.visibility.EmployeeVisibilityRepository;
 import cs_orgchart.employee.override.OverlayChanged;
 import cs_orgchart.model.Employee;
 import cs_orgchart.service.OrgStreamService;
@@ -21,6 +23,7 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.HashSet;
 import java.util.List;
 
 /**
@@ -40,12 +43,17 @@ public class DbEmployeeDirectory {
     private final TransactionTemplate readOnly;
     private final JpaDepartmentDictionaries dictionaries;
     private final EmployeeDtoAssembler assembler;
+    private final FunctionGroupRepository groups;
+    private final EmployeeVisibilityRepository visibility;
 
     public DbEmployeeDirectory(EmployeeRepository employees, EmployeeOverrideRepository overlay,
                                DepartmentAliasRepository aliases, DepartmentGeneralNodeRepository generalNodes,
                                DepartmentFunctionMapRepository functionMap, EmployeePhotos photos,
                                EmployeeDirectory directory, OrgStreamService orgStream,
-                               PlatformTransactionManager transactions, EmployeeSourceProperties.ParentSource parentSource) {
+                               PlatformTransactionManager transactions, EmployeeSourceProperties.ParentSource parentSource,
+                               FunctionGroupRepository groups, EmployeeVisibilityRepository visibility) {
+        this.groups = groups;
+        this.visibility = visibility;
         this.employees = employees;
         this.overlay = overlay;
         this.photos = photos;
@@ -102,7 +110,8 @@ public class DbEmployeeDirectory {
     public synchronized int load() {
         List<Employee> assembled = readOnly.execute(status -> {
             dictionaries.reload();
-            return assembler.assemble(employees.findAll(), overlay.findAll(), photos.files());
+            return assembler.assemble(employees.findAll(), overlay.findAll(), groups.findAll(),
+                    new HashSet<>(visibility.findHiddenEmployeeIds()), photos.files());
         });
         List<Employee> rows = assembled == null ? List.of() : assembled;
         directory.replace(rows);

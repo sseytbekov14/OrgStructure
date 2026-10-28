@@ -53,7 +53,7 @@ class OverrideValidationTest extends DbModeMvcSupport {
     void eachRejectionClassIsRefusedByTheEndpoint() throws Exception {
         long version = version("mmint", "ITS");
         Map<String, String> bad = Map.of(
-                "Pay​roll", "INVISIBLE", "‮evil", "INVISIBLE", "Bell\u0007", "CONTROL",
+                "Pay\u200Broll", "INVISIBLE", "\u202Eevil", "INVISIBLE", "Bell\u0007", "CONTROL",
                 "see javascript:alert(1)", "SCRIPT", "@team", "FORMULA", "Team $", "CHARACTERS",
                 "x".repeat(121), "TOO_LONG");
         for (Map.Entry<String, String> entry : bad.entrySet()) {
@@ -67,7 +67,7 @@ class OverrideValidationTest extends DbModeMvcSupport {
     @Test
     void valuesAreStoredNormalized() throws Exception {
         mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), editor,
-                        body("groupName", "  Service  Desk ", "areaOfDuties", "Café\tIT",
+                        body("groupName", "  Service\u00A0\u00A0Desk ", "areaOfDuties", "Café\tIT",
                                 "jobDescription", "  ", "version", version("mmint", "ITS"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.groupName").value("Service Desk"))

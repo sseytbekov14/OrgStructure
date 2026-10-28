@@ -19,7 +19,7 @@ import java.util.Map;
  * (version or unique index) is 409.
  */
 @RestControllerAdvice(assignableTypes = {OverrideAdminController.class, FunctionHeadsAdminController.class,
-        AdminsController.class})
+        AdminsController.class, GroupsAdminController.class, VisibilityAdminController.class})
 public class AdminEditErrors {
 
     @ExceptionHandler(AdminEditException.class)

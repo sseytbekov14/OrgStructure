@@ -41,4 +41,8 @@ public class Employee {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String countryCode;
+
+    /** Position of the group in the Groups view (U4: sort order of the function's groups); null: no group object */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer groupOrder;
 }

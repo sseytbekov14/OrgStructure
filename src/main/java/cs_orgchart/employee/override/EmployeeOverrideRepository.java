@@ -12,4 +12,8 @@ public interface EmployeeOverrideRepository extends JpaRepository<EmployeeOverri
     Optional<EmployeeOverride> findByEmployeeIdAndCs(Long employeeId, String cs);
 
     List<EmployeeOverride> findByCs(String cs);
+
+    List<EmployeeOverride> findByGroupId(Long groupId);
+
+    List<EmployeeOverride> findByEmployeeId(Long employeeId);
 }

@@ -23,8 +23,9 @@ public final class OverrideAdminViews {
                                String jobDescription, Long managerOverrideId, Long version, String updatedBy,
                                Instant updatedAt) {
 
-        static OverrideView of(EmployeeOverride o) {
-            return new OverrideView(o.getEmployeeId(), o.getCs(), o.getGroupName(), o.getHeadRank(),
+        /** groupName: the name of the row's group object (U4; the group_name column is no longer read) */
+        static OverrideView of(EmployeeOverride o, String groupName) {
+            return new OverrideView(o.getEmployeeId(), o.getCs(), groupName, o.getHeadRank(),
                     o.getAreaOfDuties(), o.getJobDescription(), o.getManagerOverrideId(), o.getVersion(),
                     o.getUpdatedBy(), o.getUpdatedAt());
         }

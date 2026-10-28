@@ -64,7 +64,7 @@ class DbEmployeeDirectoryTest {
     /** The fields of /api/employees before Phase 5 (Excel) */
     static final Set<String> PREVIOUS_FIELDS = Set.of("name", "cs", "group", "jobTitle", "email", "pm", "pmEmail",
             "pmJobTitle", "photoUrl", "gradeOrder", "areaOfDuties", "jobDescription");
-    static final Set<String> NEW_FIELDS = Set.of("id", "parentId", "countryCode");
+    static final Set<String> NEW_FIELDS = Set.of("id", "parentId", "countryCode", "groupOrder");
     static final Set<String> SITE_FUNCTIONS = Set.of("People", "Finance", "ITS", "Markets", "F&O", "OGC", "QRM",
             "Tenders");
 

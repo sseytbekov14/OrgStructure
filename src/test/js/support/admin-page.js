@@ -25,7 +25,7 @@ function adminPage(routes = {}) {
   const chart = globals.document.createElement('div');
   chart.id = 'orgChart';
   globals.document.body.append(chart);
-  const ctx = context(['ui.js', 'common.js', 'validation.js', 'admin.js'], globals);
+  const ctx = context(['ui.js', 'common.js', 'validation.js', 'admin.js', 'admin-groups.js'], globals);
   ctx.run('function debounce(fn) { return fn; }');
   ctx.run('var refreshes = 0; window.refreshOrgChart = async () => { refreshes++; };');
   const { document } = globals;

@@ -4,12 +4,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import cs_orgchart.ad.mapper.FunctionResolver;
 import cs_orgchart.department.SpecDepartmentDictionaries;
 import cs_orgchart.employee.EmployeeSourceProperties.ParentSource;
+import cs_orgchart.employee.group.FunctionGroup;
 import cs_orgchart.employee.override.EmployeeOverride;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,6 +28,8 @@ class EmployeeDtoAssemblerTest {
 
     private final List<Employee> employees = new ArrayList<>();
     private final List<EmployeeOverride> overlay = new ArrayList<>();
+    private final List<FunctionGroup> groups = new ArrayList<>();
+    private final Set<Long> hidden = new HashSet<>();
     private long nextId = 1;
 
     private Employee person(String login, String title, String level2, String level3) {
@@ -51,8 +56,15 @@ class EmployeeDtoAssemblerTest {
         return o;
     }
 
+    /** A group object of the function (U4); returns its id */
+    private Long group(String cs, String name, int sortOrder) {
+        FunctionGroup g = FunctionGroup.builder().id(nextId++).cs(cs).name(name).sortOrder(sortOrder).build();
+        groups.add(g);
+        return g.getId();
+    }
+
     private List<cs_orgchart.model.Employee> assemble() {
-        return pmFirst.assemble(employees, overlay, Map.of());
+        return pmFirst.assemble(employees, overlay, groups, hidden, Map.of());
     }
 
     private static cs_orgchart.model.Employee only(List<cs_orgchart.model.Employee> rows, String name, String cs) {
@@ -134,10 +146,10 @@ class EmployeeDtoAssemblerTest {
         Employee both = person("both", "HR Administration Manager", "People", "HR Administration");
         both.setPmId(boss.getId());
         EmployeeOverride people = membership(both, "People");
-        people.setGroupName("HR Administration");
+        people.setGroupId(group("People", "HR Administration", 10));
         people.setAreaOfDuties("HR administration");
         EmployeeOverride office = membership(both, "F&O");
-        office.setGroupName("Office support");
+        office.setGroupId(group("F&O", "Office support", 20));
         office.setJobDescription("Access cards");
         office.setManagerOverrideId(fo.getId());
 
@@ -269,6 +281,61 @@ class EmployeeDtoAssemblerTest {
         e.setPmId(e.getId());
 
         assertThat(assemble().get(0).getParentId()).isNull();
+    }
+
+    // --- groups and hidden people (U4) ---------------------------------------------------------------------------
+
+    @Test
+    void theGroupComesFromTheGroupObjectNotFromTheOldColumn() {
+        Employee e = person("e", "Specialist", "ITS", "IT PMO");
+        EmployeeOverride row = membership(e, "ITS");
+        row.setGroupName("stale old value");
+        assertThat(only(assemble(), "Person, e", "ITS").getGroup()).as("group_name is not read").isEqualTo("IT PMO");
+
+        row.setGroupId(group("ITS", "Platform", 30));
+        cs_orgchart.model.Employee dto = only(assemble(), "Person, e", "ITS");
+        assertThat(dto.getGroup()).isEqualTo("Platform");
+        assertThat(dto.getGroupOrder()).isEqualTo(30);
+    }
+
+    @Test
+    void theAdDefaultGroupTakesTheOrderOfItsAutoGroup() {
+        person("e", "Specialist", "ITS", "IT PMO");
+        group("ITS", "it pmo", 50);
+        cs_orgchart.model.Employee dto = only(assemble(), "Person, e", "ITS");
+        assertThat(dto.getGroup()).isEqualTo("it pmo");
+        assertThat(dto.getGroupOrder()).isEqualTo(50);
+    }
+
+    @Test
+    void hiddenPeopleAreLeftOutAndTheirCounseleesGetTheNextVisibleManager() {
+        Employee top = person("top", "Head of QRM", "QRM", "QRM General");
+        Employee middle = person("middle", "Manager", "QRM", "QRM General");
+        Employee lower = person("lower", "Lead", "QRM", "QRM General");
+        Employee e = person("e", "Specialist", "QRM", "QRM General");
+        middle.setPmId(top.getId());
+        lower.setPmId(middle.getId());
+        e.setPmId(lower.getId());
+        hidden.add(middle.getId());
+        hidden.add(lower.getId());
+
+        List<cs_orgchart.model.Employee> rows = assemble();
+        assertThat(rows).extracting(cs_orgchart.model.Employee::getName).containsExactlyInAnyOrder("Person, top", "Person, e");
+        assertThat(only(rows, "Person, e", "QRM").getParentId()).as("next visible manager").isEqualTo(top.getId());
+        assertThat(only(rows, "Person, e", "QRM").getPm()).isEqualTo("Person, top");
+    }
+
+    @Test
+    void withoutAVisibleManagerTheCounseleeBecomesARoot() {
+        Employee boss = person("boss", "Manager", "QRM", "QRM General");
+        Employee e = person("e", "Specialist", "QRM", "QRM General");
+        e.setPmId(boss.getId());
+        boss.setPmId(e.getId());
+        hidden.add(boss.getId());
+
+        cs_orgchart.model.Employee row = only(assemble(), "Person, e", "QRM");
+        assertThat(row.getParentId()).as("the cycle through the hidden boss leads back to the person").isNull();
+        assertThat(row.getPm()).isNull();
     }
 
     // --- JSON ----------------------------------------------------------------------------------------------------

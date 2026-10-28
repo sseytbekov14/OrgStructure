@@ -18,6 +18,18 @@
       "min": 0,
       "max": 200,
       "required": false
+    },
+    "name": {
+      "label": "Group name",
+      "min": 2,
+      "max": 60,
+      "required": true
+    },
+    "reason": {
+      "label": "Reason",
+      "min": 0,
+      "max": 200,
+      "required": false
     }
   },
   "messages": {
@@ -28,7 +40,8 @@
     "MARKUP": "Group must not contain < > or `.",
     "SCRIPT": "Area of duties must not contain javascript:, data: or vbscript:.",
     "FORMULA": "Job description must not start with = + or @.",
-    "CHARACTERS": "Group contains characters that are not allowed: $ *."
+    "CHARACTERS": "Group contains characters that are not allowed: $ *.",
+    "REQUIRED": "Group name is required."
   },
   "messageInputs": {
     "TOO_SHORT": [
@@ -50,7 +63,7 @@
     ],
     "INVISIBLE": [
       "groupName",
-      "Team​A"
+      "Team\u200BA"
     ],
     "MARKUP": [
       "groupName",
@@ -67,6 +80,10 @@
     "CHARACTERS": [
       "groupName",
       "Team $ * $"
+    ],
+    "REQUIRED": [
+      "name",
+      ""
     ]
   },
   "vectors": [
@@ -102,12 +119,12 @@
     },
     {
       "field": "groupName",
-      "input": "IT  Operations",
+      "input": "IT\u00A0\u00A0Operations",
       "normalized": "IT Operations"
     },
     {
       "field": "groupName",
-      "input": "IT Ops",
+      "input": "IT\u202FOps",
       "normalized": "IT Ops"
     },
     {
@@ -122,8 +139,8 @@
     },
     {
       "field": "groupName",
-      "input": "Café team",
-      "normalized": "Café team"
+      "input": "Cafe\u0301 team",
+      "normalized": "Caf\u00E9 team"
     },
     {
       "field": "groupName",
@@ -142,8 +159,8 @@
     },
     {
       "field": "groupName",
-      "input": "Ops - EU – Asia — US",
-      "normalized": "Ops - EU – Asia — US"
+      "input": "Ops - EU \u2013 Asia \u2014 US",
+      "normalized": "Ops - EU \u2013 Asia \u2014 US"
     },
     {
       "field": "groupName",
@@ -152,8 +169,8 @@
     },
     {
       "field": "groupName",
-      "input": "O'Neil’s \"team\"",
-      "normalized": "O'Neil’s \"team\""
+      "input": "O'Neil\u2019s \"team\"",
+      "normalized": "O'Neil\u2019s \"team\""
     },
     {
       "field": "groupName",
@@ -162,43 +179,43 @@
     },
     {
       "field": "groupName",
-      "input": "Отдел кадров",
-      "normalized": "Отдел кадров"
+      "input": "\u041E\u0442\u0434\u0435\u043B \u043A\u0430\u0434\u0440\u043E\u0432",
+      "normalized": "\u041E\u0442\u0434\u0435\u043B \u043A\u0430\u0434\u0440\u043E\u0432"
     },
     {
       "field": "groupName",
-      "input": "Қазақстан өү",
-      "normalized": "Қазақстан өү"
+      "input": "\u049A\u0430\u0437\u0430\u049B\u0441\u0442\u0430\u043D \u04E9\u04AF",
+      "normalized": "\u049A\u0430\u0437\u0430\u049B\u0441\u0442\u0430\u043D \u04E9\u04AF"
     },
     {
       "field": "groupName",
-      "input": "საქართველო",
-      "normalized": "საქართველო"
+      "input": "\u10E1\u10D0\u10E5\u10D0\u10E0\u10D7\u10D5\u10D4\u10DA\u10DD",
+      "normalized": "\u10E1\u10D0\u10E5\u10D0\u10E0\u10D7\u10D5\u10D4\u10DA\u10DD"
     },
     {
       "field": "groupName",
-      "input": "Հայաստան",
-      "normalized": "Հայաստան"
+      "input": "\u0540\u0561\u0575\u0561\u057D\u057F\u0561\u0576",
+      "normalized": "\u0540\u0561\u0575\u0561\u057D\u057F\u0561\u0576"
     },
     {
       "field": "groupName",
-      "input": "O’zbekiston",
-      "normalized": "O’zbekiston"
+      "input": "O\u2019zbekiston",
+      "normalized": "O\u2019zbekiston"
     },
     {
       "field": "groupName",
-      "input": "مالية",
-      "normalized": "مالية"
+      "input": "\u0645\u0627\u0644\u064A\u0629",
+      "normalized": "\u0645\u0627\u0644\u064A\u0629"
     },
     {
       "field": "groupName",
-      "input": "财务",
-      "normalized": "财务"
+      "input": "\u8D22\u52A1",
+      "normalized": "\u8D22\u52A1"
     },
     {
       "field": "groupName",
-      "input": "Team 2٣",
-      "normalized": "Team 2٣"
+      "input": "Team 2\u0663",
+      "normalized": "Team 2\u0663"
     },
     {
       "field": "groupName",
@@ -217,7 +234,7 @@
     },
     {
       "field": "groupName",
-      "input": "é",
+      "input": "\u00E9",
       "code": "TOO_SHORT"
     },
     {
@@ -227,8 +244,8 @@
     },
     {
       "field": "groupName",
-      "input": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé",
-      "normalized": "éééééééééééééééééééééééééééééééééééééééééééééééééééééééééééé"
+      "input": "\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9e\u0301",
+      "normalized": "\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9\u00E9"
     },
     {
       "field": "areaOfDuties",
@@ -254,28 +271,28 @@
     {
       "field": "groupName",
       "repeat": [
-        "é",
+        "\u00E9",
         59
       ],
-      "suffix": "é",
+      "suffix": "e\u0301",
       "normalizedRepeat": [
-        "é",
+        "\u00E9",
         60
       ]
     },
     {
       "field": "groupName",
       "repeat": [
-        "é",
+        "\u00E9",
         60
       ],
-      "suffix": "é",
+      "suffix": "e\u0301",
       "code": "TOO_LONG"
     },
     {
       "field": "groupName",
       "repeat": [
-        "Ж",
+        "\u0416",
         60
       ],
       "valid": true
@@ -353,12 +370,12 @@
     },
     {
       "field": "jobDescription",
-      "input": "Del",
+      "input": "Del\u007F",
       "code": "CONTROL"
     },
     {
       "field": "jobDescription",
-      "input": "C1",
+      "input": "C1\u0085",
       "code": "CONTROL"
     },
     {
@@ -368,52 +385,52 @@
     },
     {
       "field": "groupName",
-      "input": "Team​A",
+      "input": "Team\u200BA",
       "code": "INVISIBLE"
     },
     {
       "field": "groupName",
-      "input": "Team‌A",
+      "input": "Team\u200CA",
       "code": "INVISIBLE"
     },
     {
       "field": "groupName",
-      "input": "Team‍A",
+      "input": "Team\u200DA",
       "code": "INVISIBLE"
     },
     {
       "field": "groupName",
-      "input": "Team‎A",
+      "input": "Team\u200EA",
       "code": "INVISIBLE"
     },
     {
       "field": "groupName",
-      "input": "Team‏A",
+      "input": "Team\u200FA",
       "code": "INVISIBLE"
     },
     {
       "field": "groupName",
-      "input": "‮Team",
+      "input": "\u202ETeam",
       "code": "INVISIBLE"
     },
     {
       "field": "groupName",
-      "input": "Team‪",
+      "input": "Team\u202A",
       "code": "INVISIBLE"
     },
     {
       "field": "groupName",
-      "input": "Team⁦A⁩",
+      "input": "Team\u2066A\u2069",
       "code": "INVISIBLE"
     },
     {
       "field": "groupName",
-      "input": "﻿Team",
+      "input": "\uFEFFTeam",
       "code": "INVISIBLE"
     },
     {
       "field": "areaOfDuties",
-      "input": "Pay​roll",
+      "input": "Pay\u200Broll",
       "code": "INVISIBLE"
     },
     {
@@ -528,22 +545,22 @@
     },
     {
       "field": "groupName",
-      "input": "Team €",
+      "input": "Team \u20AC",
       "code": "CHARACTERS"
     },
     {
       "field": "groupName",
-      "input": "Team 😀",
+      "input": "Team \uD83D\uDE00",
       "code": "CHARACTERS"
     },
     {
       "field": "groupName",
-      "input": "Team em",
+      "input": "Team\u2003em",
       "code": "CHARACTERS"
     },
     {
       "field": "groupName",
-      "input": "Soft­hyphen",
+      "input": "Soft\u00ADhyphen",
       "code": "CHARACTERS"
     },
     {
@@ -555,6 +572,70 @@
       "field": "groupName",
       "input": "Team ~ ^ =",
       "code": "CHARACTERS"
+    },
+    {
+      "field": "name",
+      "input": null,
+      "code": "REQUIRED"
+    },
+    {
+      "field": "name",
+      "input": "   ",
+      "code": "REQUIRED"
+    },
+    {
+      "field": "name",
+      "input": "IT PMO",
+      "normalized": "IT PMO"
+    },
+    {
+      "field": "name",
+      "input": "x",
+      "code": "TOO_SHORT"
+    },
+    {
+      "field": "name",
+      "repeat": [
+        "a",
+        61
+      ],
+      "code": "TOO_LONG"
+    },
+    {
+      "field": "name",
+      "input": "<i>Team</i>",
+      "code": "MARKUP"
+    },
+    {
+      "field": "reason",
+      "input": null,
+      "normalized": null
+    },
+    {
+      "field": "reason",
+      "input": "Left the company",
+      "normalized": "Left the company"
+    },
+    {
+      "field": "reason",
+      "repeat": [
+        "a",
+        200
+      ],
+      "valid": true
+    },
+    {
+      "field": "reason",
+      "repeat": [
+        "a",
+        201
+      ],
+      "code": "TOO_LONG"
+    },
+    {
+      "field": "reason",
+      "input": "=HYPERLINK(\"x\")",
+      "code": "FORMULA"
     }
   ]
 }

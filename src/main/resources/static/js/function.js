@@ -282,17 +282,28 @@ function renderHeadCard(emp, variant = '') {
   `;
 }
 
-function renderEmpCard(emp, { additionalHead = false } = {}) {
+// groupChip (Tree view, U4): the person's group as a chip, so that a move shows in both views
+function renderEmpCard(emp, { additionalHead = false, groupChip = false } = {}) {
+  const group = groupChip && emp.group && emp.group.trim().toUpperCase() !== 'HEAD' ? emp.group : '';
   return `
-    <button type="button" class="emp-card${additionalHead ? ' emp-card--additional-head' : ''}" data-emp-id="${emp._id}" aria-label="Open profile of ${escapeHtml(emp.name || 'employee')}${additionalHead ? ', additional head' : ''}">
+    <button type="button" class="emp-card${additionalHead ? ' emp-card--additional-head' : ''}" data-emp-id="${emp._id}" aria-label="Open profile of ${escapeHtml(emp.name || 'employee')}${additionalHead ? ', additional head' : ''}${group ? `, group ${escapeHtml(group)}` : ''}">
       ${renderAvatar(emp, 'md')}
       <span class="emp-card-info">
         <span class="emp-card-name">${escapeHtml(emp.name || '—')}</span>
         <span class="emp-card-job">${escapeHtml(emp.jobTitle || '—')}</span>
         ${additionalHead ? '<span class="chip emp-card-chip">Head</span>' : ''}
+        ${group ? `<span class="chip emp-card-chip emp-card-group" title="${escapeHtml(group)}">${escapeHtml(group)}</span>` : ''}
       </span>
     </button>
   `;
+}
+
+/** Groups in the order admins gave them (groupOrder, U4); groups without an order keep their place after them */
+function byGroupOrder(entries) {
+  const order = (emps) => Math.min(...emps.map(e => (e.groupOrder == null ? Infinity : e.groupOrder)));
+  return entries.map((entry, index) => ({ entry, index }))
+    .sort((a, b) => (order(a.entry[1]) - order(b.entry[1])) || (a.index - b.index))
+    .map(item => item.entry);
 }
 
 /* ---------- Groups view ---------- */
@@ -370,8 +381,8 @@ function renderGroupsView(employees) {
 
   if (hasKz && hasCtry) {
     const combined = [];
-    Object.entries(kzGroups).forEach(([g, emps]) => combined.push({ title: g, emps, isCountry: false }));
-    Object.entries(ctryGroups).forEach(([g, emps]) => combined.push({ title: g, emps, isCountry: true }));
+    byGroupOrder(Object.entries(kzGroups)).forEach(([g, emps]) => combined.push({ title: g, emps, isCountry: false }));
+    byGroupOrder(Object.entries(ctryGroups)).forEach(([g, emps]) => combined.push({ title: g, emps, isCountry: true }));
 
     html += `
       <div class="section-block mixed-section-block">
@@ -384,7 +395,7 @@ function renderGroupsView(employees) {
     html += `
       <div class="section-block">
         <div class="org-grid">
-          ${Object.entries(kzGroups).map(([g, emps]) => renderColumn(g, emps, false)).join('')}
+          ${byGroupOrder(Object.entries(kzGroups)).map(([g, emps]) => renderColumn(g, emps, false)).join('')}
         </div>
       </div>
     `;
@@ -392,7 +403,7 @@ function renderGroupsView(employees) {
     html += `
       <div class="section-block country-section-block">
         <div class="org-grid">
-          ${Object.entries(ctryGroups).map(([c, emps]) => renderColumn(c, emps, true)).join('')}
+          ${byGroupOrder(Object.entries(ctryGroups)).map(([c, emps]) => renderColumn(c, emps, true)).join('')}
         </div>
       </div>
     `;
@@ -705,7 +716,7 @@ function initTree() {
   const holder = document.createElement('div');
   tree.nodes.forEach(node => {
     holder.innerHTML = node.isHead ? renderHeadCard(node.emp)
-      : renderEmpCard(node.emp, { additionalHead: !!node.isAdditionalHead });
+      : renderEmpCard(node.emp, { additionalHead: !!node.isAdditionalHead, groupChip: true });
     const card = holder.firstElementChild;
     card.hidden = true;
     stage.appendChild(card);

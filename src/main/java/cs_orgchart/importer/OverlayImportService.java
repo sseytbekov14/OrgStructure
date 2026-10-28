@@ -13,6 +13,8 @@ import cs_orgchart.employee.EmployeeRepository;
 import cs_orgchart.employee.EmployeeSourceProperties;
 import cs_orgchart.employee.EmployeeSourceProperties.ParentSource;
 import cs_orgchart.employee.override.AdminEditException;
+import cs_orgchart.employee.group.FunctionGroup;
+import cs_orgchart.employee.group.FunctionGroupService;
 import cs_orgchart.employee.override.EmployeeOverride;
 import cs_orgchart.employee.override.EmployeeOverrideRepository;
 import cs_orgchart.employee.override.OverlayChanged;
@@ -75,12 +77,14 @@ public class OverlayImportService {
     private final JdbcTemplate jdbc;
     private final PlatformTransactionManager transactions;
     private final ApplicationEventPublisher events;
+    private final FunctionGroupService groups;
 
     public OverlayImportService(EmployeeRepository employees, EmployeeOverrideRepository overlay,
                                 DepartmentFunctionMapRepository functionMap, DepartmentAliasRepository aliases,
                                 DepartmentGeneralNodeRepository generalNodes, EmployeeSourceProperties source,
                                 JdbcTemplate jdbc, PlatformTransactionManager transactions,
-                                ApplicationEventPublisher events) {
+                                ApplicationEventPublisher events, FunctionGroupService groups) {
+        this.groups = groups;
         this.employees = employees;
         this.overlay = overlay;
         this.functionMap = functionMap;
@@ -338,6 +342,15 @@ public class OverlayImportService {
         }
 
         if (!dryRun) {
+            // U4: the group names of the Excel file are groups of their function (made as they are when missing)
+            for (EmployeeOverride target : rows.values()) {
+                if (target.getGroupName() != null && target.getGroupId() == null) {
+                    FunctionGroup group = groups.resolveOrCreate(target.getCs(), target.getGroupName(),
+                            FunctionGroup.MANUAL, IMPORTED_BY);
+                    target.setGroupId(group.getId());
+                    target.setGroupName(group.getName());
+                }
+            }
             overlay.saveAll(created);
         }
         return report.rowsCreated + report.rowsFilled > 0;

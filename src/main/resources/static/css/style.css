@@ -2990,3 +2990,163 @@ button.person-row:hover {
   flex-shrink: 0;
   margin-left: var(--space-1);
 }
+
+/* ---------- Groups management and hiding (U4) ---------- */
+.admin-groups-toggle {
+  margin: 0 0 var(--space-3);
+}
+.admin-groups {
+  margin-bottom: var(--space-6);
+}
+.admin-groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+.admin-group-column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+.admin-group-column--none {
+  border-style: dashed;
+}
+.admin-group-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.admin-group-name {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--font-size-lg);
+  overflow-wrap: anywhere;
+}
+.admin-group-menu-wrap {
+  position: relative;
+}
+.admin-group-menu {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  z-index: var(--z-dropdown);
+  min-width: 180px;
+  margin: var(--space-1) 0 0;
+  padding: var(--space-1);
+  list-style: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+.admin-group-menu-item {
+  display: block;
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.admin-group-menu-item:hover:not(:disabled),
+.admin-group-menu-item:focus-visible {
+  background: var(--color-accent-soft);
+}
+.admin-group-menu-item:disabled {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+.admin-group-members {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-group-member {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-alt);
+}
+.admin-group-add {
+  align-self: flex-start;
+}
+.admin-group-new {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-height: 120px;
+  border: 2px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: transparent;
+  color: var(--color-brand);
+  font: inherit;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+}
+.admin-group-new:hover {
+  background: var(--color-accent-soft);
+}
+.admin-radios {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.admin-radio {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.admin-add-list {
+  max-height: 320px;
+  overflow: auto;
+  margin: var(--space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+.admin-add-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+.admin-hide-btn {
+  color: var(--color-danger);
+}
+.emp-card-group {
+  max-width: 100%;
+}
+.admin-tabs {
+  margin: var(--space-3) 0;
+}
+.emp-card-chip {
+  margin-top: 2px;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.emp-card-info .emp-card-chip + .emp-card-chip {
+  margin-left: var(--space-1);
+}

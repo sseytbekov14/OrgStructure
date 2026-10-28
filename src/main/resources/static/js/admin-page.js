@@ -71,15 +71,71 @@ async function addAdmin(event) {
   await loadAdmins();
 }
 
+/* ---------- Hidden people (U4) ---------- */
+
+function renderHiddenRows(people) {
+  const rows = document.getElementById("adminHiddenRows");
+  rows.replaceChildren(...people.map((person) => uiEl("tr", {},
+    adminCell(person.name), adminCell(person.jobTitle), adminCell(person.reason), adminCell(person.hiddenBy),
+    adminCell(person.hiddenAt ? new Date(person.hiddenAt).toLocaleDateString() : ""),
+    uiEl("td", {}, uiEl("button", {
+      type: "button", class: "btn btn-secondary btn-sm", text: "Restore", "aria-label": `Restore ${person.name || "this person"}`,
+      onclick: () => restoreHidden(person)
+    })))));
+  if (!people.length) {
+    rows.append(uiEl("tr", {}, uiEl("td", { colspan: "6", text: "Nobody is hidden." })));
+  }
+}
+
+async function loadHidden() {
+  const res = await apiFetch("/api/manage/hidden");
+  if (!res.ok) { toast(await adminPageError(res), "error"); return; }
+  renderHiddenRows(await res.json());
+}
+
+async function restoreHidden(person) {
+  const res = await apiFetch(`/api/manage/employees/${encodeURIComponent(person.employeeId)}/hide`, { method: "DELETE" });
+  if (!res.ok) { toast(await adminPageError(res), "error"); return; }
+  toast(`${person.name || "The person"} is back on the site`, "success");
+  await loadHidden();
+}
+
+/* ---------- Tabs ---------- */
+
+function initAdminTabs() {
+  const tabs = [...document.querySelectorAll("[role=tab]")].filter((tab) => !tab.hidden);
+  const select = (tab) => {
+    tabs.forEach((t) => {
+      const selected = t === tab;
+      t.setAttribute("aria-selected", selected ? "true" : "false");
+      t.setAttribute("tabindex", selected ? "0" : "-1");
+      document.getElementById(t.getAttribute("aria-controls")).hidden = !selected;
+    });
+    tab.focus();
+  };
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => select(tab));
+    tab.addEventListener("keydown", (event) => {
+      if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
+      event.preventDefault();
+      select(tabs[(index + (event.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length]);
+    });
+  });
+}
+
 async function initAdminPage() {
   const me = await loadMe();
   document.getElementById("adminYou").textContent = me.you ? `You are signed in as ${me.you}.` : "";
   if (me.superAdmin === true) {
-    document.getElementById("adminAdmins").hidden = false;
+    document.getElementById("adminTabAdmins").hidden = false;
     document.getElementById("adminAddForm").addEventListener("submit", addAdmin);
     await loadAdmins();
+  }
+  initAdminTabs();
+  if (me.editingEnabled === true) {
+    await loadHidden();
   } else {
-    document.getElementById("adminNotSuper").hidden = false;
+    renderHiddenRows([]);
   }
 }
 

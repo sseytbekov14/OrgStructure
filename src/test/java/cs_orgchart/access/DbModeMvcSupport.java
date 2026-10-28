@@ -90,7 +90,8 @@ public abstract class DbModeMvcSupport {
 
     /** Child tables first */
     protected String[] tablesToClean() {
-        return new String[]{"app_admins", "employee_overrides", "employees", "ad_sync_log"};
+        return new String[]{"app_admins", "employee_overrides", "function_groups", "employee_visibility", "employees",
+                "ad_sync_log"};
     }
 
     protected MockHttpServletRequestBuilder write(MockHttpServletRequestBuilder request, MockHttpSession session,

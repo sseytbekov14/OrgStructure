@@ -8,6 +8,9 @@ import cs_orgchart.employee.EmployeeDtoAssembler.AdPlacement;
 import cs_orgchart.employee.EmployeeDirectory;
 import cs_orgchart.employee.EmployeeRepository;
 import cs_orgchart.employee.EmployeeSourceProperties;
+import cs_orgchart.employee.group.FunctionGroup;
+import cs_orgchart.employee.group.FunctionGroupRepository;
+import cs_orgchart.employee.group.FunctionGroupService;
 import cs_orgchart.employee.override.OverrideAdminViews.HeadView;
 import cs_orgchart.employee.override.OverrideAdminViews.HeadsRequest;
 import cs_orgchart.employee.override.OverrideAdminViews.HeadsView;
@@ -55,12 +58,20 @@ public class OverrideAdminService {
     private final EmployeeSourceProperties source;
     private final ApplicationEventPublisher events;
     private final ObjectProvider<DbEmployeeDirectory> dbDirectory;
+    private final AdminGuards guards;
+    /** Lazy: the group service uses this service's views */
+    private final ObjectProvider<FunctionGroupService> groupService;
+    private final FunctionGroupRepository groups;
 
     public OverrideAdminService(EmployeeRepository employees, EmployeeOverrideRepository overlay,
                                 DepartmentFunctionMapRepository functionMap, EmployeeDirectory directory,
                                 EmployeeSourceProperties source, ApplicationEventPublisher events,
-                                ObjectProvider<DbEmployeeDirectory> dbDirectory) {
+                                ObjectProvider<DbEmployeeDirectory> dbDirectory, AdminGuards guards,
+                                ObjectProvider<FunctionGroupService> groupService, FunctionGroupRepository groups) {
+        this.groups = groups;
         this.dbDirectory = dbDirectory;
+        this.guards = guards;
+        this.groupService = groupService;
         this.employees = employees;
         this.overlay = overlay;
         this.functionMap = functionMap;
@@ -104,10 +115,18 @@ public class OverrideAdminService {
             AdPlacement placement = adPlacement(e.getId());
             boolean primary = placement != null && Objects.equals(placement.cs(), e.getCs());
             members.add(new MemberView(e.getId(), e.getName(), e.getEmail(), e.getJobTitle(), e.getCountryCode(),
-                    e.getCs(), e.getGroup(), row == null ? null : OverrideView.of(row), primary,
+                    e.getCs(), e.getGroup(), row == null ? null : OverrideView.of(row, groupNameOf(row)), primary,
                     primary ? placement.defaultGroup() : null));
         }
         return members;
+    }
+
+    /** The name of the row's group object (U4: group_name is no longer read), or null */
+    private String groupNameOf(EmployeeOverride row) {
+        if (row == null || row.getGroupId() == null) {
+            return null;
+        }
+        return groups.findById(row.getGroupId()).map(FunctionGroup::getName).orElse(null);
     }
 
     /** Where AD alone puts the person, or null (no db directory, unknown person) */
@@ -138,20 +157,23 @@ public class OverrideAdminService {
             throw AdminEditException.badRequest("BODY_MISSING", "the fields are missing");
         }
         EmployeeOverride row = overlay.findByEmployeeIdAndCs(employeeId, cs).orElse(null);
+        String storedGroup = groupNameOf(row);
         FieldRules.Errors errors = new FieldRules.Errors();
-        String groupName = keptOrChecked(errors, FieldRules.GROUP_NAME, request.groupName(),
-                row == null ? null : row.getGroupName());
+        String groupName = keptOrChecked(errors, FieldRules.GROUP_NAME, request.groupName(), storedGroup);
         String areaOfDuties = keptOrChecked(errors, FieldRules.AREA_OF_DUTIES, request.areaOfDuties(),
                 row == null ? null : row.getAreaOfDuties());
         String jobDescription = keptOrChecked(errors, FieldRules.JOB_DESCRIPTION, request.jobDescription(),
                 row == null ? null : row.getJobDescription());
-        boolean groupChanged = row == null || !Objects.equals(groupName, row.getGroupName());
+        boolean groupChanged = !Objects.equals(groupName, storedGroup);
         if (groupChanged && EmployeeDtoAssembler.HEAD.equalsIgnoreCase(groupName)) {
             // A group named HEAD would show a non-head as a head of the function
             errors.add("groupName", "RESERVED", "HEAD is reserved for the heads of the function: use the Function"
                     + " heads panel.");
         }
         errors.throwIfAny();
+        // U4: the typed name is a group of the function (made when it does not exist yet, with the group rules)
+        FunctionGroup group = groupChanged && groupName != null
+                ? groupService.getObject().groupForEdit(cs, groupName, admin) : null;
 
         boolean created = row == null;
         if (created) {
@@ -165,18 +187,24 @@ public class OverrideAdminService {
                     + " page and edit again");
         }
         List<String> changed = new ArrayList<>();
-        set(row::getGroupName, row::setGroupName, groupName, "groupName", changed);
+        if (groupChanged) {
+            Long groupId = group == null ? null
+                    : groupService.getObject().manualGroupId(guards.requireEmployee(employeeId), cs, group);
+            row.setGroupId(groupId);
+            row.setGroupName(groupId == null ? null : group.getName());
+            changed.add("groupName");
+        }
         set(row::getAreaOfDuties, row::setAreaOfDuties, areaOfDuties, "areaOfDuties", changed);
         set(row::getJobDescription, row::setJobDescription, jobDescription, "jobDescription", changed);
         if (!created && changed.isEmpty()) {
-            return OverrideView.of(row);
+            return OverrideView.of(row, storedGroup);
         }
         row.setUpdatedBy(admin);
         EmployeeOverride saved = overlay.saveAndFlush(row);
         log.info("Admin {} {} the overlay of employee {} in {}: {}", admin, created ? "created" : "updated",
                 employeeId, cs, changed);
         events.publishEvent(new OverlayChanged(cs));
-        return OverrideView.of(saved);
+        return OverrideView.of(saved, groupNameOf(saved));
     }
 
     /**
@@ -281,18 +309,10 @@ public class OverrideAdminService {
         }
     }
 
-    /** The person exists, is enabled and from Central Services (not an external manager) */
+    /** The person exists, is enabled, from Central Services and not hidden from the site (U4: a hidden person can be
+     * neither edited nor a head) */
     private Employee requireListedEmployee(Long employeeId) {
-        Employee employee = employees.findById(employeeId)
-                .orElseThrow(() -> AdminEditException.notFound("UNKNOWN_EMPLOYEE", "no employee " + employeeId));
-        if (!employee.isEnabled()) {
-            throw AdminEditException.badRequest("EMPLOYEE_DISABLED", "employee " + employeeId + " is disabled in AD");
-        }
-        if (employee.isExternal()) {
-            throw AdminEditException.badRequest("EMPLOYEE_EXTERNAL", "employee " + employeeId + " is not in Central"
-                    + " Services");
-        }
-        return employee;
+        return guards.requireListedEmployee(employeeId);
     }
 
     /**

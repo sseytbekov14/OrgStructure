@@ -88,6 +88,22 @@ class StaticAssetsTest {
         }
     }
 
+    /**
+     * No literal zero-width, bidi-control or no-break characters in the page sources: they hide what code does
+     * ("Trojan Source"); the scripts use escapes (\\u{200B}) instead.
+     */
+    @Test
+    void noInvisibleCharactersInThePageSources() throws IOException {
+        Pattern invisible = Pattern.compile("[\\x{200B}-\\x{200F}\\x{202A}-\\x{202E}\\x{2066}-\\x{2069}\\x{FEFF}\\x{00A0}]");
+        List<Path> files = new ArrayList<>(files(STATIC, ".js"));
+        files.addAll(files(STATIC, ".css"));
+        files.addAll(files(STATIC, ".html"));
+        files.addAll(files(PAGES, ".html"));
+        for (Path file : files) {
+            assertThat(invisible.matcher(read(file)).find()).as("%s has a literal invisible character", file).isFalse();
+        }
+    }
+
     @Test
     void theTokensHoldThePaletteAndTheFontStack() throws IOException {
         String tokens = read(STATIC.resolve("css/tokens.css"));
