@@ -51,12 +51,12 @@ class AdminEditingExcelModeTest {
         MockHttpSession admin = signIn(TestAccounts.ADMIN);
         Cookie token = csrf();
         for (MockHttpServletRequestBuilder request : List.of(
-                get("/api/admin/overrides").param("cs", "ITS"),
-                put("/api/admin/overrides/1").param("cs", "ITS").contentType(MediaType.APPLICATION_JSON)
+                get("/api/manage/overrides").param("cs", "ITS"),
+                put("/api/manage/overrides/1").param("cs", "ITS").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"areaOfDuties\":\"x\"}"),
-                delete("/api/admin/overrides/1").param("cs", "ITS"),
-                get("/api/admin/functions/ITS/heads"),
-                put("/api/admin/functions/ITS/heads").contentType(MediaType.APPLICATION_JSON)
+                delete("/api/manage/overrides/1").param("cs", "ITS"),
+                get("/api/manage/functions/ITS/heads"),
+                put("/api/manage/functions/ITS/heads").contentType(MediaType.APPLICATION_JSON)
                         .content("{\"employeeIds\":[],\"expectedHeads\":[]}"))) {
             mvc.perform(request.session(admin).cookie(token).header("X-XSRF-TOKEN", token.getValue()))
                     .andExpect(status().isConflict())
@@ -75,7 +75,7 @@ class AdminEditingExcelModeTest {
 
     @Test
     void userStillGets403BeforeTheModeIsLookedAt() throws Exception {
-        mvc.perform(get("/api/admin/overrides").param("cs", "ITS").session(signIn(TestAccounts.READER)))
+        mvc.perform(get("/api/manage/overrides").param("cs", "ITS").session(signIn(TestAccounts.READER)))
                 .andExpect(status().isForbidden());
     }
 

@@ -131,19 +131,19 @@ class AdminEditingTest {
 
     @Test
     void anonymousIs401() throws Exception {
-        mvc.perform(get("/api/admin/overrides").param("cs", "ITS")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/api/admin/functions/ITS/heads")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/manage/overrides").param("cs", "ITS")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/manage/functions/ITS/heads")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/me/roles")).andExpect(status().isUnauthorized());
     }
 
     @Test
     void userIs403EverywhereAndSeesNoAdminRole() throws Exception {
-        mvc.perform(get("/api/admin/overrides").param("cs", "ITS").session(reader)).andExpect(status().isForbidden());
-        mvc.perform(write(put("/api/admin/overrides/" + id("mmint")).param("cs", "ITS"), reader,
+        mvc.perform(get("/api/manage/overrides").param("cs", "ITS").session(reader)).andExpect(status().isForbidden());
+        mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), reader,
                 Map.of("areaOfDuties", "x"))).andExpect(status().isForbidden());
-        mvc.perform(write(delete("/api/admin/overrides/" + id("mmint")).param("cs", "ITS"), reader, null))
+        mvc.perform(write(delete("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), reader, null))
                 .andExpect(status().isForbidden());
-        mvc.perform(write(put("/api/admin/functions/ITS/heads"), reader, heads(List.of(), List.of())))
+        mvc.perform(write(put("/api/manage/functions/ITS/heads"), reader, heads(List.of(), List.of())))
                 .andExpect(status().isForbidden());
         mvc.perform(get("/api/me/roles").session(reader))
                 .andExpect(jsonPath("$.roles").value(contains("USER")))
@@ -156,19 +156,19 @@ class AdminEditingTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.roles").value(hasItems("USER", "SYSTEM_ADMIN")))
                 .andExpect(jsonPath("$.editingEnabled").value(true));
-        JsonNode members = body(mvc.perform(get("/api/admin/overrides").param("cs", "ITS").session(admin))
+        JsonNode members = body(mvc.perform(get("/api/manage/overrides").param("cs", "ITS").session(admin))
                 .andExpect(status().isOk()).andReturn());
         assertThat(members).isNotEmpty();
         JsonNode chief = find(members, "Kilo, Khaki");
         assertThat(chief.get("override").get("headRank").asInt()).isEqualTo(1);
         assertThat(chief.get("group").asText()).isEqualTo("HEAD");
-        assertThat(body(mvc.perform(get("/api/admin/overrides").param("cs", "ITS").param("q", "lemon")
+        assertThat(body(mvc.perform(get("/api/manage/overrides").param("cs", "ITS").param("q", "lemon")
                 .session(admin)).andReturn())).hasSize(1);
     }
 
     @Test
     void writeWithoutTheCsrfTokenIs403() throws Exception {
-        mvc.perform(put("/api/admin/overrides/" + id("mmint")).param("cs", "ITS").session(admin)
+        mvc.perform(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS").session(admin)
                         .contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isForbidden());
     }
@@ -184,7 +184,7 @@ class AdminEditingTest {
             return call.callRealMethod();
         }).when(orgStream).publishOrgUpdated(anyString());
 
-        MvcResult result = mvc.perform(write(put("/api/admin/overrides/" + id("mmint")).param("cs", "ITS"), admin,
+        MvcResult result = mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), admin,
                         Map.of("groupName", "  Service Desk  ", "areaOfDuties", "Laptops and accounts",
                                 "jobDescription", " ", "version", before.getVersion())))
                 .andExpect(status().isOk()).andReturn();
@@ -203,10 +203,10 @@ class AdminEditingTest {
     @Test
     void staleVersionIs409AndChangesNothing() throws Exception {
         EmployeeOverride before = row("mmint", "ITS");
-        mvc.perform(write(put("/api/admin/overrides/" + id("mmint")).param("cs", "ITS"), admin,
+        mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), admin,
                 Map.of("areaOfDuties", "first", "version", before.getVersion()))).andExpect(status().isOk());
 
-        mvc.perform(write(put("/api/admin/overrides/" + id("mmint")).param("cs", "ITS"), admin,
+        mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), admin,
                         Map.of("areaOfDuties", "second", "version", before.getVersion())))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("CHANGED"));
@@ -216,7 +216,7 @@ class AdminEditingTest {
 
     @Test
     void newRowAddsThePersonToAnotherFunction() throws Exception {
-        mvc.perform(write(put("/api/admin/overrides/" + id("nnavy")).param("cs", "QRM"), admin,
+        mvc.perform(write(put("/api/manage/overrides/" + id("nnavy")).param("cs", "QRM"), admin,
                         Map.of("groupName", "Project reviews")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.version").value(0));
@@ -234,29 +234,29 @@ class AdminEditingTest {
                 Map.<String, Object>of("jobDescription", "x".repeat(501), "version", version),
                 Map.<String, Object>of("groupName", "g".repeat(257), "version", version),
                 Map.<String, Object>of("groupName", "Team <b>", "version", version))) {
-            mvc.perform(write(put("/api/admin/overrides/" + id("mmint")).param("cs", "ITS"), admin, bad))
+            mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), admin, bad))
                     .andExpect(status().isBadRequest());
         }
         assertThat(row("mmint", "ITS").getVersion()).isEqualTo(version);
         assertThat(jdbc.queryForObject("SELECT count(*) FROM employee_overrides WHERE area_of_duties LIKE '%<%'"
                 + " OR job_description LIKE '%<%' OR group_name LIKE '%<%'", Long.class)).isZero();
-        mvc.perform(write(put("/api/admin/overrides/" + id("mmint")).param("cs", "ITS"), admin,
+        mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), admin,
                 Map.of("jobDescription", "x".repeat(500), "version", version))).andExpect(status().isOk());
     }
 
     @Test
     void unknownFunctionDisabledExternalOrMissingEmployeeAreRefused() throws Exception {
-        mvc.perform(write(put("/api/admin/overrides/" + id("mmint")).param("cs", "Sales"), admin,
+        mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "Sales"), admin,
                         Map.of("areaOfDuties", "x")))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("UNKNOWN_FUNCTION"));
-        mvc.perform(write(put("/api/admin/overrides/" + id("rrust")).param("cs", "ITS"), admin,
+        mvc.perform(write(put("/api/manage/overrides/" + id("rrust")).param("cs", "ITS"), admin,
                         Map.of("areaOfDuties", "x")))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("EMPLOYEE_EXTERNAL"));
         jdbc.update("UPDATE employees SET enabled = false WHERE login = 'nnavy'");
-        mvc.perform(write(put("/api/admin/overrides/" + id("nnavy")).param("cs", "ITS"), admin,
+        mvc.perform(write(put("/api/manage/overrides/" + id("nnavy")).param("cs", "ITS"), admin,
                         Map.of("areaOfDuties", "x")))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("EMPLOYEE_DISABLED"));
-        mvc.perform(write(put("/api/admin/overrides/999999999").param("cs", "ITS"), admin, Map.of("areaOfDuties", "x")))
+        mvc.perform(write(put("/api/manage/overrides/999999999").param("cs", "ITS"), admin, Map.of("areaOfDuties", "x")))
                 .andExpect(status().isNotFound());
         verify(orgStream, never()).publishOrgUpdated(anyString());
     }
@@ -268,7 +268,7 @@ class AdminEditingTest {
         logged.start();
         logger.addAppender(logged);
         try {
-            mvc.perform(write(put("/api/admin/overrides/" + id("mmint")).param("cs", "ITS"), admin,
+            mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), admin,
                     Map.of("areaOfDuties", "SECRET-TEXT", "version", row("mmint", "ITS").getVersion())))
                     .andExpect(status().isOk());
         } finally {
@@ -282,25 +282,25 @@ class AdminEditingTest {
     @Test
     void deleteRemovesTheRowBackToTheAdDefault() throws Exception {
         EmployeeOverride row = row("mmint", "ITS");
-        mvc.perform(write(delete("/api/admin/overrides/" + id("mmint")).param("cs", "ITS")
+        mvc.perform(write(delete("/api/manage/overrides/" + id("mmint")).param("cs", "ITS")
                 .param("version", String.valueOf(row.getVersion() + 5)), admin, null)).andExpect(status().isConflict());
 
-        mvc.perform(write(delete("/api/admin/overrides/" + id("mmint")).param("cs", "ITS")
+        mvc.perform(write(delete("/api/manage/overrides/" + id("mmint")).param("cs", "ITS")
                 .param("version", String.valueOf(row.getVersion())), admin, null)).andExpect(status().isNoContent());
 
         assertThat(overlay.findByEmployeeIdAndCs(id("mmint"), "ITS")).isEmpty();
         assertThat(dto("Mike, Mint", "ITS").getGroup()).as("default group of ITS General: none").isNull();
-        mvc.perform(write(delete("/api/admin/overrides/" + id("mmint")).param("cs", "ITS"), admin, null))
+        mvc.perform(write(delete("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), admin, null))
                 .andExpect(status().isNotFound());
     }
 
     @Test
     void deletingTheLastHeadNeedsTheConfirmation() throws Exception {
-        mvc.perform(write(delete("/api/admin/overrides/" + id("qquartz")).param("cs", "QRM"), admin, null))
+        mvc.perform(write(delete("/api/manage/overrides/" + id("qquartz")).param("cs", "QRM"), admin, null))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("LAST_HEAD"));
         assertThat(row("qquartz", "QRM")).isNotNull();
 
-        mvc.perform(write(delete("/api/admin/overrides/" + id("qquartz")).param("cs", "QRM")
+        mvc.perform(write(delete("/api/manage/overrides/" + id("qquartz")).param("cs", "QRM")
                 .param("confirmLastHead", "true"), admin, null)).andExpect(status().isNoContent());
     }
 
@@ -310,7 +310,7 @@ class AdminEditingTest {
     void headsAreSetInOrderAndARemovedHeadStaysAMember() throws Exception {
         List<Long> before = List.of(id("kkhaki"), id("llemon"));
 
-        JsonNode result = body(mvc.perform(write(put("/api/admin/functions/ITS/heads"), admin,
+        JsonNode result = body(mvc.perform(write(put("/api/manage/functions/ITS/heads"), admin,
                 heads(List.of(id("llemon"), id("kkhaki"), id("mmint")), before))).andExpect(status().isOk()).andReturn());
 
         assertThat(result.get("heads")).extracting(h -> h.get("employeeId").asLong())
@@ -320,7 +320,7 @@ class AdminEditingTest {
         assertThat(rank("mmint", "ITS")).isEqualTo((short) 3);
         assertThat(row("mmint", "ITS").getGroupName()).as("its texts stay").isEqualTo("Service Desk");
 
-        mvc.perform(write(put("/api/admin/functions/ITS/heads"), admin,
+        mvc.perform(write(put("/api/manage/functions/ITS/heads"), admin,
                 heads(List.of(id("llemon")), List.of(id("llemon"), id("kkhaki"), id("mmint"))))).andExpect(status().isOk());
 
         assertThat(rank("kkhaki", "ITS")).as("no longer a head").isNull();
@@ -332,7 +332,7 @@ class AdminEditingTest {
 
     @Test
     void aPersonOfAnotherFunctionBecomesHeadThroughANewRow() throws Exception {
-        mvc.perform(write(put("/api/admin/functions/QRM/heads"), admin,
+        mvc.perform(write(put("/api/manage/functions/QRM/heads"), admin,
                 heads(List.of(id("qquartz"), id("tteal")), List.of(id("qquartz"))))).andExpect(status().isOk());
 
         assertThat(rank("tteal", "QRM")).isEqualTo((short) 2);
@@ -345,7 +345,7 @@ class AdminEditingTest {
     void expectedHeadsMismatchIs409AndChangesNothing() throws Exception {
         Map<Long, String> before = overlaySnapshot();
 
-        mvc.perform(write(put("/api/admin/functions/ITS/heads"), admin,
+        mvc.perform(write(put("/api/manage/functions/ITS/heads"), admin,
                         heads(List.of(id("nnavy")), List.of(id("llemon")))))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.code").value("HEADS_CHANGED"));
@@ -357,12 +357,12 @@ class AdminEditingTest {
     @Test
     void removingAllHeadsNeedsTheConfirmation() throws Exception {
         List<Long> current = List.of(id("kkhaki"), id("llemon"));
-        mvc.perform(write(put("/api/admin/functions/ITS/heads"), admin, heads(List.of(), current)))
+        mvc.perform(write(put("/api/manage/functions/ITS/heads"), admin, heads(List.of(), current)))
                 .andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("LAST_HEAD"));
 
         Map<String, Object> confirmed = new HashMap<>(heads(List.of(), current));
         confirmed.put("confirmRemoveAllHeads", true);
-        mvc.perform(write(put("/api/admin/functions/ITS/heads"), admin, confirmed))
+        mvc.perform(write(put("/api/manage/functions/ITS/heads"), admin, confirmed))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.heads").isEmpty());
         assertThat(row("kkhaki", "ITS")).isNotNull();
     }
@@ -371,13 +371,13 @@ class AdminEditingTest {
     void headsMustBeEnabledCentralServicesPeopleListedOnceInAKnownFunction() throws Exception {
         List<Long> current = List.of(id("kkhaki"), id("llemon"));
         jdbc.update("UPDATE employees SET enabled = false WHERE login = 'nnavy'");
-        mvc.perform(write(put("/api/admin/functions/ITS/heads"), admin, heads(List.of(id("nnavy")), current)))
+        mvc.perform(write(put("/api/manage/functions/ITS/heads"), admin, heads(List.of(id("nnavy")), current)))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("EMPLOYEE_DISABLED"));
-        mvc.perform(write(put("/api/admin/functions/ITS/heads"), admin, heads(List.of(id("rrust")), current)))
+        mvc.perform(write(put("/api/manage/functions/ITS/heads"), admin, heads(List.of(id("rrust")), current)))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("EMPLOYEE_EXTERNAL"));
-        mvc.perform(write(put("/api/admin/functions/ITS/heads"), admin,
+        mvc.perform(write(put("/api/manage/functions/ITS/heads"), admin,
                 heads(List.of(id("mmint"), id("mmint")), current))).andExpect(status().isBadRequest());
-        mvc.perform(write(put("/api/admin/functions/Sales/heads"), admin, heads(List.of(), List.of())))
+        mvc.perform(write(put("/api/manage/functions/Sales/heads"), admin, heads(List.of(), List.of())))
                 .andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("UNKNOWN_FUNCTION"));
         assertThat(rank("kkhaki", "ITS")).isEqualTo((short) 1);
     }
@@ -385,11 +385,11 @@ class AdminEditingTest {
     @Test
     void headDisabledInAdIsHiddenButKeptAfterTheNewHeads() throws Exception {
         jdbc.update("UPDATE employees SET enabled = false WHERE login = 'kkhaki'");
-        JsonNode state = body(mvc.perform(get("/api/admin/functions/ITS/heads").session(admin)).andReturn());
+        JsonNode state = body(mvc.perform(get("/api/manage/functions/ITS/heads").session(admin)).andReturn());
         assertThat(state.get("heads")).extracting(h -> h.get("employeeId").asLong()).containsExactly(id("llemon"));
         assertThat(state.get("hiddenHeads").asInt()).isEqualTo(1);
 
-        mvc.perform(write(put("/api/admin/functions/ITS/heads"), admin,
+        mvc.perform(write(put("/api/manage/functions/ITS/heads"), admin,
                 heads(List.of(id("mmint"), id("llemon")), List.of(id("llemon"))))).andExpect(status().isOk());
 
         assertThat(rank("mmint", "ITS")).isEqualTo((short) 1);
@@ -399,9 +399,9 @@ class AdminEditingTest {
 
     @Test
     void aSyncChangesNeitherTheHeadsNorTheEditedTexts() throws Exception {
-        mvc.perform(write(put("/api/admin/overrides/" + id("mmint")).param("cs", "ITS"), admin,
+        mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), admin,
                 Map.of("areaOfDuties", "Edited", "version", row("mmint", "ITS").getVersion()))).andExpect(status().isOk());
-        mvc.perform(write(put("/api/admin/functions/ITS/heads"), admin,
+        mvc.perform(write(put("/api/manage/functions/ITS/heads"), admin,
                 heads(List.of(id("mmint"), id("kkhaki")), List.of(id("kkhaki"), id("llemon"))))).andExpect(status().isOk());
         Map<Long, String> before = overlaySnapshot();
         jdbc.update("UPDATE employees SET job_title = 'Changed in the database' WHERE login = 'mmint'");

@@ -12,7 +12,7 @@ public final class OverrideAdminViews {
     }
 
     /**
-     * PUT /api/admin/overrides/{employeeId}?cs=: the three texts as they should be (null or empty: none) and the
+     * PUT /api/manage/overrides/{employeeId}?cs=: the three texts as they should be (null or empty: none) and the
      * version of the row that was read (null: there is no row yet).
      */
     public record OverrideRequest(String groupName, String areaOfDuties, String jobDescription, Long version) {
@@ -40,7 +40,7 @@ public final class OverrideAdminViews {
     }
 
     /**
-     * PUT /api/admin/functions/{cs}/heads
+     * PUT /api/manage/functions/{cs}/heads
      *
      * @param employeeIds           the heads in order (rank 1 first)
      * @param expectedHeads         the heads as the page showed them (refused with 409 when they changed since)

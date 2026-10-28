@@ -1,5 +1,6 @@
 package cs_orgchart.employee.web;
 
+import cs_orgchart.access.AdminAccess;
 import cs_orgchart.employee.override.OverrideAdminService;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -7,14 +8,18 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * GET /api/me/roles: the roles of the signed-in person, so that the pages show the edit controls only to
- * SYSTEM_ADMIN and only when editing is possible (EMPLOYEE_SOURCE=db). Hiding them is cosmetic: the server checks
- * every change. With sign-in on, SecurityConfig lets only signed-in people in; on the open site the answer has no
- * roles (never 401, which would make the pages reload).
+ * GET /api/me/roles: who the signed-in person is for the site, so that the pages load the admin tools only for admins
+ * and show the edit controls only when editing is possible (EMPLOYEE_SOURCE=db). Hiding them is cosmetic: the server
+ * checks every change. With sign-in on, SecurityConfig lets only signed-in people in; on the open site the answer
+ * has no roles (never 401, which would make the pages reload).
+ * <p>
+ * {@code you} is the identifier the admin list (app_admins.login_name) is matched against (U1); {@code admin} and
+ * {@code superAdmin} come from {@link AdminAccess}. Non-admins get admin=false and nothing else about admins.
  */
 @RestController
 public class MeController {
@@ -22,9 +27,11 @@ public class MeController {
     private static final String ROLE_PREFIX = "ROLE_";
 
     private final OverrideAdminService overrides;
+    private final AdminAccess access;
 
-    public MeController(OverrideAdminService overrides) {
+    public MeController(OverrideAdminService overrides, AdminAccess access) {
         this.overrides = overrides;
+        this.access = access;
     }
 
     @GetMapping("/api/me/roles")
@@ -37,6 +44,13 @@ public class MeController {
                 .map(a -> a.substring(ROLE_PREFIX.length()))
                 .sorted()
                 .toList();
-        return Map.of("authenticated", signedIn, "roles", roles, "editingEnabled", overrides.editingEnabled());
+        Map<String, Object> me = new LinkedHashMap<>();
+        me.put("authenticated", signedIn);
+        me.put("you", signedIn ? authentication.getName() : null);
+        me.put("roles", roles);
+        me.put("admin", access.isAdmin(authentication));
+        me.put("superAdmin", access.isSuperAdmin(authentication));
+        me.put("editingEnabled", overrides.editingEnabled());
+        return me;
     }
 }

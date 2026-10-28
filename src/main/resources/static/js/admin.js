@@ -1,21 +1,11 @@
-/* Admin editing (SYSTEM_ADMIN with EMPLOYEE_SOURCE=db, spec v3 §10.2): an Edit button in the profile card and the
-   "Function heads" block of the function page. Hiding the controls is cosmetic: the server checks every change.
+/* Admin editing (admins with EMPLOYEE_SOURCE=db, spec v3 §10.2): an Edit button in the profile card and the
+   "Function heads" block of the function page. common.js loads this script for admins only (U1). Hiding the controls is cosmetic: the server checks every change.
    Everything is built with createElement and textContent / value: texts typed by admins are shown to every user and
    never become HTML. */
 
-const AdminSession = { loading: null, canEdit: false };
-
+/** Editing needs an admin (database list or env super admin, U1) and EMPLOYEE_SOURCE=db */
 function loadAdminSession() {
-  if (!AdminSession.loading) {
-    AdminSession.loading = apiFetch("/api/me/roles")
-      .then((res) => (res.ok ? res.json() : { roles: [], editingEnabled: false }))
-      .then((me) => {
-        AdminSession.canEdit = (me.roles || []).includes("SYSTEM_ADMIN") && me.editingEnabled === true;
-        return AdminSession.canEdit;
-      })
-      .catch(() => false);
-  }
-  return AdminSession.loading;
+  return loadMe().then((me) => me.admin === true && me.editingEnabled === true);
 }
 
 /** An element with attributes, a text and children; never HTML */
@@ -101,7 +91,7 @@ async function openAdminEditor(employee) {
 
   let current = null;
   try {
-    const res = await apiFetch(`/api/admin/overrides?cs=${encodeURIComponent(cs)}&q=${encodeURIComponent(employee.email || "")}`);
+    const res = await apiFetch(`/api/manage/overrides?cs=${encodeURIComponent(cs)}&q=${encodeURIComponent(employee.email || "")}`);
     if (!res.ok) throw new Error(await adminError(res));
     current = (await res.json()).find((item) => item.employeeId === employee.id) || null;
   } catch (e) {
@@ -149,7 +139,7 @@ async function openAdminEditor(employee) {
     if (problem) { status.textContent = problem; return; }
     save.disabled = true;
     status.textContent = "Saving…";
-    const res = await adminJson(`/api/admin/overrides/${employee.id}?cs=${encodeURIComponent(cs)}`, "PUT", {
+    const res = await adminJson(`/api/manage/overrides/${employee.id}?cs=${encodeURIComponent(cs)}`, "PUT", {
       groupName: groupInput.value, areaOfDuties: area.value, jobDescription: description.value,
       version: override ? override.version : null
     });
@@ -164,7 +154,7 @@ async function openAdminEditor(employee) {
 
 async function removeAdminEntry(employee, override, status, dialog) {
   if (!confirm("Remove this entry? The person goes back to the AD default (or leaves this extra function).")) return;
-  const url = `/api/admin/overrides/${employee.id}?cs=${encodeURIComponent(employee.cs)}&version=${override.version}`;
+  const url = `/api/manage/overrides/${employee.id}?cs=${encodeURIComponent(employee.cs)}&version=${override.version}`;
   let res = await apiFetch(url, { method: "DELETE" });
   if (res.status === 409) {
     const message = await adminError(res);
@@ -186,7 +176,7 @@ window.onFunctionRendered = async (cs, members) => {
   if (!(await loadAdminSession())) return;
   let res;
   try {
-    res = await apiFetch(`/api/admin/functions/${encodeURIComponent(cs)}/heads`);
+    res = await apiFetch(`/api/manage/functions/${encodeURIComponent(cs)}/heads`);
   } catch (e) {
     return;
   }
@@ -271,7 +261,7 @@ async function adminHeadCandidates(query) {
   const taken = new Set(AdminHeads.heads.map((h) => h.id));
   let people;
   if (AdminHeads.all) {
-    const res = await apiFetch(`/api/admin/overrides?q=${encodeURIComponent(q)}`);
+    const res = await apiFetch(`/api/manage/overrides?q=${encodeURIComponent(q)}`);
     people = res.ok ? (await res.json()).map((m) => ({ id: m.employeeId, name: m.name, jobTitle: m.jobTitle })) : [];
   } else {
     people = (AdminHeads.members || [])
@@ -290,9 +280,14 @@ async function saveAdminHeads(status) {
     confirmRemoveAllHeads = true;
   }
   status.textContent = "Saving…";
-  const res = await adminJson(`/api/admin/functions/${encodeURIComponent(AdminHeads.cs)}/heads`, "PUT",
+  const res = await adminJson(`/api/manage/functions/${encodeURIComponent(AdminHeads.cs)}/heads`, "PUT",
     { employeeIds, expectedHeads: AdminHeads.expected, confirmRemoveAllHeads });
   if (!res.ok) { status.textContent = await adminError(res); return; }
   notify("Heads saved");
   if (typeof window.refreshOrgChart === "function") window.refreshOrgChart();
+}
+
+// Loaded after the function page may already have rendered: show the heads block for that render
+if (window.lastFunctionRender && typeof window.onFunctionRendered === "function") {
+  window.onFunctionRendered(window.lastFunctionRender.cs, window.lastFunctionRender.members);
 }

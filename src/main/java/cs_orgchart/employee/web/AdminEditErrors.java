@@ -1,5 +1,6 @@
 package cs_orgchart.employee.web;
 
+import cs_orgchart.access.AdminsController;
 import cs_orgchart.employee.override.AdminEditException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -15,7 +16,8 @@ import java.util.Map;
  * The answers of refused admin edits: {"status", "code", "message"}. A change made at the same time by someone else
  * (version or unique index) is 409.
  */
-@RestControllerAdvice(assignableTypes = {OverrideAdminController.class, FunctionHeadsAdminController.class})
+@RestControllerAdvice(assignableTypes = {OverrideAdminController.class, FunctionHeadsAdminController.class,
+        AdminsController.class})
 public class AdminEditErrors {
 
     @ExceptionHandler(AdminEditException.class)

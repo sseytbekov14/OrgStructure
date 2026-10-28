@@ -70,6 +70,28 @@ $env:SPRING_PROFILES_ACTIVE = "local"
 
 Переменные, настройка Entra, включение, диагностика и откат: [docs/SSO.md](docs/SSO.md).
 
+## How to grant admin access
+
+There are two kinds of administrators:
+
+- **Super admins**: the e-mails / account names in `SYSTEM_ADMIN_EMAILS` on the server. They can do everything
+  admins can, manage the list of admins (Admin page > Administrators) and run the AD sync (`/api/admin/ad-sync`).
+  They are not stored in the database and cannot be removed from the web UI.
+- **Admins**: the enabled rows of the database table `app_admins`. They can edit the site content
+  (`/api/manage/**`: overrides, function heads and later features). A change takes effect within 30 seconds
+  (at once when made on the Admin page).
+
+The value to store is the `you` field of `GET /api/me/roles` of that person (with SSO usually the e-mail/UPN,
+with the password form the account name). Ask the person to open `/api/me/roles` while signed in, or let a super
+admin add them on the Admin page. In SQL:
+
+```sql
+INSERT INTO app_admins(login_name, note) VALUES ('name@kpmg.kz', 'why');
+```
+
+The comparison ignores case. To revoke access, delete the row or set `enabled = FALSE`. People who are not admins
+see no admin controls, do not load the admin script, and every `/api/manage/**` call answers 403.
+
 ## Конфигурация
 
 Основные пути задаются в `src/main/resources/application.yaml`:

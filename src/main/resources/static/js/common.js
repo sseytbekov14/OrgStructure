@@ -504,3 +504,52 @@ function openEmployeeProfile(employee) {
 
   if (employee.email) logInteraction(employee.email, "PROFILE_VIEW");
 }
+
+/* ---------- Admin tools (U1) ---------- */
+
+// GET /api/me/roles once per page. admin.js and the "Admin" link exist only for admins (admin=true); everybody else
+// gets neither, and every /api/manage/** call would answer 403 anyway.
+const Me = { loading: null };
+
+function loadMe() {
+  if (!Me.loading) {
+    Me.loading = apiFetch("/api/me/roles")
+      .then((res) => (res.ok ? res.json() : null))
+      .catch(() => null)
+      .then((me) => me || { authenticated: false, roles: [], admin: false, superAdmin: false, editingEnabled: false });
+  }
+  return Me.loading;
+}
+
+const ADMIN_SCRIPT = "/js/admin.js?v=3.0";
+
+function addAdminLink() {
+  const header = document.querySelector(".header-inner");
+  if (!header || header.querySelector(".header-admin-link")) return;
+  const link = document.createElement("a");
+  link.className = "header-admin-link";
+  link.href = "/admin.html";
+  link.textContent = "Admin";
+  header.appendChild(link);
+}
+
+function loadAdminScript() {
+  if (document.querySelector("script[data-admin-tools]")) return;
+  const script = document.createElement("script");
+  script.src = ADMIN_SCRIPT;
+  script.setAttribute("data-admin-tools", "");
+  document.body.appendChild(script);
+}
+
+/** Loads the admin tools when the signed-in person is an admin; resolves to true in that case */
+function initAdminTools(options = {}) {
+  return loadMe().then((me) => {
+    if (me.admin !== true) return false;
+    addAdminLink();
+    if (options.script !== false) loadAdminScript();
+    return true;
+  });
+}
+
+// Admin tools for admins only (the admin page loads its own script)
+if (document.body?.dataset?.page !== "admin") initAdminTools();

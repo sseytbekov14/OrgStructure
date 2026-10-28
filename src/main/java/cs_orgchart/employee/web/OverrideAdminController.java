@@ -19,11 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 /**
- * Overlay of a person in a function for SYSTEM_ADMIN (spec v3 §10.2): the /api/admin/** rule of SecurityConfig and
- * the method checks here. 409 with EMPLOYEE_SOURCE=excel.
+ * Overlay of a person in a function for admins (spec v3 §10.2; U1: /api/manage/**, database-managed admins and the
+ * env super admins, checked by {@link cs_orgchart.access.AdminAccess} on every method). 409 with EMPLOYEE_SOURCE=excel.
  */
 @RestController
-@RequestMapping("/api/admin/overrides")
+@RequestMapping("/api/manage/overrides")
 public class OverrideAdminController {
 
     private final OverrideAdminService service;
@@ -34,21 +34,21 @@ public class OverrideAdminController {
 
     /** The people of a function with their overlay row (cs empty: all people of the site), q filters */
     @GetMapping
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("@adminAccess.isAdmin(authentication)")
     public List<MemberView> members(@RequestParam(required = false) String cs,
                                     @RequestParam(required = false) String q) {
         return service.members(cs == null || cs.isBlank() ? null : cs, q);
     }
 
     @PutMapping("/{employeeId}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("@adminAccess.isAdmin(authentication)")
     public OverrideView upsert(@PathVariable Long employeeId, @RequestParam String cs,
                                @RequestBody OverrideRequest request, Authentication admin) {
         return service.upsert(employeeId, cs, request, admin.getName());
     }
 
     @DeleteMapping("/{employeeId}")
-    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    @PreAuthorize("@adminAccess.isAdmin(authentication)")
     public ResponseEntity<Void> delete(@PathVariable Long employeeId, @RequestParam String cs,
                                        @RequestParam(required = false) Long version,
                                        @RequestParam(defaultValue = "false") boolean confirmLastHead,

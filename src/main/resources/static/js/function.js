@@ -1149,6 +1149,8 @@ async function loadFunctionData({ refresh = false } = {}) {
     document.getElementById('funcCount').textContent = `${employeeDirectory.length} employees`;
 
     renderChart();
+    // admin.js may load after this (admins only): it picks up the last render itself
+    window.lastFunctionRender = { cs, members: employeeDirectory };
     if (typeof window.onFunctionRendered === 'function') window.onFunctionRendered(cs, employeeDirectory);
 
     const target = !refresh && params.get('emp');

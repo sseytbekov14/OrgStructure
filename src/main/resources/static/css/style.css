@@ -2484,3 +2484,54 @@ button.person-row:hover {
     align-items: stretch;
   }
 }
+
+/* ---------- Admin access (U1): header link and admin page ---------- */
+.header-admin-link {
+  margin-left: auto;
+  padding: 6px 12px;
+  border-radius: 6px;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+}
+.header-admin-link:hover,
+.header-admin-link:focus-visible {
+  background: rgba(255, 255, 255, 0.15);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.admin-page {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+.admin-page-title {
+  margin: 16px 0 4px;
+}
+.admin-panel {
+  margin-top: 16px;
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 14px;
+}
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 8px;
+  border-bottom: 1px solid #e6e6e6;
+  overflow-wrap: anywhere;
+}
+.admin-add-form {
+  max-width: 480px;
+}
