@@ -34,10 +34,15 @@ class FrontendFunctionKeysTest {
         assertThat(topLevelKeys(objectLiteral(read("main.js"), "FUNC_ICONS"))).containsExactlyInAnyOrderElementsOf(CS_NAMES);
     }
 
+    /** U5: the FAQ is in the database (seeded by V10) instead of the former FUNCTION_FAQ constant of function.js */
     @Test
     void everyFunctionHasAFaq() throws IOException {
-        assertThat(topLevelKeys(objectLiteral(read("function.js"), "FUNCTION_FAQ")))
-                .containsExactlyInAnyOrderElementsOf(CS_NAMES);
+        String seed = Files.readString(Path.of("src/main/resources/db/migration/V10__function_faq.sql"),
+                StandardCharsets.UTF_8);
+        Set<String> seeded = Pattern.compile("INSERT INTO function_faq \\(cs, content, updated_by\\) VALUES \\('([^']+)'")
+                .matcher(seed).results().map(m -> m.group(1)).collect(Collectors.toSet());
+        assertThat(seeded).containsExactlyInAnyOrderElementsOf(CS_NAMES);
+        assertThat(read("function.js")).doesNotContain("FUNCTION_FAQ");
     }
 
     /** TREE_BY_DEFAULT lists only the functions that open as a tree (the others open as groups) */

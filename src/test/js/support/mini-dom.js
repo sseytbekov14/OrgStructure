@@ -20,7 +20,8 @@ class Event {
 
 function matchesCompound(el, compound) {
   if (!el || el.nodeType !== 1) return false;
-  const re = /([#.]?[\w-]+|\[[^\]]+\]|\*)/g;
+  // Attribute values may be quoted and contain ] (e.g. [data-path="sections[0].title"])
+  const re = /([#.]?[\w-]+|\[[\w-]+(?:=(?:"[^"]*"|'[^']*'|[^\]]*))?\]|\*)/g;
   let m;
   while ((m = re.exec(compound))) {
     const part = m[1];

@@ -9,193 +9,176 @@ let currentCs = '';
 let employeeDirectory = [];
 let currentView = 'groups';
 
-const FUNCTION_FAQ = {
-  People: {
-    emails: [
-      { label: "General Questions & HR Administration", email: "people@kpmg.kz" },
-      { label: "Learning & Development (L&D)", email: "learning@kpmg.kz" },
-      { label: "Graduate & Experienced Recruiting", email: "recruiting@kpmg.kz" }
-    ],
-    rules: [
-      "Check the KPMG HR Portal first for standard templates and guidelines.",
-      "Send all L&D/training request approvals at least two weeks in advance.",
-      "Submit candidate referrals directly through the internal referral system."
-    ]
-  },
-  ITS: {
-    emails: [
-      { label: "IT Service Desk (Incidents & Requests)", email: "itservicedesk@kpmg.kz" },
-      { label: "IT Operations & Infrastructure", email: "ccg-fmhni@kpmg.kz" },
-      { label: "1C Development Team", email: "@kpmg.kz" }
-    ],
-    rules: [
-      "Submit all standard requests and hardware issues via the IT Portal.",
-      "Urgent issues: Call the Service Desk hotline at extension CCG-CQ-Ithelpdesk for immediate help.",
-      "Request new software licenses using the official Software Request form."
-    ]
-  },
-  Finance: {
-    emails: [
-      { label: "Accounts Payable (Vendor Invoices)", email: "ap@kpmg.kz" },
-      { label: "Travel & Business Expense Claims", email: "travel@kpmg.kz" },
-      { label: "Client Billing & Invoicing Support", email: "billing@kpmg.kz" }
-    ],
-    rules: [
-      "Submit expense claims before the 25th of the current month to ensure payout.",
-      "All invoices must include a valid Purchase Order (PO) number to be processed.",
-      "Use the SharePoint Finance portal to download current tax and billing templates."
-    ]
-  },
-  Markets: {
-    emails: [
-      { label: "Brand Review & Logo Approvals", email: "brand@kpmg.kz" },
-      { label: "Events Management & Catering Requests", email: "events@kpmg.kz" },
-      { label: "BD Opportunities & Markets General", email: "markets@kpmg.kz" }
-    ],
-    rules: [
-      "Submit brand review requests at least 3 working days before the deadline.",
-      "Book meeting rooms and catering requests through the SharePoint portal.",
-      "Use official business templates and presentation slide packs from the portal."
-    ]
-  },
-  OGC: {
-    emails: [
-      { label: "Contract Reviews & Legal Queries", email: "legal@kpmg.kz" },
-      { label: "Regulatory Compliance Assistance", email: "compliance@kpmg.kz" },
-      { label: "General Legal Counsel Support", email: "ogc@kpmg.kz" }
-    ],
-    rules: [
-      "Submit contracts for OGC review via the Legal Workflow System (LWS).",
-      "Standard contract templates do not require OGC review unless customized.",
-      "Involve OGC early for high-risk engagements or new service offerings."
-    ]
-  },
-  Tenders: {
-    emails: [
-      { label: "Tender Proposals & Bid Submission Support", email: "tenders@kpmg.kz" },
-      { label: "Procurement & Bid Documentation", email: "procurement@kpmg.kz" },
-      { label: "General Bid Support Inquiries", email: "tender-ops@kpmg.kz" }
-    ],
-    rules: [
-      "All bid documents must be signed off by the Engagement Partner before submission.",
-      "Register new tender opportunities in the Tender Tracker tool immediately.",
-      "Contact the Tender Support team as soon as the client's RFP is released."
-    ]
-  },
-  QRM: {
-    emails: [
-      { label: "Quality & Risk Management (Sentinel checks)", email: "qrm@kpmg.kz" },
-      { label: "Client & Engagement Acceptance Rules", email: "acceptance@kpmg.kz" },
-      { label: "Risk Management Helpdesk Support", email: "risk@kpmg.kz" }
-    ],
-    rules: [
-      "Complete client and engagement acceptance checks prior to commencing any work.",
-      "Submit Sentinel code checks for review before distributing proposals.",
-      "Contact QRM immediately if potential conflicts of interest are identified."
-    ]
-  },
-  "F&O": {
-    emails: [
-      { label: "Finance & Operations General Queries", email: "fo@kpmg.kz" },
-      { label: "Accounts Payable & Vendor Invoices", email: "ap@kpmg.kz" },
-      { label: "Travel & Business Expense Claims", email: "travel@kpmg.kz" }
-    ],
-    rules: [
-      "Submit all expense claims and reimbursement requests before the 25th of the current month.",
-      "All vendor invoices must include a valid Purchase Order (PO) number to be processed.",
-      "Use the F&O SharePoint portal for current templates, forms, and approval workflows."
-    ]
-  }
-};
+/* ---------- FAQ & Request Guidelines (U5: from GET /api/functions/{cs}/faq, built with DOM APIs) ---------- */
 
 const FAQ_OPEN_KEY = 'orgchart-faq-open';
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const FaqState = { cs: null, view: null, editing: false };
+
+/** A small stroked SVG icon from path data (no HTML strings) */
+function faqIcon(paths, size = 18) {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.setAttribute('width', String(size));
+  svg.setAttribute('height', String(size));
+  svg.setAttribute('fill', 'none');
+  svg.setAttribute('stroke', 'currentColor');
+  svg.setAttribute('stroke-width', '2');
+  svg.setAttribute('aria-hidden', 'true');
+  paths.forEach((d) => {
+    const path = document.createElementNS(SVG_NS, 'path');
+    path.setAttribute('d', d);
+    svg.appendChild(path);
+  });
+  return svg;
+}
+
+function faqEl(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text != null) node.textContent = text;
+  return node;
+}
+
+/** Text nodes, with https:// and mailto: addresses as links (rel="noopener noreferrer"); never HTML */
+function faqLinkify(text) {
+  const nodes = [];
+  const pattern = /(https:\/\/[^\s<>"]+|mailto:[^\s<>"]+)/g;
+  let last = 0;
+  let match;
+  while ((match = pattern.exec(text))) {
+    if (match.index > last) nodes.push(document.createTextNode(text.slice(last, match.index)));
+    let url = match[0];
+    const trailing = (url.match(/[.,;:!?)]+$/) || [''])[0];
+    if (trailing) url = url.slice(0, -trailing.length);
+    const link = document.createElement('a');
+    link.href = url;
+    link.rel = 'noopener noreferrer';
+    if (url.startsWith('https://')) link.target = '_blank';
+    link.textContent = url.startsWith('mailto:') ? url.slice('mailto:'.length) : url;
+    nodes.push(link);
+    if (trailing) nodes.push(document.createTextNode(trailing));
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) nodes.push(document.createTextNode(text.slice(last)));
+  return nodes;
+}
 
 function isValidEmail(email) {
   return /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email || '');
 }
 
-function renderFaqMailbox(item) {
-  const valid = isValidEmail(item.email);
-  return `
-    <div class="faq-mailbox">
-      <span class="faq-mailbox-icon">${ICONS.mail}</span>
-      <span class="faq-mailbox-body">
-        <span class="faq-mailbox-label">${escapeHtml(item.label)}</span>
-        ${valid
-          ? `<a class="faq-mailbox-email" href="mailto:${escapeHtml(item.email)}">${escapeHtml(item.email)}</a>`
-          : '<span class="faq-mailbox-missing">Email to be added</span>'}
-      </span>
-      ${valid ? `<button type="button" class="icon-btn" data-faq-copy="${escapeHtml(item.email)}" aria-label="Copy ${escapeHtml(item.email)}">${ICONS.copy}</button>` : ''}
-    </div>
-  `;
+/** The sections of a FAQ document as a grid (also the preview of the admin editor) */
+function renderFaqSections(document_) {
+  const grid = faqEl('div', 'faq-grid');
+  ((document_ && document_.sections) || []).forEach((section) => {
+    const block = faqEl('div', `faq-section faq-section--${String(section.kind || '').toLowerCase()}`);
+    block.appendChild(faqEl('h3', 'faq-section-title', section.title || ''));
+    const items = section.items || [];
+    if (section.kind === 'GUIDELINES') {
+      const list = faqEl('ul', 'faq-rules');
+      items.forEach((item) => {
+        const li = document.createElement('li');
+        const icon = faqEl('span', 'faq-rule-icon');
+        icon.setAttribute('aria-hidden', 'true');
+        icon.appendChild(faqIcon(['M20 6 9 17l-5-5'], 14));
+        const text = faqEl('span', 'faq-rule-text');
+        faqLinkify(item.text || '').forEach((n) => text.appendChild(n));
+        li.append(icon, text);
+        list.appendChild(li);
+      });
+      block.appendChild(list);
+    } else if (section.kind === 'MAILBOXES') {
+      const boxes = faqEl('div', 'faq-mailboxes');
+      items.forEach((item) => {
+        const box = faqEl('div', 'faq-mailbox');
+        const icon = faqEl('span', 'faq-mailbox-icon');
+        icon.appendChild(faqIcon(['M4 4h16v16H4z', 'm22 6-10 7L2 6']));
+        const body = faqEl('span', 'faq-mailbox-body');
+        body.appendChild(faqEl('span', 'faq-mailbox-label', item.label || ''));
+        if (isValidEmail(item.email)) {
+          const link = faqEl('a', 'faq-mailbox-email', item.email);
+          link.href = `mailto:${item.email}`;
+          body.appendChild(link);
+        } else {
+          body.appendChild(faqEl('span', 'faq-mailbox-missing', 'Email to be added'));
+        }
+        box.append(icon, body);
+        boxes.appendChild(box);
+      });
+      block.appendChild(boxes);
+    } else if (section.kind === 'QUESTIONS') {
+      const list = faqEl('dl', 'faq-questions');
+      items.forEach((item) => {
+        const question = faqEl('dt', 'faq-question');
+        faqLinkify(item.question || '').forEach((n) => question.appendChild(n));
+        const answer = faqEl('dd', 'faq-answer');
+        faqLinkify(item.answer || '').forEach((n) => answer.appendChild(n));
+        list.append(question, answer);
+      });
+      block.appendChild(list);
+    }
+    grid.appendChild(block);
+  });
+  return grid;
 }
 
-function renderFaqBanner(cs) {
+async function loadFaq(cs) {
+  try {
+    const res = await apiFetch(`/api/functions/${encodeURIComponent(cs)}/faq`);
+    return res.ok ? await res.json() : null;
+  } catch (e) {
+    return null;
+  }
+}
+
+/** The collapsible FAQ card of the function; hidden when the function has no FAQ */
+async function renderFaqBanner(cs, view) {
   const container = document.getElementById('faqBanner');
   if (!container) return;
-
-  const faq = FUNCTION_FAQ[cs];
+  const faq = view === undefined ? await loadFaq(cs) : view;
+  FaqState.cs = cs;
+  FaqState.view = faq;
   if (!faq) {
     container.style.display = 'none';
+    container.replaceChildren();
     return;
   }
 
   let isOpen = false;
   try { isOpen = localStorage.getItem(FAQ_OPEN_KEY) === 'true'; } catch (e) { /* storage unavailable */ }
 
-  container.innerHTML = `
-    <section class="faq-card${isOpen ? '' : ' is-collapsed'}" id="faqCard">
-      <button type="button" class="faq-toggle" aria-expanded="${isOpen}" aria-controls="faqBody">
-        <span class="faq-badge" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
-        </span>
-        <span class="faq-toggle-text">
-          <span class="faq-title">FAQ &amp; Request Guidelines</span>
-          <span class="faq-subtitle">How to reach ${escapeHtml(cs)} and submit a request</span>
-        </span>
-        <svg class="faq-chevron" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
-      </button>
+  const card = faqEl('section', `faq-card${isOpen ? '' : ' is-collapsed'}`);
+  card.id = 'faqCard';
+  const toggle = faqEl('button', 'faq-toggle');
+  toggle.type = 'button';
+  toggle.setAttribute('aria-expanded', String(isOpen));
+  toggle.setAttribute('aria-controls', 'faqBody');
+  const badge = faqEl('span', 'faq-badge');
+  badge.setAttribute('aria-hidden', 'true');
+  badge.appendChild(faqIcon(['M12 2a10 10 0 1 0 0 20a10 10 0 1 0 0-20', 'M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3', 'M12 17h.01']));
+  const texts = faqEl('span', 'faq-toggle-text');
+  texts.append(faqEl('span', 'faq-title', 'FAQ & Request Guidelines'),
+    faqEl('span', 'faq-subtitle', `How to reach ${cs} and submit a request`));
+  const chevron = faqIcon(['m6 9 6 6 6-6']);
+  chevron.setAttribute('class', 'faq-chevron');
+  toggle.append(badge, texts, chevron);
 
-      <div class="faq-body" id="faqBody">
-        <div class="faq-body-inner">
-          <div class="faq-grid">
-            <div class="faq-section">
-              <h3 class="faq-section-title">Request rules</h3>
-              <ul class="faq-rules">
-                ${faq.rules.map(rule => `
-                  <li>
-                    <span class="faq-rule-icon" aria-hidden="true">${ICONS.check}</span>
-                    <span>${escapeHtml(rule)}</span>
-                  </li>
-                `).join('')}
-              </ul>
-            </div>
-
-            <div class="faq-section">
-              <h3 class="faq-section-title">Team mailboxes</h3>
-              <div class="faq-mailboxes">
-                ${faq.emails.map(renderFaqMailbox).join('')}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  `;
+  const body = faqEl('div', 'faq-body');
+  body.id = 'faqBody';
+  const inner = faqEl('div', 'faq-body-inner');
+  inner.appendChild(renderFaqSections(faq.content));
+  body.appendChild(inner);
+  card.append(toggle, body);
+  container.replaceChildren(card);
   container.style.display = 'block';
 
-  const card = container.querySelector('#faqCard');
-  const toggle = card.querySelector('.faq-toggle');
   toggle.addEventListener('click', () => {
     const open = card.classList.toggle('is-collapsed') === false;
     toggle.setAttribute('aria-expanded', String(open));
     try { localStorage.setItem(FAQ_OPEN_KEY, String(open)); } catch (e) { /* storage unavailable */ }
   });
-
-  card.addEventListener('click', event => {
-    const copyBtn = event.target.closest('[data-faq-copy]');
-    if (copyBtn) copyText(copyBtn.dataset.faqCopy, 'Email copied');
-  });
+  if (typeof window.onFaqRendered === 'function') window.onFaqRendered(cs, faq, card);
 }
 
 window.toggleHeadSection = function (event, btn) {
@@ -1165,6 +1148,9 @@ async function loadFunctionData({ refresh = false } = {}) {
     document.getElementById('funcTitle').textContent = cs;
     renderFaqBanner(cs);
     logPageVisit(cs);
+  } else if (!FaqState.editing) {
+    // An admin changed the FAQ (SSE): show the new one, unless this page is editing it
+    renderFaqBanner(cs);
   }
 
   try {

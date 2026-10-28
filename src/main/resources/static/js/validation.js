@@ -59,3 +59,96 @@ function fieldLength(raw) {
   const value = normalizeField(raw);
   return value == null ? 0 : [...value].length;
 }
+
+/* ---------- FAQ documents (U5): the mirror of FaqRules.java, tested against faq-vectors.json ---------- */
+
+const FAQ_LIMITS = { sections: 12, items: 30, title: 80, text: 500, label: 200, question: 200, answer: 2000, email: 254 };
+const FAQ_KINDS = ["GUIDELINES", "MAILBOXES", "QUESTIONS"];
+const FAQ_SPACES = /[\t\u{00A0}\u{2007}\u{202F}]/gu;
+const FAQ_LINE_BREAKS = /\r\n?|\n/g;
+const FAQ_OTHER_LINK = /\b(?!https:\/\/)[a-z][a-z0-9+.-]*:\/\//i;
+const FAQ_EMAIL = /^[^@\s<>]+@[^@\s<>]+\.[^@\s<>]+$/;
+
+/** One line: NFC, whitespace and line breaks to single spaces, trimmed; empty is null */
+function normalizeFaqLine(value) {
+  if (value == null) return null;
+  const text = String(value).normalize("NFC").replace(FAQ_SPACES, " ").replace(FAQ_LINE_BREAKS, " ")
+    .replace(/ {2,}/g, " ").replace(/^ +| +$/g, "");
+  return text === "" ? null : text;
+}
+
+/** Several lines: NFC, CRLF to LF, spaces at line ends and outer blank lines removed; empty is null */
+function normalizeFaqText(value) {
+  if (value == null) return null;
+  const text = String(value).normalize("NFC").replace(FAQ_SPACES, " ").replace(FAQ_LINE_BREAKS, "\n")
+    .replace(/ +\n/g, "\n").replace(/^[ \n]+|[ \n]+$/g, "");
+  return text === "" ? null : text;
+}
+
+function checkFaqText(label, normalized, max, required, multiline) {
+  if (normalized == null) return required ? { code: "REQUIRED", message: `${label} is required.` } : null;
+  const control = multiline ? /[\u{0000}-\u{0009}\u{000B}-\u{001F}\u{007F}-\u{009F}]/u : RULE_CONTROL;
+  if (control.test(normalized)) return { code: "CONTROL", message: `${label} must not contain control characters.` };
+  if (RULE_INVISIBLE.test(normalized)) {
+    return { code: "INVISIBLE", message: `${label} must not contain invisible or text-direction characters.` };
+  }
+  if (/[<>]/.test(normalized)) return { code: "MARKUP", message: `${label} must not contain < or > (no HTML).` };
+  if (RULE_SCHEME.test(normalized) || FAQ_OTHER_LINK.test(normalized)) {
+    return { code: "LINK", message: `${label} may only link with https:// or mailto:.` };
+  }
+  if ([...normalized].length > max) return { code: "TOO_LONG", message: `${label} can have at most ${max} characters.` };
+  return null;
+}
+
+function checkFaqEmail(normalized) {
+  if (normalized == null) return null;
+  if (normalized.length > FAQ_LIMITS.email || !FAQ_EMAIL.test(normalized)) {
+    return { code: "EMAIL", message: "Enter a valid e-mail address, e.g. team@kpmg.kz." };
+  }
+  return null;
+}
+
+/** {document (normalized), errors: {path: {code, message}}} of a FAQ document */
+function validateFaqDocument(document) {
+  const errors = {};
+  const put = (path, problem) => { if (problem) errors[path] = problem; };
+  const input = (document && document.sections) || [];
+  if (input.length > FAQ_LIMITS.sections) errors.sections = { code: "TOO_MANY", message: `At most ${FAQ_LIMITS.sections} sections.` };
+  const sections = [];
+  input.slice(0, FAQ_LIMITS.sections).forEach((section, s) => {
+    const path = `sections[${s}]`;
+    if (!section) { errors[path] = { code: "REQUIRED", message: "The section is empty." }; return; }
+    const kind = section.kind == null ? null : String(section.kind).trim().toUpperCase();
+    if (!FAQ_KINDS.includes(kind)) {
+      errors[`${path}.kind`] = { code: "KIND", message: "A section holds guidelines, mailboxes or questions." };
+      return;
+    }
+    const title = normalizeFaqLine(section.title);
+    put(`${path}.title`, checkFaqText("Section title", title, FAQ_LIMITS.title, true, false));
+    const items = section.items || [];
+    if (items.length > FAQ_LIMITS.items) errors[`${path}.items`] = { code: "TOO_MANY", message: `At most ${FAQ_LIMITS.items} items per section.` };
+    const cleaned = items.slice(0, FAQ_LIMITS.items).map((item, i) => {
+      const at = `${path}.items[${i}]`;
+      const given = item || {};
+      if (kind === "GUIDELINES") {
+        const text = normalizeFaqLine(given.text);
+        put(`${at}.text`, checkFaqText("Guideline", text, FAQ_LIMITS.text, true, false));
+        return { text };
+      }
+      if (kind === "MAILBOXES") {
+        const label = normalizeFaqLine(given.label);
+        const email = normalizeFaqLine(given.email);
+        put(`${at}.label`, checkFaqText("Mailbox name", label, FAQ_LIMITS.label, true, false));
+        put(`${at}.email`, checkFaqEmail(email));
+        return { label, email };
+      }
+      const question = normalizeFaqLine(given.question);
+      const answer = normalizeFaqText(given.answer);
+      put(`${at}.question`, checkFaqText("Question", question, FAQ_LIMITS.question, true, false));
+      put(`${at}.answer`, checkFaqText("Answer", answer, FAQ_LIMITS.answer, true, true));
+      return { question, answer };
+    });
+    sections.push({ kind, title, items: cleaned });
+  });
+  return { document: { sections }, errors };
+}

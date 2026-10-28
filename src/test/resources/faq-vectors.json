@@ -1,0 +1,81 @@
+{
+  "description": "Shared vectors of FaqRules.java and the FAQ part of static/js/validation.js (U5). {U+XXXX} in a string stands for that character, {NL} for a line break. kind: line (one-line field), text (answer, several lines), email. A vector with 'normalized' is valid (null: empty, allowed unless required); one with 'code' is refused. 'repeat' builds long inputs: [unit, times].",
+  "limits": { "title": 80, "text": 500, "label": 200, "question": 200, "answer": 2000 },
+  "vectors": [
+    { "kind": "line", "max": 80, "input": "Request rules", "normalized": "Request rules" },
+    { "kind": "line", "max": 80, "input": "  Request{U+00A0}{U+00A0}rules{NL}today ", "normalized": "Request rules today" },
+    { "kind": "line", "max": 80, "input": "Cafe{U+0301}", "normalized": "Caf{U+00E9}" },
+    { "kind": "line", "max": 80, "input": "   ", "normalized": null },
+    { "kind": "line", "max": 80, "required": true, "input": "", "code": "REQUIRED" },
+    { "kind": "line", "max": 500, "input": "Use https://portal.example/forms?x=1 or mailto:it@kpmg.kz", "normalized": "Use https://portal.example/forms?x=1 or mailto:it@kpmg.kz" },
+    { "kind": "line", "max": 500, "input": "Costs $100, 50% off, @team, =A1, [x] {y} | ~", "normalized": "Costs $100, 50% off, @team, =A1, [x] {y} | ~" },
+    { "kind": "line", "max": 500, "input": "Meet at 10:30, room 3", "normalized": "Meet at 10:30, room 3" },
+    { "kind": "line", "max": 500, "input": "See http://old.example", "code": "LINK" },
+    { "kind": "line", "max": 500, "input": "ftp://files.example/x", "code": "LINK" },
+    { "kind": "line", "max": 500, "input": "javascript:alert(1)", "code": "LINK" },
+    { "kind": "line", "max": 500, "input": "JavaScript:void(0)", "code": "LINK" },
+    { "kind": "line", "max": 500, "input": "data:text/html,x", "code": "LINK" },
+    { "kind": "line", "max": 500, "input": "vbscript:x", "code": "LINK" },
+    { "kind": "line", "max": 500, "input": "xhttps://evil.example", "code": "LINK" },
+    { "kind": "line", "max": 500, "input": "<b>bold</b>", "code": "MARKUP" },
+    { "kind": "line", "max": 500, "input": "a > b", "code": "MARKUP" },
+    { "kind": "line", "max": 500, "input": "Bell{U+0007}", "code": "CONTROL" },
+    { "kind": "line", "max": 500, "input": "Zero{U+200B}width", "code": "INVISIBLE" },
+    { "kind": "line", "max": 500, "input": "{U+202E}reversed", "code": "INVISIBLE" },
+    { "kind": "line", "max": 500, "input": "{U+FEFF}bom", "code": "INVISIBLE" },
+    { "kind": "line", "max": 80, "repeat": ["a", 80], "valid": true },
+    { "kind": "line", "max": 80, "repeat": ["a", 81], "code": "TOO_LONG" },
+    { "kind": "line", "max": 500, "repeat": ["a", 500], "valid": true },
+    { "kind": "line", "max": 500, "repeat": ["a", 501], "code": "TOO_LONG" },
+    { "kind": "text", "max": 2000, "input": "First line{NL}{NL}Second line  {NL}", "normalized": "First line{NL}{NL}Second line" },
+    { "kind": "text", "max": 2000, "input": "{NL}{NL}  Answer{NL}", "normalized": "Answer" },
+    { "kind": "text", "max": 2000, "input": "Tab{U+0009}here", "normalized": "Tab here" },
+    { "kind": "text", "max": 2000, "input": "Windows{U+000D}{U+000A}line", "normalized": "Windows{NL}line" },
+    { "kind": "text", "max": 2000, "input": "Esc{U+001B}[0m", "code": "CONTROL" },
+    { "kind": "text", "max": 2000, "input": "<script>alert(1)</script>", "code": "MARKUP" },
+    { "kind": "text", "max": 2000, "input": "Go to https://x.example{NL}or javascript:alert(1)", "code": "LINK" },
+    { "kind": "text", "max": 2000, "repeat": ["a", 2000], "valid": true },
+    { "kind": "text", "max": 2000, "repeat": ["a", 2001], "code": "TOO_LONG" },
+    { "kind": "email", "input": "team@kpmg.kz", "normalized": "team@kpmg.kz" },
+    { "kind": "email", "input": "  team@kpmg.kz ", "normalized": "team@kpmg.kz" },
+    { "kind": "email", "input": "", "normalized": null },
+    { "kind": "email", "input": "@kpmg.kz", "code": "EMAIL" },
+    { "kind": "email", "input": "team@kpmg", "code": "EMAIL" },
+    { "kind": "email", "input": "a b@kpmg.kz", "code": "EMAIL" },
+    { "kind": "email", "input": "<x>@kpmg.kz", "code": "EMAIL" }
+  ],
+  "documents": [
+    {
+      "name": "a valid document with every kind",
+      "input": { "sections": [
+        { "kind": "guidelines", "title": " Request rules ", "items": [ { "text": "Use the portal." } ] },
+        { "kind": "MAILBOXES", "title": "Team mailboxes", "items": [ { "label": "Service Desk", "email": "it@kpmg.kz" }, { "label": "1C team", "email": "" } ] },
+        { "kind": "QUESTIONS", "title": "Questions", "items": [ { "question": "How?", "answer": "Like this.{NL}And that." } ] }
+      ] },
+      "errors": {}
+    },
+    {
+      "name": "field paths of the errors",
+      "input": { "sections": [
+        { "kind": "GUIDELINES", "title": "", "items": [ { "text": "ok" }, { "text": "<b>" } ] },
+        { "kind": "MAILBOXES", "title": "Mail", "items": [ { "label": "", "email": "nope" } ] },
+        { "kind": "QUESTIONS", "title": "Q", "items": [ { "question": "Q?", "answer": "" } ] },
+        { "kind": "POEMS", "title": "x", "items": [] }
+      ] },
+      "errors": {
+        "sections[0].title": "REQUIRED",
+        "sections[0].items[1].text": "MARKUP",
+        "sections[1].items[0].label": "REQUIRED",
+        "sections[1].items[0].email": "EMAIL",
+        "sections[2].items[0].answer": "REQUIRED",
+        "sections[3].kind": "KIND"
+      }
+    },
+    {
+      "name": "too many sections and items",
+      "sectionsRepeat": 13,
+      "itemsRepeat": 31,
+      "errors": { "sections": "TOO_MANY", "sections[0].items": "TOO_MANY" }
+    }
+  ]
+}

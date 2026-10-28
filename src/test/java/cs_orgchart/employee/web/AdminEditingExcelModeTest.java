@@ -77,6 +77,14 @@ class AdminEditingExcelModeTest {
         }
     }
 
+    /** U5: the FAQ is not employee data: it is read (and edited) in Excel mode too, never EDITING_DISABLED */
+    @Test
+    void theFaqIsNotBlockedInExcelMode() throws Exception {
+        mvc.perform(get("/api/functions/ITS/faq").session(signIn(TestAccounts.READER)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.code").value("NO_FAQ"));
+    }
+
     @Test
     void rolesTellThePagesThatEditingIsOff() throws Exception {
         mvc.perform(get("/api/me/roles").session(signIn(TestAccounts.ADMIN)))

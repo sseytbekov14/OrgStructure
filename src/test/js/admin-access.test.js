@@ -69,12 +69,12 @@ test('admin: admin.js loaded once and the Admin link shown', async () => {
     superAdmin: false, editingEnabled: true });
   await settle(ctx);
   const scripts = document.appended.filter((n) => n.tag === 'script');
-  assertEqual(scripts.map((s) => s.src.replace(/\?.*$/, '')), ['/js/validation.js', '/js/admin.js', '/js/admin-groups.js'], 'validation.js, admin.js, admin-groups.js');
+  assertEqual(scripts.map((s) => s.src.replace(/\?.*$/, '')), ['/js/validation.js', '/js/admin.js', '/js/admin-groups.js', '/js/admin-faq.js'], 'the admin scripts in order');
   assertTrue(scripts.every((s) => s.async === false), 'kept in order');
   const links = document.appended.filter((n) => n.tag === 'a');
   assertEqual(links.map((l) => [l.href, l.textContent]), [['/admin.html', 'Admin']]);
   await ctx.run('initAdminTools()');
-  assertEqual(document.appended.filter((n) => n.tag === 'script').length, 3, 'not loaded twice');
+  assertEqual(document.appended.filter((n) => n.tag === 'script').length, 4, 'not loaded twice');
 });
 
 test('the admin page itself loads no admin.js', async () => {

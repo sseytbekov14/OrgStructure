@@ -3,6 +3,7 @@ package cs_orgchart.employee.web;
 import cs_orgchart.access.AdminsController;
 import cs_orgchart.employee.override.AdminEditException;
 import cs_orgchart.employee.override.FieldValidationException;
+import cs_orgchart.faq.FaqController;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -19,7 +20,7 @@ import java.util.Map;
  * (version or unique index) is 409.
  */
 @RestControllerAdvice(assignableTypes = {OverrideAdminController.class, FunctionHeadsAdminController.class,
-        AdminsController.class, GroupsAdminController.class, VisibilityAdminController.class})
+        AdminsController.class, GroupsAdminController.class, VisibilityAdminController.class, FaqController.class})
 public class AdminEditErrors {
 
     @ExceptionHandler(AdminEditException.class)
