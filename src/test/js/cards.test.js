@@ -1,6 +1,7 @@
 // U6: the employee card facts (City / Country only when known, counselee count), the profile ("Reports to",
-// "Counselees", City and Country rows), the limited card of an external manager, no copy-e-mail button anywhere,
-// and the wording "Counselees" instead of "Direct reports" in every page and script.
+// "Counselees", City and Country rows), the limited card of an external manager, no copy-e-mail button in the search
+// results, and the wording "Counselees" instead of "Direct reports" in every page and script. The profile card has a
+// copy button next to the e-mail address again (asked for after the release).
 // Run: node src/test/js/cards.test.js
 const fs = require('fs');
 const path = require('path');
@@ -51,11 +52,35 @@ test('profile: the external manager row opens the limited card', () => {
   assertTrue(internal.includes('data-person-index') && !internal.includes('data-external-id'), 'internal stays a profile link');
 });
 
-test('profile: no copy-e-mail button, the address is a mailto link', () => {
+test('profile: the address is a mailto link with a copy button next to it', () => {
   const ctx = page();
   const html = String(ctx.run(`renderProfile(${JSON.stringify(BOSS)})`));
-  assertTrue(!html.includes('data-copy') && !/copy/i.test(html), 'no copy');
   assertTrue(html.includes('href="mailto:kk@kz.example"'), 'mailto kept');
+  assertTrue(html.includes('data-copy-email="kk@kz.example"') && html.includes('aria-label="Copy email kk@kz.example"'), 'copy button');
+  const none = String(ctx.run(`renderProfile(${JSON.stringify({ ...BOSS, email: '' })})`));
+  assertTrue(!none.includes('data-copy-email'), 'no copy button without an address');
+});
+
+test('the copy button copies the address and confirms it with a toast', async () => {
+  const copied = [];
+  const globals = domGlobals({ fetch: () => new Promise(() => {}), Headers: class { set() {} },
+    navigator: { clipboard: { writeText: (text) => { copied.push(text); return Promise.resolve(); } } },
+    isSecureContext: true });
+  const ctx = context(['ui.js', 'common.js'], globals);
+  assertEqual(await ctx.run('copyEmail("kk@kz.example")'), true);
+  assertEqual(copied, ['kk@kz.example']);
+  assertEqual(globals.document.querySelector('.ui-toast-message').textContent, 'Email copied');
+});
+
+test('without the Clipboard API (http) the address is copied through a hidden text area', async () => {
+  const globals = domGlobals({ fetch: () => new Promise(() => {}), Headers: class { set() {} },
+    navigator: {}, isSecureContext: false });
+  let commands = 0;
+  globals.document.execCommand = (name) => { commands += name === 'copy' ? 1 : 0; return true; };
+  const ctx = context(['ui.js', 'common.js'], globals);
+  assertEqual(await ctx.run('copyEmail("kk@kz.example")'), true);
+  assertEqual(commands, 1, 'execCommand("copy")');
+  assertEqual(globals.document.querySelectorAll('textarea').length, 0, 'text area removed again');
 });
 
 test('search results: no copy button, the card facts are shown', () => {
@@ -68,13 +93,15 @@ test('search results: no copy button, the card facts are shown', () => {
   assertTrue(html.includes('Reports to <b>Partner, Pat</b>'), 'reports to');
 });
 
-test('no copy-e-mail code and no "Direct reports" left in the pages and scripts', () => {
+test('no copy button in the search results or the FAQ, and no "Direct reports" in the pages and scripts', () => {
   const dir = path.join(__dirname, '..', '..', 'main', 'resources', 'static');
   const files = [...fs.readdirSync(path.join(dir, 'js')).map((f) => `js/${f}`), ...fs.readdirSync(dir).filter((f) => f.endsWith('.html'))];
   for (const file of files) {
     const source = readStatic(file);
     assertTrue(!/direct reports/i.test(source), `${file}: "Direct reports"`);
-    assertTrue(!/copyText|data-copy|ICONS\.copy|faq-copy/.test(source), `${file}: copy-e-mail code`);
+    if (file === 'js/main.js' || file === 'js/function.js') {
+      assertTrue(!/data-copy|ICONS\.copy|faq-copy|copyEmail/.test(source), `${file}: copy-e-mail code`);
+    }
   }
 });
 

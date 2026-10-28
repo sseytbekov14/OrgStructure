@@ -3177,3 +3177,9 @@ button.person-row:hover {
 .profile-title {
   opacity: 1;
 }
+
+/* Copy button next to the e-mail address of the profile card */
+.profile-copy-email {
+  flex-shrink: 0;
+  margin-left: var(--space-1);
+}

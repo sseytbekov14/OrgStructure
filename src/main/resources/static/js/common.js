@@ -7,6 +7,7 @@ const REPORTS_PREVIEW = 8;
 
 const ICONS = {
   mail: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg>',
+  copy: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
   target: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>',
   chevronRight: '<svg class="person-row-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>',
   close: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
@@ -238,6 +239,36 @@ function notify(message, type = "info", options = {}) {
   else if (typeof showOrgToast === "function") showOrgToast(message);
 }
 
+/* ---------- Copy the e-mail address of the profile card ---------- */
+
+/**
+ * Copies the address to the clipboard and confirms it with a toast. The Clipboard API needs a secure context
+ * (https or localhost); elsewhere a hidden text area and execCommand("copy") are used.
+ */
+async function copyEmail(email) {
+  if (!email) return false;
+  let copied = false;
+  if (navigator.clipboard && window.isSecureContext) {
+    try {
+      await navigator.clipboard.writeText(email);
+      copied = true;
+    } catch (e) { /* falls back below */ }
+  }
+  if (!copied) {
+    const area = document.createElement("textarea");
+    area.value = email;
+    area.setAttribute("readonly", "");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    try { copied = document.execCommand("copy"); } catch (e) { copied = false; }
+    area.remove();
+  }
+  notify(copied ? "Email copied" : "Could not copy. Select the address and copy it manually.", copied ? "success" : "error");
+  return copied;
+}
+
 /* ---------- Managers outside Central Services (U6) ---------- */
 
 /**
@@ -422,6 +453,7 @@ function renderProfile(employee) {
         <div class="profile-contact">
           <span class="profile-contact-label">Email</span>
           <a class="profile-email" href="mailto:${escapeHtml(email)}" data-mail="${escapeHtml(email)}">${escapeHtml(email)}</a>
+          <button type="button" class="icon-btn profile-copy-email" data-copy-email="${escapeHtml(email)}" aria-label="Copy email ${escapeHtml(email)}" title="Copy email">${ICONS.copy}</button>
         </div>` : '<div class="profile-contact profile-contact-empty">Email not specified</div>'}
       ${employee.city || employee.country ? `
         <dl class="profile-facts">
@@ -502,6 +534,12 @@ function ensureProfileDialog() {
     if (showAll) {
       showAll.previousElementSibling.querySelectorAll(".person-row[hidden]").forEach((row) => { row.hidden = false; });
       showAll.remove();
+      return;
+    }
+
+    const copyEmailButton = event.target.closest("[data-copy-email]");
+    if (copyEmailButton) {
+      copyEmail(copyEmailButton.dataset.copyEmail);
       return;
     }
 
