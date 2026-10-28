@@ -71,4 +71,26 @@ public class AdSyncLog {
 
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
+
+    // --- the photo phase of the run (AD_PHOTOS_ENABLED; null when it did not run) ---------------------------------
+
+    /** Photos read from AD (one per candidate employee read without an error) */
+    @Column(name = "photos_fetched")
+    private Integer photosFetched;
+
+    /** Photos stored new or replaced */
+    @Column(name = "photos_updated")
+    private Integer photosUpdated;
+
+    /** Stored photos deleted: gone in AD, now invalid, or the employee disabled */
+    @Column(name = "photos_removed")
+    private Integer photosRemoved;
+
+    /** Values that are not a usable JPEG or PNG */
+    @Column(name = "photos_invalid")
+    private Integer photosInvalid;
+
+    /** Reads that failed (retried by the next run) */
+    @Column(name = "photos_failed")
+    private Integer photosFailed;
 }

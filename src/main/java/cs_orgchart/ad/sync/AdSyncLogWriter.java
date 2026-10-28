@@ -60,6 +60,26 @@ public class AdSyncLogWriter {
         }
     }
 
+    /** The counters of the photo phase into the row of its run */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void photos(long id, int fetched, int updated, int removed, int invalid, int failed) {
+        log.findById(id).ifPresent(row -> {
+            row.setPhotosFetched(fetched);
+            row.setPhotosUpdated(updated);
+            row.setPhotosRemoved(removed);
+            row.setPhotosInvalid(invalid);
+            row.setPhotosFailed(failed);
+        });
+    }
+
+    /** A photo phase run alone (POST /api/admin/ad-sync/photos): its own SUCCESS row with the photo counters only */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public long photosOnly(SyncTrigger trigger) {
+        return log.save(AdSyncLog.builder().startedAt(clock.instant()).finishedAt(clock.instant())
+                .status(SyncStatus.SUCCESS.name()).triggerType(trigger.name())
+                .errorMessage("photo phase only").build()).getId();
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public long skipped(SyncTrigger trigger, String message) {
         return log.save(AdSyncLog.builder().startedAt(clock.instant()).finishedAt(clock.instant())

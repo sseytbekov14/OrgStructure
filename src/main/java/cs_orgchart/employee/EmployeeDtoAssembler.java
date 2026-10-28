@@ -86,6 +86,13 @@ public class EmployeeDtoAssembler {
     public List<cs_orgchart.model.Employee> assemble(List<Employee> employees, List<EmployeeOverride> overlay,
                                                      List<FunctionGroup> groups, Set<Long> hidden,
                                                      Map<String, String> photoFiles) {
+        return assemble(employees, overlay, groups, hidden, PhotoLinks.folderOnly(photoFiles));
+    }
+
+    /** With the photo URLs of {@link PhotoLinks} (the stored AD photos and the folder, in their priority) */
+    public List<cs_orgchart.model.Employee> assemble(List<Employee> employees, List<EmployeeOverride> overlay,
+                                                     List<FunctionGroup> groups, Set<Long> hidden,
+                                                     PhotoLinks photoFiles) {
         Map<Long, Employee> byId = new HashMap<>();
         employees.forEach(e -> byId.put(e.getId(), e));
         Map<Long, List<EmployeeOverride>> overlayByEmployee = new HashMap<>();
@@ -149,7 +156,7 @@ public class EmployeeDtoAssembler {
     }
 
     private cs_orgchart.model.Employee dto(Employee employee, String cs, String group, FunctionGroup groupObject,
-                                           EmployeeOverride membership, Build build, Map<String, String> photoFiles) {
+                                           EmployeeOverride membership, Build build, PhotoLinks photoFiles) {
         String email = employee.getEmail() != null ? employee.getEmail() : employee.getUpn();
         Employee parent = visibleParent(employee, membership, build);
         return cs_orgchart.model.Employee.builder()
@@ -161,7 +168,7 @@ public class EmployeeDtoAssembler {
                 .pm(parent == null ? null : parent.getDisplayName())
                 .pmEmail(parent == null ? null : Objects.requireNonNullElse(parent.getEmail(), parent.getUpn()))
                 .pmJobTitle(parent == null ? null : parent.getJobTitle())
-                .photoUrl(EmployeePhotos.urlFor(email, photoFiles))
+                .photoUrl(photoFiles.urlFor(employee.getId(), email))
                 .gradeOrder(GradeOrder.of(employee.getJobTitle()))
                 .areaOfDuties(membership == null ? null : membership.getAreaOfDuties())
                 .jobDescription(membership == null ? null : membership.getJobDescription())

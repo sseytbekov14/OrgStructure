@@ -133,6 +133,7 @@ all open pages within seconds (server-sent events) and written to the log with t
 | GET | `/api/me/roles` | everyone (signed in; open site: anonymous answer) |
 | GET | `/api/functions/{cs}/faq` | everyone who may see the site |
 | GET | `/api/people/{id}/external` | everyone who may see the site (managers outside Central Services only) |
+| GET | `/api/photos/{employeeId}` | everyone who may see the site (stored AD photo; `AD_PHOTOS_ENABLED=true`, db mode) |
 | GET | `/api/manage/overrides?cs=&q=` | admins |
 | PUT / DELETE | `/api/manage/overrides/{employeeId}?cs=` | admins |
 | GET / PUT | `/api/manage/functions/{cs}/heads` | admins |
@@ -147,6 +148,13 @@ all open pages within seconds (server-sent events) and written to the log with t
 | GET / POST | `/api/manage/admins` | super admins |
 | DELETE | `/api/manage/admins/{id}` | super admins |
 | POST | `/api/admin/ad-sync[?dryRun=true]`, GET `/api/admin/ad-sync/log` | super admins (`SYSTEM_ADMIN_EMAILS`) |
+| POST | `/api/admin/ad-sync/photos[?force=true]` (the photo phase now) | super admins (`SYSTEM_ADMIN_EMAILS`) |
+
+**Employee photos from AD** (`AD_PHOTOS_ENABLED`, default off; db mode only): after every successful sync the
+`thumbnailPhoto` of new or changed employees is read one at a time on a background thread, validated (JPEG/PNG only,
+size limits checked before decoding) and re-encoded as a clean JPEG in `employee_photos`. The site shows the AD photo,
+then the folder photo (`PHOTO_SOURCE_PRIORITY=ad,folder` or `folder,ad`), then the initials. Hidden, disabled and
+external people never get a photo. See `.env.example` for the keys.
 
 ## UI conventions
 

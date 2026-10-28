@@ -9,6 +9,7 @@ import cs_orgchart.ad.sync.DryRunReport;
 import cs_orgchart.ad.sync.SyncOutcome;
 import cs_orgchart.ad.sync.SyncStatus;
 import cs_orgchart.ad.sync.SyncTrigger;
+import cs_orgchart.photo.PhotoSyncService;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -37,9 +38,12 @@ public class AdSyncAdminController {
     private final AdSyncService service;
     private final AdSyncLogRepository syncLog;
     private final AdLdapProperties properties;
+    private final PhotoSyncService photos;
 
-    public AdSyncAdminController(AdSyncService service, AdSyncLogRepository syncLog, AdLdapProperties properties) {
+    public AdSyncAdminController(AdSyncService service, AdSyncLogRepository syncLog, AdLdapProperties properties,
+                                 PhotoSyncService photos) {
         this.service = service;
+        this.photos = photos;
         this.syncLog = syncLog;
         this.properties = properties;
     }
@@ -54,7 +58,7 @@ public class AdSyncAdminController {
     @PreAuthorize("hasRole('SYSTEM_ADMIN')")
     public ResponseEntity<?> sync(@RequestParam(defaultValue = "false") boolean dryRun) {
         if (dryRun) {
-            DryRunReport report = service.dryRun(SyncTrigger.MANUAL);
+            DryRunReport report = service.dryRun(SyncTrigger.MANUAL).withPhotoCandidates(photos.countCandidates());
             return ResponseEntity.status("OK".equals(report.status()) ? HttpStatus.OK : HttpStatus.BAD_GATEWAY)
                     .body(report);
         }
@@ -66,6 +70,27 @@ public class AdSyncAdminController {
         HttpStatus status = outcome.status() == SyncStatus.SUCCESS ? HttpStatus.OK
                 : outcome.status() == SyncStatus.SKIPPED ? HttpStatus.CONFLICT : HttpStatus.INTERNAL_SERVER_ERROR;
         return ResponseEntity.status(status).body(outcome);
+    }
+
+    /**
+     * The photo phase now (AD_PHOTOS_ENABLED=true, EMPLOYEE_SOURCE=db); {@code force=true} reads everybody, ignoring
+     * the whenChanged comparison. Counts only in the answer.
+     *
+     * @return 200 with the counts; 409 when the photos are off, the sync is suspended or another photo run is going on
+     */
+    @PostMapping("/photos")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    public ResponseEntity<?> photos(@RequestParam(defaultValue = "false") boolean force) {
+        PhotoSyncService.PhotoRun run = photos.run(null, SyncTrigger.MANUAL, force);
+        return switch (run.status()) {
+            case DONE -> ResponseEntity.ok(run);
+            case DISABLED -> ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("status", "DISABLED",
+                    "message", "AD photos need AD_PHOTOS_ENABLED=true and EMPLOYEE_SOURCE=db"));
+            case SUSPENDED -> ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("status", "SUSPENDED",
+                    "message", "the AD sync is suspended after invalid credentials: run a manual sync first"));
+            case BUSY -> ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("status", "BUSY",
+                    "message", "another photo run is going on"));
+        };
     }
 
     /** The last sync runs, newest first */

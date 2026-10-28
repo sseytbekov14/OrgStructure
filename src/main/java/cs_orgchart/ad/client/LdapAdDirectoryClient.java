@@ -4,6 +4,7 @@ import cs_orgchart.ad.config.AdLdapProperties;
 import cs_orgchart.ad.mapper.AdEmployeeMapper;
 import cs_orgchart.ad.model.AdRecord;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ldap.NameNotFoundException;
 import org.springframework.ldap.control.PagedResultsDirContextProcessor;
 import org.springframework.ldap.core.ContextMapper;
 import org.springframework.ldap.core.ContextSource;
@@ -17,12 +18,14 @@ import javax.naming.directory.SearchControls;
 import javax.naming.ldap.LdapName;
 import javax.naming.ldap.Rdn;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * AD_SYNC_MODE=ldap (spec v3 §4): a paged subtree search under AD_LDAP_BASE_DN with AD_LDAP_FILTER, all pages on
@@ -35,6 +38,7 @@ import java.util.Optional;
 public class LdapAdDirectoryClient implements AdDirectoryClient {
 
     private static final String USERS = "(objectCategory=person)(objectClass=user)";
+    static final String PHOTO_ATTRIBUTE = "thumbnailPhoto";
 
     private final ContextSource contextSource;
     private final AdDirectoryException unusable;
@@ -118,6 +122,86 @@ public class LdapAdDirectoryClient implements AdDirectoryClient {
             throw AdErrorClassifier.classify(e, target);
         }
     }
+
+    /**
+     * A base-scope read of the DN asking for thumbnailPhoto only; when the DN is gone (renamed or moved), a search by
+     * objectGUID under the base DN, then the domain root. One connection.
+     */
+    @Override
+    public Optional<byte[]> readPhoto(String dn, UUID adGuid) {
+        ensureUsable();
+        try {
+            return SingleContextSource.doWithSingleContext(contextSource, operations -> {
+                Optional<PhotoValue> byDn = photoByDn(operations, dn);
+                if (byDn.isPresent()) {
+                    return Optional.ofNullable(byDn.get().bytes());
+                }
+                return photoByGuid(operations, adGuid).map(PhotoValue::bytes);
+            }, true, true, true);
+        } catch (RuntimeException e) {
+            throw AdErrorClassifier.classify(e, target);
+        }
+    }
+
+    /** The photo attribute of an entry that exists (null bytes: it has none) */
+    private record PhotoValue(byte[] bytes) {
+    }
+
+    /** Empty when the DN does not exist */
+    private static Optional<PhotoValue> photoByDn(LdapOperations operations, String dn) {
+        if (dn == null || dn.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            return operations.search(dn.trim(), "(objectClass=*)", photoControls(SearchControls.OBJECT_SCOPE), PHOTO)
+                    .stream().findFirst();
+        } catch (NameNotFoundException e) {
+            return Optional.empty();
+        }
+    }
+
+    private Optional<PhotoValue> photoByGuid(LdapOperations operations, UUID adGuid) {
+        if (adGuid == null) {
+            return Optional.empty();
+        }
+        String query = "(&" + USERS + "(objectGUID=" + escapeBinary(AdEmployeeMapper.guidBytes(adGuid)) + "))";
+        SearchControls controls = photoControls(SearchControls.SUBTREE_SCOPE);
+        Optional<PhotoValue> found = operations.search(baseDn, query, controls, PHOTO).stream().findFirst();
+        if (found.isEmpty() && !domainRoot.isEmpty() && !domainRoot.equalsIgnoreCase(baseDn)) {
+            found = operations.search(domainRoot, query, controls, PHOTO).stream().findFirst();
+        }
+        return found;
+    }
+
+    /** A binary value in a search filter: every byte as \xx (RFC 4515) */
+    static String escapeBinary(byte[] bytes) {
+        StringBuilder escaped = new StringBuilder(bytes.length * 3);
+        for (byte b : bytes) {
+            escaped.append('\\').append(String.format("%02x", b & 0xFF));
+        }
+        return escaped.toString();
+    }
+
+    private static SearchControls photoControls(int scope) {
+        SearchControls controls = new SearchControls();
+        controls.setSearchScope(scope);
+        controls.setReturningAttributes(new String[]{PHOTO_ATTRIBUTE});
+        controls.setReturningObjFlag(true);
+        return controls;
+    }
+
+    /**
+     * thumbnailPhoto as byte[] (java.naming.ldap.attributes.binary, {@link cs_orgchart.ad.config.LdapConfig}); a
+     * String means that setting is missing and the value is already corrupted: passed on as text, the validator
+     * refuses it
+     */
+    private static final ContextMapper<PhotoValue> PHOTO = context -> {
+        Object value = ((DirContextAdapter) context).getObjectAttribute(PHOTO_ATTRIBUTE);
+        if (value == null || value instanceof byte[]) {
+            return new PhotoValue((byte[]) value);
+        }
+        return new PhotoValue(String.valueOf(value).getBytes(StandardCharsets.UTF_8));
+    };
 
     private Optional<AdRecord> searchOne(LdapOperations operations, String base, String query) {
         return operations.search(base, query, controls(), ENTRY).stream().findFirst();

@@ -9,6 +9,8 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import cs_orgchart.employee.group.FunctionGroupRepository;
 import cs_orgchart.employee.visibility.EmployeeVisibilityRepository;
+import cs_orgchart.photo.EmployeePhotoInfoRepository;
+import cs_orgchart.photo.PhotoProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -18,7 +20,7 @@ import org.springframework.transaction.PlatformTransactionManager;
  * ({@link DbEmployeeDirectory}).
  */
 @Configuration
-@EnableConfigurationProperties(EmployeeSourceProperties.class)
+@EnableConfigurationProperties({EmployeeSourceProperties.class, PhotoProperties.class})
 public class EmployeeDirectoryConfig {
 
     @Bean
@@ -30,8 +32,10 @@ public class EmployeeDirectoryConfig {
                                                    EmployeeDirectory directory, OrgStreamService orgStream,
                                                    PlatformTransactionManager transactions,
                                                    EmployeeSourceProperties source, FunctionGroupRepository groups,
-                                                   EmployeeVisibilityRepository visibility) {
+                                                   EmployeeVisibilityRepository visibility,
+                                                   PhotoProperties photoSettings,
+                                                   EmployeePhotoInfoRepository adPhotos) {
         return new DbEmployeeDirectory(employees, overlay, aliases, generalNodes, functionMap, photos, directory,
-                orgStream, transactions, source.orgParentSource(), groups, visibility);
+                orgStream, transactions, source.orgParentSource(), groups, visibility, photoSettings, adPhotos);
     }
 }

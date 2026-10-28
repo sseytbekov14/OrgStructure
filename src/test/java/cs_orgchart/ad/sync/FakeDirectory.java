@@ -11,6 +11,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -28,6 +30,11 @@ public class FakeDirectory implements AdDirectoryClient {
     private volatile RuntimeException failure;
     final AtomicInteger fetchCalls = new AtomicInteger();
     final AtomicInteger lookupCalls = new AtomicInteger();
+    /** Photo reads: the logins read, in order; per-login photos and failures that replace the mock photos */
+    public final List<String> photoReads = new CopyOnWriteArrayList<>();
+    private final Map<String, Optional<byte[]>> photos = new ConcurrentHashMap<>();
+    private final Map<String, RuntimeException> photoFailures = new ConcurrentHashMap<>();
+    private volatile Runnable beforePhotoRead = () -> { };
 
     public FakeDirectory() {
         reset();
@@ -43,6 +50,10 @@ public class FakeDirectory implements AdDirectoryClient {
             MOCK.findByUpn(login + "@kz.example").ifPresent(lookups::add);
         }
         failure = null;
+        photoReads.clear();
+        photos.clear();
+        photoFailures.clear();
+        beforePhotoRead = () -> { };
         fetchCalls.set(0);
         lookupCalls.set(0);
     }
@@ -117,5 +128,46 @@ public class FakeDirectory implements AdDirectoryClient {
         return lookups.stream()
                 .filter(r -> value != null && value.trim().equalsIgnoreCase(Objects.toString(r.get(attribute), null)))
                 .findFirst();
+    }
+
+    /** The photo AD returns for this login from now on (null: no photo) */
+    public void setPhoto(String login, byte[] bytes) {
+        photos.put(login, Optional.ofNullable(bytes));
+    }
+
+    /** Reading this login's photo fails (null: no longer) */
+    public void failPhoto(String login, RuntimeException failure) {
+        if (failure == null) {
+            photoFailures.remove(login);
+        } else {
+            photoFailures.put(login, failure);
+        }
+    }
+
+    /** Runs before every photo read (e.g. to move a test clock) */
+    public void beforePhotoRead(Runnable hook) {
+        beforePhotoRead = hook;
+    }
+
+    @Override
+    public Optional<byte[]> readPhoto(String dn, UUID adGuid) {
+        beforePhotoRead.run();
+        List<AdRecord> all = new ArrayList<>(fetched);
+        all.addAll(lookups);
+        AdRecord user = all.stream()
+                .filter(r -> dn != null && dn.equalsIgnoreCase(Objects.toString(r.get("distinguishedName"), null)))
+                .findFirst().orElse(null);
+        String login = user == null ? null : Objects.toString(user.get("sAMAccountName"), null);
+        photoReads.add(String.valueOf(login));
+        if (failure != null) {
+            throw failure;
+        }
+        if (login != null && photoFailures.containsKey(login)) {
+            throw photoFailures.get(login);
+        }
+        if (login != null && photos.containsKey(login)) {
+            return photos.get(login).map(byte[]::clone);
+        }
+        return MOCK.readPhoto(dn, adGuid);
     }
 }

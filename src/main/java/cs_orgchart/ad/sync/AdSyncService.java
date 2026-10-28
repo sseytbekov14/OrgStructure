@@ -125,6 +125,12 @@ public class AdSyncService {
                 log.error("AD sync: a listener of EmployeesSynced failed", e);
             }
         }
+        try {
+            // The photo phase (its own thread): never part of, nor able to change, the result of this sync
+            events.publishEvent(new AdSyncSucceeded(attempt.logId(), trigger, counts));
+        } catch (RuntimeException e) {
+            log.error("AD sync: a listener of AdSyncSucceeded failed", e);
+        }
         return new SyncOutcome(SyncStatus.SUCCESS, attempt.logId(), counts, null, null);
     }
 

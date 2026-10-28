@@ -78,7 +78,13 @@ const PAIRS = [
   ['--color-text', '--color-gray-200', TEXT],
   ['--color-focus', '--color-surface', UI],
   ['--color-focus', '--color-bg', UI],
-  ['--color-border-strong', '--color-surface', UI]
+  ['--color-border-strong', '--color-surface', UI],
+  ['--color-brand', '--color-avatar-0', TEXT],
+  ['--color-brand', '--color-avatar-1', TEXT],
+  ['--color-brand', '--color-avatar-2', TEXT],
+  ['--color-brand', '--color-avatar-3', TEXT],
+  ['--color-brand', '--color-avatar-4', TEXT],
+  ['--color-brand', '--color-avatar-5', TEXT]
 ];
 
 for (const [fg, bg, min] of PAIRS) {

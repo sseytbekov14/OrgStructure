@@ -36,8 +36,14 @@ public class EmployeePhotos {
     }
 
     public static String urlFor(String email, Map<String, String> photoFilesMap) {
+        String url = folderUrl(email, photoFilesMap);
+        return url == null ? DEFAULT : url;
+    }
+
+    /** The URL of the photo file of this e-mail, or null when the folder has none */
+    public static String folderUrl(String email, Map<String, String> photoFilesMap) {
         if (email == null || email.trim().isEmpty()) {
-            return DEFAULT;
+            return null;
         }
 
         String cleanEmail = email.trim().toLowerCase();
@@ -60,6 +66,6 @@ public class EmployeePhotos {
             }
         }
 
-        return DEFAULT;
+        return null;
     }
 }

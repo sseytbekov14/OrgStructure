@@ -27,6 +27,8 @@ import java.util.Map;
 public final class LdapConfig {
 
     static final String BINARY_ATTRIBUTES = "java.naming.ldap.attributes.binary";
+    /** The attributes JNDI must return as byte[] */
+    public static final String PHOTO_BINARY_ATTRIBUTES = "objectGUID thumbnailPhoto";
     static final String SOCKET_FACTORY = "java.naming.ldap.factory.socket";
     static final String CONNECT_TIMEOUT = "com.sun.jndi.ldap.connect.timeout";
     static final String READ_TIMEOUT = "com.sun.jndi.ldap.read.timeout";
@@ -94,7 +96,8 @@ public final class LdapConfig {
         source.setReferral("ignore");
 
         Map<String, Object> environment = new HashMap<>();
-        environment.put(BINARY_ATTRIBUTES, "objectGUID");
+        // Without thumbnailPhoto here JNDI decodes the photo as a string and corrupts it
+        environment.put(BINARY_ATTRIBUTES, PHOTO_BINARY_ATTRIBUTES);
         environment.put(CONNECT_TIMEOUT, String.valueOf(settings.getConnectTimeout().toMillis()));
         environment.put(READ_TIMEOUT, String.valueOf(settings.getReadTimeout().toMillis()));
         if (!blank(settings.getTruststorePath())

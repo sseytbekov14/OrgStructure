@@ -48,13 +48,35 @@ function highlightText(text, query) {
     .join("");
 }
 
-function renderAvatar(person, size = "md") {
-  const initials = escapeHtml(getInitials(person?.name));
+/** CSS pixels of each avatar size (the img gets them as width/height: no layout shift; at most 96, a 96 px AD photo is never upscaled) */
+const AVATAR_SIZES = { sm: 30, md: 40, lg: 60, xl: 88 };
+const AVATAR_TONES = 6;
+
+/** The same soft background for the same name on every page (0..5, --color-avatar-N) */
+function avatarTone(name) {
+  let hash = 0;
+  for (const ch of String(name ?? "")) hash = (hash * 31 + ch.codePointAt(0)) >>> 0;
+  return hash % AVATAR_TONES;
+}
+
+/**
+ * The one avatar of a person on every page (tree, groups, search, profile, counselee lists): the photo (an AD photo
+ * from /api/photos or a folder photo) as a round, lazily loaded image of a fixed size, else the initials on the
+ * person's tone. A photo that fails to load becomes the initials (avatarFallback, a listener: no inline handler).
+ * options.label: the photo is the only identification of the person, so its alt is the name; otherwise the name is
+ * shown next to it and the avatar is decorative (empty alt, aria-hidden).
+ */
+function renderAvatar(person, size = "md", { label = false } = {}) {
+  const name = person?.name || "";
+  const initials = escapeHtml(getInitials(name));
+  const pixels = AVATAR_SIZES[size] || AVATAR_SIZES.md;
+  const classes = `avatar avatar-${size} avatar-tone-${avatarTone(name)}`;
+  const hidden = label ? `role="img" aria-label="${escapeHtml(name)}"` : 'aria-hidden="true"';
   const photo = person?.photoUrl;
   if (photo && photo !== DEFAULT_PHOTO) {
-    return `<span class="avatar avatar-${size}" data-initials="${initials}" aria-hidden="true"><img src="${escapeHtml(photo)}" alt="" loading="lazy" /></span>`;
+    return `<span class="${classes}" data-initials="${initials}"${label ? "" : ' aria-hidden="true"'}><img src="${escapeHtml(photo)}" alt="${label ? escapeHtml(name) : ""}" width="${pixels}" height="${pixels}" loading="lazy" decoding="async" /></span>`;
   }
-  return `<span class="avatar avatar-${size}" aria-hidden="true">${initials}</span>`;
+  return `<span class="${classes}" ${hidden}>${initials}</span>`;
 }
 
 /* ---------- Employee cards (U6): the same facts on every card ---------- */
@@ -77,12 +99,24 @@ function renderCardFacts(person, { counselees = true } = {}) {
     ? `<span class="card-counselees">${count} ${count === 1 ? "counselee" : "counselees"}</span>` : ""}</span>`;
 }
 
+/** A photo that could not be loaded: the avatar shows the initials on its tone instead (textContent only) */
+function avatarFallback(img) {
+  const avatar = img?.closest?.(".avatar");
+  if (!avatar) return false;
+  const label = img.getAttribute("alt");
+  avatar.textContent = avatar.dataset.initials || "?";
+  if (label) {
+    avatar.setAttribute("role", "img");
+    avatar.setAttribute("aria-label", label);
+  }
+  return true;
+}
+
 // Broken photo -> initials. Error events do not bubble, so listen in the capture phase.
 document.addEventListener("error", (event) => {
   const img = event.target;
-  if (!(img instanceof HTMLImageElement)) return;
-  const avatar = img.closest(".avatar");
-  if (avatar) avatar.textContent = avatar.dataset.initials || "?";
+  if (!img || img.tagName !== "IMG") return;
+  avatarFallback(img);
 }, true);
 
 /* ---------- Employee directory ---------- */

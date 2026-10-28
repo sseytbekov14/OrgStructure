@@ -3431,3 +3431,16 @@ button.person-row:hover {
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
+
+/* Avatars (photos task): the initials of each person on their own soft tone (common.js avatarTone); a photo covers it */
+.avatar-tone-0 { background: var(--color-avatar-0); }
+.avatar-tone-1 { background: var(--color-avatar-1); }
+.avatar-tone-2 { background: var(--color-avatar-2); }
+.avatar-tone-3 { background: var(--color-avatar-3); }
+.avatar-tone-4 { background: var(--color-avatar-4); }
+.avatar-tone-5 { background: var(--color-avatar-5); }
+.avatar img {
+  display: block;
+  max-width: 96px;
+  max-height: 96px;
+}

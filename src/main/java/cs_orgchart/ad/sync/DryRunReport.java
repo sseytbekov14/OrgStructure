@@ -19,6 +19,7 @@ import java.util.TreeMap;
  *
  * @param status       OK, FAILED (AD could not be read) or SUSPENDED (after invalid credentials)
  * @param safetyCheck  PASS, or why a real sync would fail with SAFETY
+ * @param photoCandidates employees whose thumbnailPhoto a run would read (no photo is read); null: AD photos off
  */
 public record DryRunReport(
         Instant generatedAt, String trigger, String status, String errorCode, String errorMessage, long durationMs,
@@ -29,7 +30,7 @@ public record DryRunReport(
         Map<ManagerMatch, Integer> managers, Map<PmMatch, Integer> pms,
         int pmEqualsManager, int pmDiffersFromManager, int pmResolvedByLocalPart,
         int externals, int invalidExternals,
-        long currentEmployees, double minRatio, String safetyCheck) {
+        long currentEmployees, double minRatio, String safetyCheck, Integer photoCandidates) {
 
     public static DryRunReport of(SyncPlan plan, SyncTrigger trigger, Instant at, long durationMs,
                                   long currentEmployees, double minRatio, String safetyCheck) {
@@ -71,7 +72,7 @@ public record DryRunReport(
                 byCountry, byFunction, plan.unmappedSegments(), plan.unmappedFunctions(),
                 withoutManager, withoutPm, withoutBoth, managers, pms, pmEqualsManager, pmDiffers,
                 pms.get(PmMatch.LOCAL_PART), plan.externals().size(), plan.invalidExternals(),
-                currentEmployees, minRatio, safetyCheck);
+                currentEmployees, minRatio, safetyCheck, null);
     }
 
     /** AD could not be read (FAILED) or was not contacted (SUSPENDED) */
@@ -79,7 +80,15 @@ public record DryRunReport(
                                       String errorCode, String errorMessage, long currentEmployees, double minRatio) {
         return new DryRunReport(at, trigger.name(), status, errorCode, errorMessage, durationMs, 0, 0, 0, Map.of(),
                 Map.of(), Map.of(), List.of(), List.of(), 0, 0, 0, Map.of(), Map.of(), 0, 0, 0, 0, 0,
-                currentEmployees, minRatio, "NOT CHECKED");
+                currentEmployees, minRatio, "NOT CHECKED", null);
+    }
+
+    /** The same report with the number of employees whose photo a run would read now (null: photos off) */
+    public DryRunReport withPhotoCandidates(Integer candidates) {
+        return new DryRunReport(generatedAt, trigger, status, errorCode, errorMessage, durationMs, ldapResultSize,
+                fetchedCount, skippedCount, skippedByReason, byCountry, byFunction, unmappedSegments, unmappedFunctions,
+                withoutManager, withoutPm, withoutManagerAndPm, managers, pms, pmEqualsManager, pmDiffersFromManager,
+                pmResolvedByLocalPart, externals, invalidExternals, currentEmployees, minRatio, safetyCheck, candidates);
     }
 
     /** One line for the log */

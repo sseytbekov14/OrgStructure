@@ -48,6 +48,13 @@
   --color-info: var(--color-medium-blue);
   --color-info-soft: #e5eef9;
   --color-overlay: rgba(10, 20, 40, 0.48);
+  /* Initials placeholders: one soft background per person (common.js avatarTone), brand text on all of them */
+  --color-avatar-0: #e5eef9;
+  --color-avatar-1: #e3f4f4;
+  --color-avatar-2: #ece8f6;
+  --color-avatar-3: #e6f4ea;
+  --color-avatar-4: #fff4e0;
+  --color-avatar-5: #f9e9ef;
 
   /* Typography */
   --font-family: Univers, "Segoe UI", Arial, sans-serif;

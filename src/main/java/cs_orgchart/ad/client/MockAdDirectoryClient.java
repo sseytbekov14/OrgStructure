@@ -15,6 +15,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * AD_SYNC_MODE=mock (dev): synthetic users from {@value #RESOURCE}, entries with the LDAP attribute names of spec
@@ -52,6 +53,41 @@ public class MockAdDirectoryClient implements AdDirectoryClient {
     @Override
     public Optional<AdRecord> findByUpn(String upn) {
         return find("userPrincipalName", upn);
+    }
+
+    /** Synthetic photos ({@link MockPhotos}): by DN, else by objectGUID, as the LDAP client */
+    @Override
+    public Optional<byte[]> readPhoto(String dn, UUID adGuid) {
+        int index = -1;
+        for (int i = 0; i < users.size() && index < 0; i++) {
+            AdRecord user = users.get(i);
+            if (dn != null && dn.trim().equalsIgnoreCase(Objects.toString(user.get("distinguishedName"), null))) {
+                index = i;
+            }
+        }
+        for (int i = 0; i < users.size() && index < 0 && adGuid != null; i++) {
+            if (adGuid.toString().equalsIgnoreCase(Objects.toString(users.get(i).get("objectGUID"), null))) {
+                index = i;
+            }
+        }
+        if (index < 0) {
+            return Optional.empty();
+        }
+        return MockPhotos.photoFor(index, initials(AdEmployeeMapper.text(users.get(index).get("displayName"))));
+    }
+
+    /** "Kilo, Khaki" → KK */
+    static String initials(String displayName) {
+        if (displayName == null) {
+            return "?";
+        }
+        StringBuilder initials = new StringBuilder();
+        for (String part : displayName.split("[,\\s]+")) {
+            if (!part.isEmpty() && initials.length() < 2) {
+                initials.appendCodePoint(Character.toUpperCase(part.codePointAt(0)));
+            }
+        }
+        return initials.isEmpty() ? "?" : initials.toString();
     }
 
     private Optional<AdRecord> find(String attribute, String value) {

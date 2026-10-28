@@ -57,7 +57,7 @@ class FlywayMigrationsTest {
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY installed_rank",
                 String.class);
-        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11");
+        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12");
     }
 
     @Test
@@ -68,7 +68,7 @@ class FlywayMigrationsTest {
         assertThat(tables).contains(
                 "employee_interactions", "employee_likes", "page_visits", "search_logs",
                 "employees", "ad_sync_log", "department_aliases", "department_general_nodes",
-                "department_function_map", "employee_overrides");
+                "department_function_map", "employee_overrides", "employee_photos");
     }
 
     @Test
@@ -169,6 +169,55 @@ class FlywayMigrationsTest {
             employees.deleteById(employee.getId()); // its overrides go with it (ON DELETE CASCADE)
         }
         assertThat(overrides.findByEmployeeIdAndCs(employee.getId(), "ITS")).isEmpty();
+    }
+
+    // --- employee_photos (V12) ------------------------------------------------------------------------------
+
+    private void insertPhoto(long employeeId, String state, byte[] content, String sha256) {
+        jdbc.update("INSERT INTO employee_photos (employee_id, state, content, sha256, checked_at) VALUES (?, ?, ?, ?,"
+                + " now())", employeeId, state, content, sha256);
+    }
+
+    /** Each statement on its own (autocommit): a failed one would abort a surrounding PostgreSQL transaction */
+    @Test
+    void aPresentPhotoNeedsItsBytesAndHashAndOtherStatesHaveNone() {
+        long a = insertEmployee("photo-a");
+        long b = insertEmployee("photo-b");
+        long c = insertEmployee("photo-c");
+        try {
+            insertPhoto(a, "PRESENT", new byte[]{1, 2}, "f".repeat(64));
+            insertPhoto(b, "NONE", null, null);
+            insertPhoto(c, "INVALID", null, null);
+
+            assertThatThrownBy(() -> jdbc.update("UPDATE employee_photos SET content = NULL WHERE employee_id = ?", a))
+                    .isInstanceOf(DataIntegrityViolationException.class)
+                    .hasMessageContaining("ck_employee_photos_content");
+            assertThatThrownBy(() -> jdbc.update("UPDATE employee_photos SET content = ? WHERE employee_id = ?",
+                    new byte[]{1}, b)).hasMessageContaining("ck_employee_photos_content");
+            assertThatThrownBy(() -> jdbc.update("UPDATE employee_photos SET state = 'MAYBE' WHERE employee_id = ?", c))
+                    .hasMessageContaining("ck_employee_photos_state");
+        } finally {
+            jdbc.update("DELETE FROM employees WHERE id IN (?, ?, ?)", a, b, c);
+        }
+    }
+
+    @Test
+    @Transactional
+    void aPhotoGoesWithItsEmployee() {
+        long a = insertEmployee("a");
+        insertPhoto(a, "PRESENT", new byte[]{1, 2}, "f".repeat(64));
+
+        jdbc.update("DELETE FROM employees WHERE id = ?", a);
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM employee_photos WHERE employee_id = ?", Long.class, a))
+                .isZero();
+    }
+
+    @Test
+    void theSyncLogHasThePhotoCounters() {
+        assertThat(jdbc.queryForList("SELECT column_name FROM information_schema.columns WHERE table_schema ="
+                + " current_schema() AND table_name = 'ad_sync_log'", String.class))
+                .contains("photos_fetched", "photos_updated", "photos_removed", "photos_invalid", "photos_failed");
     }
 
     // --- employees -----------------------------------------------------------------------------------------

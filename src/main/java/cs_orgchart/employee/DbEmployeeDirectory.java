@@ -11,6 +11,10 @@ import cs_orgchart.employee.override.EmployeeOverrideRepository;
 import cs_orgchart.employee.visibility.EmployeeVisibilityRepository;
 import cs_orgchart.employee.override.OverlayChanged;
 import cs_orgchart.model.Employee;
+import cs_orgchart.photo.EmployeePhotoInfoRepository;
+import cs_orgchart.photo.PhotoProperties;
+import cs_orgchart.photo.PhotoState;
+import cs_orgchart.photo.PhotosChanged;
 import cs_orgchart.service.OrgStreamService;
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
@@ -23,8 +27,10 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 
 /**
  * EMPLOYEE_SOURCE=db: the {@link EmployeeDirectory} from the employees and the overlay in the database (spec v3
@@ -45,13 +51,20 @@ public class DbEmployeeDirectory {
     private final EmployeeDtoAssembler assembler;
     private final FunctionGroupRepository groups;
     private final EmployeeVisibilityRepository visibility;
+    private final PhotoProperties photoSettings;
+    private final EmployeePhotoInfoRepository adPhotos;
 
     public DbEmployeeDirectory(EmployeeRepository employees, EmployeeOverrideRepository overlay,
                                DepartmentAliasRepository aliases, DepartmentGeneralNodeRepository generalNodes,
                                DepartmentFunctionMapRepository functionMap, EmployeePhotos photos,
                                EmployeeDirectory directory, OrgStreamService orgStream,
                                PlatformTransactionManager transactions, EmployeeSourceProperties.ParentSource parentSource,
-                               FunctionGroupRepository groups, EmployeeVisibilityRepository visibility) {
+                               FunctionGroupRepository groups, EmployeeVisibilityRepository visibility,
+                               PhotoProperties photoSettings, EmployeePhotoInfoRepository adPhotos) {
+        this.photoSettings = photoSettings;
+        this.adPhotos = adPhotos;
+        // A wrong PHOTO_SOURCE_PRIORITY stops the start here
+        photoSettings.priority();
         this.groups = groups;
         this.visibility = visibility;
         this.employees = employees;
@@ -97,6 +110,25 @@ public class DbEmployeeDirectory {
         rebuild();
     }
 
+    /** The photo phase stored, replaced or removed photos: new URLs (their hash) for the pages */
+    @EventListener
+    public void onPhotosChanged(PhotosChanged change) {
+        rebuild();
+    }
+
+    /**
+     * The photo URLs of this build: with AD_PHOTOS_ENABLED the hashes of the stored photos (one query, never the
+     * bytes) in the PHOTO_SOURCE_PRIORITY order; otherwise the folder only, as before
+     */
+    private PhotoLinks photoLinks() {
+        if (!photoSettings.isAdEnabled()) {
+            return PhotoLinks.folderOnly(photos.files());
+        }
+        Map<Long, String> hashes = new HashMap<>();
+        adPhotos.findByState(PhotoState.PRESENT).forEach(p -> hashes.put(p.getEmployeeId(), p.getSha256()));
+        return PhotoLinks.of(photos.files(), hashes, photoSettings.priority());
+    }
+
     /** Where AD alone puts the person (function and default group), with the dictionaries of the last build */
     public synchronized EmployeeDtoAssembler.AdPlacement adPlacement(cs_orgchart.employee.Employee employee) {
         return assembler.adPlacement(employee);
@@ -111,7 +143,7 @@ public class DbEmployeeDirectory {
         List<Employee> assembled = readOnly.execute(status -> {
             dictionaries.reload();
             return assembler.assemble(employees.findAll(), overlay.findAll(), groups.findAll(),
-                    new HashSet<>(visibility.findHiddenEmployeeIds()), photos.files());
+                    new HashSet<>(visibility.findHiddenEmployeeIds()), photoLinks());
         });
         List<Employee> rows = assembled == null ? List.of() : assembled;
         directory.replace(rows);

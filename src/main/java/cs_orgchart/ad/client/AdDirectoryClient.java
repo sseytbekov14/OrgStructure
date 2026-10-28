@@ -4,6 +4,7 @@ import cs_orgchart.ad.model.AdRecord;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * Reads employees from Active Directory (AD_SYNC_MODE=ldap) or from the mock fixture (AD_SYNC_MODE=mock).
@@ -20,4 +21,11 @@ public interface AdDirectoryClient {
 
     /** Any user by userPrincipalName, in any department (performance managers outside Central Services) */
     Optional<AdRecord> findByUpn(String upn);
+
+    /**
+     * The thumbnailPhoto of one user, read alone (the paged search of {@link #fetchAll()} never asks for it): by DN,
+     * and when that DN no longer exists by objectGUID. The bytes as AD stores them, untrusted
+     * ({@link cs_orgchart.photo.PhotoValidator}); empty when the user has no photo or is not found.
+     */
+    Optional<byte[]> readPhoto(String dn, UUID adGuid);
 }

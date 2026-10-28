@@ -60,6 +60,15 @@ app:
     dry-run: ${OVERRIDES_IMPORT_DRY_RUN:false}
     report-path: ${OVERRIDES_IMPORT_REPORT_PATH:logs/overrides-import-report.json}
     max-manager-override-ratio: ${OVERRIDES_IMPORT_MAX_MANAGER_OVERRIDE_RATIO:0.10}
+  # Employee photos from AD thumbnailPhoto (PhotoProperties): only with EMPLOYEE_SOURCE=db. Stored in the database
+  # (employee_photos), served by GET /api/photos/{id}; the photo folder below stays the fallback, the initials the last
+  # resort.
+  photos:
+    ad-enabled: ${AD_PHOTOS_ENABLED:false}
+    source-priority: ${PHOTO_SOURCE_PRIORITY:ad,folder}
+    max-bytes: ${AD_PHOTOS_MAX_BYTES:204800}
+    max-side: ${AD_PHOTOS_MAX_SIDE:1024}
+    time-budget: ${AD_PHOTOS_TIME_BUDGET:120s}
   data:
     excel-path: c:/Projects/OrgStructure/data/result_new.xlsx
     photos-path: c:/Projects/OrgStructure/photos
