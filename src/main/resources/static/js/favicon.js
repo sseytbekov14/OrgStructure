@@ -1,14 +1,16 @@
 const FAVICON_BASE_HREF = "/favicon.svg?v=1.0";
 
 function recreateFaviconLink() {
-  const href = `${FAVICON_BASE_HREF}&nav=${Date.now()}`;
+  // The official logo is the favicon source once it exists (ui.js initBrandLogo sets BRAND_FAVICON)
+  const base = window.BRAND_FAVICON || FAVICON_BASE_HREF;
+  const href = `${base}${base.includes("?") ? "&" : "?"}nav=${Date.now()}`;
 
   document
     .querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]')
     .forEach((link) => link.remove());
 
   [
-    { rel: "icon", type: "image/svg+xml" },
+    { rel: "icon", type: (window.BRAND_FAVICON || FAVICON_BASE_HREF).includes(".png") ? "image/png" : "image/svg+xml" },
     { rel: "shortcut icon" }
   ].forEach(({ rel, type }) => {
     const link = document.createElement("link");

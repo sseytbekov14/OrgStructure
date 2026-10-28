@@ -8,12 +8,14 @@ function ensureOrgToastHost() {
   host = document.createElement("div");
   host.id = "orgToastHost";
   host.className = "org-toast-host";
-  host.innerHTML = '<div class="org-toast" id="orgToast">Данные обновлены</div>';
+  host.innerHTML = '<div class="org-toast" id="orgToast">Data updated</div>';
   document.body.appendChild(host);
   return host;
 }
 
-function showOrgToast(message = "Данные обновлены") {
+function showOrgToast(message = "Data updated") {
+  // The shared toast of ui.js when the page has it
+  if (typeof toast === "function") { toast(message, "info", { duration: 2600 }); return; }
   const host = ensureOrgToastHost();
   const toast = host.querySelector(".org-toast");
   if (!toast) return;
@@ -33,7 +35,7 @@ async function handleOrgStreamRefresh(payload) {
   }
 
   await window.refreshOrgChart(payload);
-  showOrgToast("Данные обновлены");
+  showOrgToast("Data updated");
 }
 
 function connectOrgStream() {

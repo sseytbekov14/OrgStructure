@@ -59,3 +59,8 @@ data/result.xlsx
 target/
 application-local.yaml
 .env
+
+# Optional browser checks (e2e/, dev only)
+e2e/node_modules/
+e2e/screenshots/
+e2e/reports/

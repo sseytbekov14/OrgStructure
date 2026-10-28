@@ -212,8 +212,9 @@ function logSearchQuery(query, resultsCount) {
 
 /* ---------- Clipboard & toast ---------- */
 
-function notify(message) {
-  if (typeof showOrgToast === "function") showOrgToast(message);
+function notify(message, type = "info", options = {}) {
+  if (typeof toast === "function") toast(message, type, options);
+  else if (typeof showOrgToast === "function") showOrgToast(message);
 }
 
 function copyText(text, successMessage) {

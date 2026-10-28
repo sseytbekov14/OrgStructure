@@ -153,12 +153,18 @@ async function openAdminEditor(employee) {
 }
 
 async function removeAdminEntry(employee, override, status, dialog) {
-  if (!confirm("Remove this entry? The person goes back to the AD default (or leaves this extra function).")) return;
+  if (!(await confirmDialog({
+    title: "Remove this entry?",
+    message: "The person goes back to the AD default (or leaves this extra function).",
+    confirmLabel: "Remove", danger: true
+  }))) return;
   const url = `/api/manage/overrides/${employee.id}?cs=${encodeURIComponent(employee.cs)}&version=${override.version}`;
   let res = await apiFetch(url, { method: "DELETE" });
   if (res.status === 409) {
     const message = await adminError(res);
-    if (!message.includes("last head") || !confirm(`${message}. Remove anyway?`)) { status.textContent = message; return; }
+    if (!message.includes("last head") || !(await confirmDialog({
+      title: "Remove the last head?", message: `${message}. Remove anyway?`, confirmLabel: "Remove", danger: true
+    }))) { status.textContent = message; return; }
     res = await apiFetch(`${url}&confirmLastHead=true`, { method: "DELETE" });
   }
   if (!res.ok) { status.textContent = await adminError(res); return; }
@@ -233,7 +239,8 @@ function renderAdminHeads() {
   const reset = adminEl("button", { type: "button", class: "profile-btn", text: "Undo changes", disabled: !changed,
     onclick: () => window.refreshOrgChart && window.refreshOrgChart() });
 
-  section.replaceChildren(
+  // replaceChildren(null) would show the text "null": leave the missing parts out
+  section.replaceChildren(...[
     adminEl("div", { class: "admin-heads-header" },
       adminEl("h2", { class: "admin-heads-heading", text: "Function heads" }),
       adminEl("span", { class: "admin-badge", text: "Admin" })),
@@ -244,7 +251,7 @@ function renderAdminHeads() {
       adminEl("label", { class: "admin-heads-all", for: "adminHeadsAll" }, allToggle, adminEl("span", { text: "All employees" }))),
     results,
     adminEl("div", { class: "admin-actions" }, save, reset),
-    status);
+    status].filter(Boolean));
   if (AdminHeads.query) showResults();
 }
 
@@ -276,7 +283,10 @@ async function saveAdminHeads(status) {
   const employeeIds = AdminHeads.heads.map((h) => h.id);
   let confirmRemoveAllHeads = false;
   if (!employeeIds.length && AdminHeads.expected.length) {
-    if (!confirm(`Leave ${AdminHeads.cs} without a head? The tree then has no root.`)) return;
+    if (!(await confirmDialog({
+      title: `Leave ${AdminHeads.cs} without a head?`, message: "The tree then has no root.",
+      confirmLabel: "Save without head", danger: true
+    }))) return;
     confirmRemoveAllHeads = true;
   }
   status.textContent = "Saving…";

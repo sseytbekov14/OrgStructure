@@ -6,13 +6,15 @@
   <title>CS OrgChart - Admin</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1.0" />
   <link rel="shortcut icon" href="/favicon.svg?v=1.0" />
+  <link rel="stylesheet" href="/css/tokens.css?v=3.0" />
+  <link rel="stylesheet" href="/css/components.css?v=3.0" />
   <link rel="stylesheet" href="/css/style.css?v=3.0" />
 </head>
 <body data-page="admin">
   <header class="app-header">
     <div class="header-inner">
       <div class="header-left">
-        <div class="kpmg-logo">KPMG</div>
+        <a class="brand-logo brand-logo--placeholder" href="/" aria-label="KPMG, Central Services home">KPMG</a>
         <div class="header-divider"></div>
         <div>
           <div class="header-title">Central Services</div>
@@ -25,35 +27,40 @@
   <main class="main-content admin-page">
     <a href="/" class="btn-back">Back to the chart</a>
     <h1 class="admin-page-title">Admin</h1>
-    <p class="admin-hint" id="adminYou"></p>
+    <p class="field-help" id="adminYou"></p>
 
-    <section class="admin-panel" id="adminAdmins" aria-labelledby="adminAdminsTitle" hidden>
-      <h2 class="admin-heads-heading" id="adminAdminsTitle">Administrators</h2>
-      <p class="admin-hint">People in this list can edit the site. Super admins (SYSTEM_ADMIN_EMAILS on the server)
-        are not listed here and cannot be removed here. Use the "you" value a person sees on this page or in
+    <section class="card admin-panel" id="adminAdmins" aria-labelledby="adminAdminsTitle" hidden>
+      <h2 class="admin-panel-title" id="adminAdminsTitle">Administrators</h2>
+      <p class="field-help">People in this list can edit the site. Super admins (SYSTEM_ADMIN_EMAILS on the server)
+        are not listed here and cannot be removed here. Use the "you" value the person sees on this page or in
         GET /api/me/roles.</p>
-      <table class="admin-table">
-        <thead>
-          <tr><th scope="col">Login name</th><th scope="col">Note</th><th scope="col">Added by</th><th scope="col">Added</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
-        </thead>
-        <tbody id="adminAdminsRows"></tbody>
-      </table>
-      <form class="admin-form admin-add-form" id="adminAddForm" novalidate>
-        <label for="adminLoginName">Login name</label>
-        <input id="adminLoginName" name="loginName" type="text" maxlength="256" autocomplete="off" required
-               aria-describedby="adminLoginNameHelp" />
-        <p class="admin-hint" id="adminLoginNameHelp">E-mail or account name, 3-256 characters: letters A-Z, digits and . _ @ + -</p>
-        <label for="adminNote">Note (optional)</label>
-        <input id="adminNote" name="note" type="text" maxlength="256" autocomplete="off" />
-        <div class="admin-actions">
-          <button type="submit" class="profile-btn profile-btn-primary">Add admin</button>
+      <div class="table-scroll">
+        <table class="table">
+          <thead>
+            <tr><th scope="col">Login name</th><th scope="col">Note</th><th scope="col">Added by</th><th scope="col">Added</th><th scope="col"><span class="visually-hidden">Actions</span></th></tr>
+          </thead>
+          <tbody id="adminAdminsRows"></tbody>
+        </table>
+      </div>
+      <form class="admin-add-form" id="adminAddForm" novalidate>
+        <div class="field">
+          <label class="field-label" for="adminLoginName">Login name</label>
+          <input class="input" id="adminLoginName" name="loginName" type="text" maxlength="256" autocomplete="off"
+                 required aria-describedby="adminLoginNameHelp adminLoginNameError" />
+          <p class="field-help" id="adminLoginNameHelp">E-mail or account name, 3-256 characters: letters A-Z, digits and . _ @ + -</p>
+          <p class="field-error" id="adminLoginNameError" role="alert"></p>
         </div>
+        <div class="field">
+          <label class="field-label" for="adminNote">Note (optional)</label>
+          <input class="input" id="adminNote" name="note" type="text" maxlength="256" autocomplete="off" />
+        </div>
+        <button type="submit" class="btn btn-primary">Add admin</button>
       </form>
-      <p class="admin-status" id="adminAdminsStatus" role="status" aria-live="polite"></p>
     </section>
-    <p class="admin-hint" id="adminNotSuper" hidden>Only super admins manage the list of administrators.</p>
+    <p class="state-empty" id="adminNotSuper" hidden>Only super admins manage the list of administrators.</p>
   </main>
 
+  <script src="/js/ui.js?v=3.0"></script>
   <script src="/js/common.js?v=3.0"></script>
   <script src="/js/admin-page.js?v=3.0"></script>
 </body>

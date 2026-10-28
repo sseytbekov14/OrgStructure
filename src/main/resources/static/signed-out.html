@@ -5,23 +5,21 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Signed out - CS OrgChart</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=1.0" />
-  <style>
-    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 16px;
-      font-family: "Segoe UI", system-ui, -apple-system, sans-serif; background: #f4f7fb; color: #2d3340; }
-    main { max-width: 440px; width: 100%; background: #fff; border: 1px solid #d8dce5; border-radius: 12px;
-      padding: 32px 28px; box-shadow: 0 8px 24px rgba(0, 32, 96, 0.08); }
-    .brand { font-weight: 700; letter-spacing: 0.08em; color: #00338d; margin-bottom: 20px; }
-    h1 { font-size: 20px; margin: 0 0 8px; color: #1a1f2e; }
-    p { margin: 0 0 16px; line-height: 1.5; color: #5c6478; }
-    a { color: #005eb8; font-weight: 600; }
-  </style>
+  <link rel="stylesheet" href="/css/tokens.css?v=3.0" />
+  <link rel="stylesheet" href="/css/components.css?v=3.0" />
 </head>
-<body>
-  <main>
-    <div class="brand">KPMG &middot; CS OrgChart</div>
-    <h1>Signed out</h1>
-    <p>You are signed out of CS OrgChart. Your Microsoft session stays open in this browser.</p>
-    <p><a href="/">Sign in again</a></p>
+<body class="status-page">
+  <main class="status-card">
+    <div class="status-card-header">
+      <span class="brand-logo brand-logo--placeholder" role="img" aria-label="KPMG">KPMG</span>
+      <span>CS OrgChart</span>
+    </div>
+    <div class="status-card-body">
+      <h1>Signed out</h1>
+      <p>You are signed out of CS OrgChart. Your Microsoft session stays open in this browser.</p>
+      <p><a href="/">Sign in again</a></p>
+    </div>
   </main>
+  <script src="/js/ui.js?v=3.0"></script>
 </body>
 </html>

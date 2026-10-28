@@ -1,8 +1,6 @@
 /* The admin page (admin.html, served to admins only, U1): the list of administrators for super admins.
    Everything is built with createElement and textContent: names and notes never become HTML. */
 
-const AdminPage = { armed: null };
-
 async function adminPageError(res) {
   try {
     const body = await res.json();
@@ -13,77 +11,63 @@ async function adminPageError(res) {
 }
 
 function adminCell(text) {
-  const cell = document.createElement("td");
-  cell.textContent = text == null || text === "" ? "—" : String(text);
-  return cell;
+  return uiEl("td", { text: text == null || text === "" ? "—" : String(text) });
 }
 
 function renderAdminRows(admins) {
   const rows = document.getElementById("adminAdminsRows");
-  rows.replaceChildren(...admins.map((admin) => {
-    const row = document.createElement("tr");
-    const remove = document.createElement("button");
-    remove.type = "button";
-    remove.className = "profile-btn admin-danger";
-    const armed = AdminPage.armed === admin.id;
-    remove.textContent = armed ? "Confirm removal" : "Remove";
-    remove.setAttribute("aria-label", armed ? `Confirm removal of ${admin.loginName}` : `Remove ${admin.loginName}`);
-    remove.addEventListener("click", () => removeAdmin(admin, admins));
-    const actions = document.createElement("td");
-    actions.append(remove);
-    row.append(adminCell(admin.loginName), adminCell(admin.note), adminCell(admin.addedBy),
-      adminCell(admin.addedAt ? new Date(admin.addedAt).toLocaleDateString() : ""), actions);
-    return row;
-  }));
+  rows.replaceChildren(...admins.map((admin) => uiEl("tr", {},
+    adminCell(admin.loginName), adminCell(admin.note), adminCell(admin.addedBy),
+    adminCell(admin.addedAt ? new Date(admin.addedAt).toLocaleDateString() : ""),
+    uiEl("td", {}, uiEl("button", {
+      type: "button", class: "btn btn-ghost btn-sm", text: "Remove", "aria-label": `Remove ${admin.loginName}`,
+      onclick: () => removeAdmin(admin)
+    })))));
   if (!admins.length) {
-    const row = document.createElement("tr");
-    const cell = adminCell("No administrators in the list yet.");
-    cell.colSpan = 5;
-    row.append(cell);
-    rows.append(row);
+    rows.append(uiEl("tr", {}, uiEl("td", { colspan: "5", text: "No administrators in the list yet." })));
   }
-}
-
-function adminStatus(text) {
-  document.getElementById("adminAdminsStatus").textContent = text || "";
 }
 
 async function loadAdmins() {
   const res = await apiFetch("/api/manage/admins");
-  if (!res.ok) { adminStatus(await adminPageError(res)); return; }
+  if (!res.ok) { toast(await adminPageError(res), "error"); return; }
   renderAdminRows(await res.json());
 }
 
-/** Two clicks remove: the first arms the button, the second removes (no browser dialogs) */
-async function removeAdmin(admin, admins) {
-  if (AdminPage.armed !== admin.id) {
-    AdminPage.armed = admin.id;
-    renderAdminRows(admins);
-    return;
-  }
-  AdminPage.armed = null;
+async function removeAdmin(admin) {
+  const confirmed = await confirmDialog({
+    title: `Remove ${admin.loginName}?`,
+    message: `${admin.loginName} will no longer be able to edit the site.`,
+    confirmLabel: "Remove", danger: true
+  });
+  if (!confirmed) return;
   const res = await apiFetch(`/api/manage/admins/${encodeURIComponent(admin.id)}`, { method: "DELETE" });
-  if (!res.ok) { adminStatus(await adminPageError(res)); return; }
-  adminStatus(`${admin.loginName} removed`);
+  if (!res.ok) { toast(await adminPageError(res), "error"); return; }
+  toast(`${admin.loginName} removed`, "success");
   await loadAdmins();
 }
 
 async function addAdmin(event) {
   event.preventDefault();
   const form = event.target;
-  const loginName = form.loginName.value.trim();
-  if (!/^[A-Za-z0-9._@+-]{3,256}$/.test(loginName)) {
-    adminStatus("The login name must have 3 to 256 characters: letters A-Z, digits and . _ @ + -");
-    form.loginName.focus();
-    return;
-  }
+  const input = form.loginName;
+  const error = document.getElementById("adminLoginNameError");
+  const loginName = input.value.trim();
+  const problem = /^[A-Za-z0-9._@+-]{3,256}$/.test(loginName) ? ""
+    : "The login name must have 3 to 256 characters: letters A-Z, digits and . _ @ + -";
+  error.textContent = problem;
+  input.setAttribute("aria-invalid", problem ? "true" : "false");
+  if (problem) { input.focus(); return; }
+  const submit = form.querySelector("button[type=submit]");
+  submit.disabled = true;
   const res = await apiFetch("/api/manage/admins", {
     method: "POST", headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ loginName, note: form.note.value })
   });
-  if (!res.ok) { adminStatus(await adminPageError(res)); return; }
+  submit.disabled = false;
+  if (!res.ok) { error.textContent = await adminPageError(res); return; }
   form.reset();
-  adminStatus(`${loginName} added`);
+  toast(`${loginName} added`, "success");
   await loadAdmins();
 }
 

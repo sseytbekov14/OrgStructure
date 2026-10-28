@@ -77,9 +77,18 @@ function runner() {
   return { test, done };
 }
 
+function describe(value) {
+  try { return JSON.stringify(value); } catch (e) { return `<${value?.tagName || typeof value}>`; }
+}
+
 function assertEqual(actual, expected, message) {
-  const a = JSON.stringify(actual);
-  const e = JSON.stringify(expected);
+  if (actual === expected) return;
+  const a = describe(actual);
+  const e = describe(expected);
+  if (typeof actual === 'object' && actual !== null && typeof expected === 'object' && expected !== null
+      && (actual.nodeType || expected.nodeType)) {
+    throw new Error(`${message || 'different nodes'}: expected ${e}, got ${a}`);
+  }
   if (a !== e) throw new Error(`${message || 'values differ'}: expected ${e}, got ${a}`);
 }
 
