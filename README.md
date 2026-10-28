@@ -83,7 +83,8 @@ There are two kinds of administrators:
 
 The value to store is the `you` field of `GET /api/me/roles` of that person (with SSO usually the e-mail/UPN,
 with the password form the account name). Ask the person to open `/api/me/roles` while signed in, or let a super
-admin add them on the Admin page. In SQL:
+admin add them on the Admin page (*Login name* lists all people: pick one and their e-mail is used, or type an
+account name). In SQL:
 
 ```sql
 INSERT INTO app_admins(login_name, note) VALUES ('name@kpmg.kz', 'why');
@@ -115,7 +116,8 @@ all open pages within seconds (server-sent events) and written to the log with t
 - **Hide / restore**: *Hide from site* on a card. The person disappears from the tree, groups and search for everyone;
   the people reporting to them are shown under the next manager. Restore them on the Admin page, *Hidden people*.
   The AD sync never changes this.
-- **FAQ & Request Guidelines**: *Edit FAQ* in the panel of a function page. Sections of guidelines, mailboxes or
+- **FAQ & Request Guidelines**: *Edit FAQ* in the header of the FAQ panel of a function page opens the editor in a
+  dialog (its content scrolls, *Preview* / *Cancel* / *Save* stay at the bottom). Sections of guidelines, mailboxes or
   questions; add, remove and reorder sections and items; *Preview* before *Save*.
 - **Validation rules** (the same in the browser and on the server, `FieldRules` / `FaqRules` and
   `static/js/validation.js`): texts are normalized (Unicode NFC, tabs and no-break spaces to spaces, repeated spaces

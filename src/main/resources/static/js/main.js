@@ -245,7 +245,7 @@ function renderSearchResults() {
               ${renderCardFacts(employee)}
               ${renderMatchContext(employee, searchQuery)}
             </span>
-            <span class="result-pm">${employee.pm ? `Reports to <b>${escapeHtml(employee.pm)}</b>` : ""}</span>
+            <span class="result-pm">${employee.pm ? `PM <b>${escapeHtml(employee.pm)}</b>` : ""}</span>
           </button>
         </div>
       `;

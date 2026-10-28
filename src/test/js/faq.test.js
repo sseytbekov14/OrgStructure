@@ -216,6 +216,23 @@ test('editor: 409 keeps the draft, Reload values shows the saved version and tak
   assertEqual(p.writes()[1].body.version, 8, 'saved with the new version');
 });
 
+test('editor: "Edit FAQ" sits in the panel header and opens a modal dialog; the panel itself stays as it was', async () => {
+  const { card, root, document } = await editor();
+  assertTrue(card.querySelector('.faq-head [data-faq-edit]'), 'edit button in the header line');
+  assertEqual(root().getAttribute('role'), 'dialog');
+  assertEqual(root().getAttribute('aria-modal'), 'true');
+  assertEqual(root().querySelector('.ui-dialog-title').textContent, 'Edit FAQ: ITS');
+  assertTrue(root().querySelector('.ui-dialog-footer [data-faq-save]'), 'Save in the fixed footer');
+  assertEqual(card.querySelectorAll('.faq-section-title').length, 3, 'panel not replaced by the editor');
+  assertTrue([...root().querySelectorAll('button')].find((b) => b.getAttribute('aria-label') === 'Move item 1 up').disabled,
+    'first item cannot move up');
+  assertTrue(!document.querySelector('.faq-editor').textContent.includes(String.fromCharCode(0x2191)), 'icon buttons, no arrow glyphs');
+  button(root(), 'Cancel').click();
+  await settle();
+  assertTrue(!document.querySelector('.faq-editor'), 'a clean editor closes at once');
+  assertTrue(document.getElementById('faqCard').querySelector('[data-faq-edit]'), 'panel rendered again with its button');
+});
+
 test('editor: ESC in a field does not lose the draft', async () => {
   const { field, document } = await editor();
   type(field('sections[0].title'), 'Kept');

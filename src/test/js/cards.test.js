@@ -90,7 +90,7 @@ test('search results: no copy button, the card facts are shown', () => {
   const html = String(main.elements.searchResults.innerHTML);
   assertTrue(!html.includes('data-copy') && !/copy/i.test(html), 'no copy button in search results');
   assertTrue(html.includes('Tashkent, Uzbekistan'), 'location');
-  assertTrue(html.includes('Reports to <b>Partner, Pat</b>'), 'reports to');
+  assertTrue(html.includes('PM <b>Partner, Pat</b>'), 'PM in the search results');
 });
 
 test('no copy button in the search results or the FAQ, and no "Direct reports" in the pages and scripts', () => {

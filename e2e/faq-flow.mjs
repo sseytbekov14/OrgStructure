@@ -26,12 +26,20 @@ for (const width of (process.env.E2E_WIDTHS || '1440,390').split(',').map(Number
   await fields.nth(0).fill('Questions');
   await fields.nth(1).fill('How do I order a laptop?');
   await fields.nth(2).fill('Use https://portal.example and <b>not</b> e-mail.');
-  await page.screenshot({ path: shot(`editor-${width}`), fullPage: true });
+  // The editor is a modal dialog: its content scrolls, so the screenshots are of the viewport
+  await page.screenshot({ path: shot(`editor-${width}`) });
+  await page.locator('.faq-editor .ui-dialog-body').evaluate((body) => { body.scrollTop = 0; });
+  await page.screenshot({ path: shot(`editor-top-${width}`) });
   await page.locator('.faq-editor button', { hasText: 'Preview' }).click();
-  await page.screenshot({ path: shot(`preview-${width}`), fullPage: true });
+  await page.screenshot({ path: shot(`preview-${width}`) });
   await page.locator('.faq-editor button', { hasText: 'Back to editing' }).click();
-  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  const overflow = await page.evaluate(() => {
+    const body = document.querySelector('.faq-editor .ui-dialog-body');
+    return Math.max(document.documentElement.scrollWidth - window.innerWidth, body.scrollWidth - body.clientWidth);
+  });
   if (overflow > 1) problems.push(`@${width}: horizontal overflow ${overflow}px in the editor`);
+  const footer = await page.locator('.faq-editor .ui-dialog-footer').boundingBox();
+  if (!footer || footer.y + footer.height > 900) problems.push(`@${width}: the Save bar is not visible`);
   await page.locator('.faq-editor-toolbar button', { hasText: 'Cancel' }).click();
   await page.locator('.ui-confirm button', { hasText: 'Discard' }).click();
   await page.close();

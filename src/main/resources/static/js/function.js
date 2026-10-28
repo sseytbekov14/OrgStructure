@@ -163,13 +163,16 @@ async function renderFaqBanner(cs, view) {
   const chevron = faqIcon(['m6 9 6 6 6-6']);
   chevron.setAttribute('class', 'faq-chevron');
   toggle.append(badge, texts, chevron);
+  // The header line: the toggle, and the admin controls next to it (admin-faq.js)
+  const head = faqEl('div', 'faq-head');
+  head.appendChild(toggle);
 
   const body = faqEl('div', 'faq-body');
   body.id = 'faqBody';
   const inner = faqEl('div', 'faq-body-inner');
   inner.appendChild(renderFaqSections(faq.content));
   body.appendChild(inner);
-  card.append(toggle, body);
+  card.append(head, body);
   container.replaceChildren(card);
   container.style.display = 'block';
 

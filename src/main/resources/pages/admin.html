@@ -8,7 +8,7 @@
   <link rel="shortcut icon" href="/favicon.svg?v=1.0" />
   <link rel="stylesheet" href="/css/tokens.css?v=3.0" />
   <link rel="stylesheet" href="/css/components.css?v=3.0" />
-  <link rel="stylesheet" href="/css/style.css?v=3.1" />
+  <link rel="stylesheet" href="/css/style.css?v=3.3" />
 </head>
 <body data-page="admin">
   <header class="app-header">
@@ -64,9 +64,18 @@
       <form class="admin-add-form" id="adminAddForm" novalidate>
         <div class="field">
           <label class="field-label" for="adminLoginName">Login name</label>
-          <input class="input" id="adminLoginName" name="loginName" type="text" maxlength="256" autocomplete="off"
-                 required aria-describedby="adminLoginNameHelp adminLoginNameError" />
-          <p class="field-help" id="adminLoginNameHelp">E-mail or account name, 3-256 characters: letters A-Z, digits and . _ @ + -</p>
+          <div class="combo" id="adminLoginNameCombo">
+            <input class="input combo-input" id="adminLoginName" name="loginName" type="text" maxlength="256" autocomplete="off"
+                   required role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="adminLoginNameList"
+                   placeholder="Choose a person or type a login name"
+                   aria-describedby="adminLoginNameHelp adminLoginNameError" />
+            <button type="button" class="combo-toggle" id="adminLoginNameToggle" tabindex="-1" aria-label="Show all people">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <ul class="combo-list" id="adminLoginNameList" role="listbox" aria-label="People" hidden></ul>
+          </div>
+          <p class="field-help" id="adminLoginNameHelp">Pick a person from the list (their e-mail is used) or type an account name:
+            3-256 characters, letters A-Z, digits and . _ @ + -</p>
           <p class="field-error" id="adminLoginNameError" role="alert"></p>
         </div>
         <div class="field">
@@ -79,7 +88,7 @@
   </main>
 
   <script src="/js/ui.js?v=3.0"></script>
-  <script src="/js/common.js?v=3.1"></script>
-  <script src="/js/admin-page.js?v=3.0"></script>
+  <script src="/js/common.js?v=3.2"></script>
+  <script src="/js/admin-page.js?v=3.1"></script>
 </body>
 </html>
