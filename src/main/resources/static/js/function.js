@@ -234,16 +234,22 @@ function isCountryGroup(group) {
   return COUNTRY_CODES.includes(group?.trim().toUpperCase());
 }
 
+// Kazakhstan is the main country: its heads are function heads, never country heads
+const MAIN_COUNTRY_CODE = 'KZ';
+
 function getCountryHeadCode(emp) {
   const group = emp?.group?.trim().toUpperCase();
   const title = emp?.jobTitle?.trim() || '';
   if (group !== 'HEAD') return null;
 
+  // The ", XX" title suffix (Excel titles) wins when present
   const match = title.match(/,\s*([A-Z]{2})$/);
-  if (!match) return null;
+  if (match && isCountryGroup(match[1])) return match[1].toUpperCase();
 
-  const code = match[1].toUpperCase();
-  return isCountryGroup(code) ? code : null;
+  // From the database (rows with ids) the AD titles carry no suffix: use the country from AD instead
+  if (emp?.id == null) return null;
+  const country = emp?.countryCode?.trim().toUpperCase();
+  return country && country !== MAIN_COUNTRY_CODE && isCountryGroup(country) ? country : null;
 }
 
 function compareEmployeesByHierarchy(left, right) {
