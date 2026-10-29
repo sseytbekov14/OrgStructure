@@ -18,10 +18,11 @@ import java.time.Duration;
 import java.util.Arrays;
 
 /**
- * GET /api/photos/{employeeId}: the stored AD photo of one employee, as the other /api/** endpoints only for those who
- * may see the site (no security rule of its own). Always the re-encoded JPEG with nosniff, never anything else; 304 for
- * a matching If-None-Match. 404 when there is no PRESENT photo, the employee is hidden or disabled, or the
- * AD photos are off (AD_PHOTOS_ENABLED, EMPLOYEE_SOURCE=db). One photo per request: there is no listing.
+ * GET /api/photos/{employeeId}: the stored photo of one employee (from AD, or uploaded on the site), as the other
+ * /api/** endpoints only for those who may see the site (no security rule of its own). Always the re-encoded JPEG with
+ * nosniff, never anything else; 304 for a matching If-None-Match. 404 when there is no PRESENT photo, the employee is
+ * hidden or disabled, outside db mode, or for an AD photo while AD photos are off (AD_PHOTOS_ENABLED; uploaded photos
+ * do not depend on it). One photo per request: there is no listing.
  */
 @RestController
 public class PhotoController {
@@ -48,12 +49,13 @@ public class PhotoController {
     public ResponseEntity<byte[]> photo(@PathVariable long employeeId,
                                         @RequestHeader(value = HttpHeaders.IF_NONE_MATCH, required = false)
                                         String ifNoneMatch) {
-        if (!properties.isAdEnabled() || !source.isDb() || !servable(employeeId)) {
+        if (!source.isDb() || !servable(employeeId)) {
             return ResponseEntity.notFound().build();
         }
         EmployeePhoto photo = photos.findById(employeeId).orElse(null);
         if (photo == null || photo.getState() != PhotoState.PRESENT || photo.getContent() == null
-                || photo.getSha256() == null) {
+                || photo.getSha256() == null
+                || (photo.getSource() != PhotoSource.MANUAL && !properties.isAdEnabled())) {
             return ResponseEntity.notFound().build();
         }
         String etag = "\"" + photo.getSha256().trim() + "\"";

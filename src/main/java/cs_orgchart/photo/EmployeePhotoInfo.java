@@ -39,4 +39,8 @@ public class EmployeePhotoInfo {
 
     @Column(name = "source_when_changed")
     private Instant sourceWhenChanged;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 16)
+    private PhotoSource source;
 }

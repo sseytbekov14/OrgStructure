@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.time.Instant;
@@ -146,7 +147,15 @@ class PhotoEndpointTest extends DbModeMvcSupport {
     void thereIsNoWayToListPhotos() throws Exception {
         List<String> patterns = mappings.getHandlerMethods().keySet().stream()
                 .flatMap(info -> info.getPatternValues().stream()).filter(p -> p.contains("photo")).toList();
-        assertThat(patterns).containsExactlyInAnyOrder("/api/photos/{employeeId}", "/api/admin/ad-sync/photos");
+        // The uploads (PUT and DELETE each) write one photo; the admin run of the photo phase; one read
+        assertThat(patterns).containsExactlyInAnyOrder("/api/photos/{employeeId}", "/api/admin/ad-sync/photos",
+                "/api/me/photo", "/api/me/photo", "/api/manage/employees/{id}/photo",
+                "/api/manage/employees/{id}/photo");
+        List<String> reads = mappings.getHandlerMethods().keySet().stream()
+                .filter(info -> info.getMethodsCondition().getMethods().isEmpty()
+                        || info.getMethodsCondition().getMethods().contains(RequestMethod.GET))
+                .flatMap(info -> info.getPatternValues().stream()).filter(p -> p.contains("photo")).toList();
+        assertThat(reads).as("the only way to read photos: one by id").containsExactly("/api/photos/{employeeId}");
         for (String path : List.of("/api/photos", "/api/photos/", "/api/photos?ids=1,2", "/api/photos/all")) {
             MockHttpServletResponse response = mvc.perform(get(path).session(reader)).andReturn().getResponse();
             assertThat(response.getStatus()).as(path).isIn(400, 404, 405);

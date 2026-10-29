@@ -209,7 +209,8 @@ class ManageAccessTest extends DbModeMvcSupport {
         List<String> fields = new ArrayList<>();
         Iterator<String> names = me.fieldNames();
         names.forEachRemaining(fields::add);
-        assertThat(fields).containsExactly("authenticated", "you", "roles", "admin", "superAdmin", "editingEnabled");
+        assertThat(fields).containsExactly("authenticated", "you", "roles", "admin", "superAdmin", "editingEnabled",
+                "employeeId", "photoUpload");
         assertThat(me.get("you").asText()).isEqualTo(TestAccounts.READER);
         assertThat(me.get("admin").asBoolean()).isFalse();
         assertThat(me.get("superAdmin").asBoolean()).isFalse();

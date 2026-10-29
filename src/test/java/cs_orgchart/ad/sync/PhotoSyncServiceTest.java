@@ -4,9 +4,12 @@ import cs_orgchart.ad.client.AdDirectoryException;
 import cs_orgchart.ad.client.AdErrorCode;
 import cs_orgchart.ad.client.MockPhotos;
 import cs_orgchart.employee.EmployeeDirectory;
+import cs_orgchart.photo.EmployeePhoto;
 import cs_orgchart.photo.EmployeePhotoRepository;
 import cs_orgchart.photo.PhotoProperties;
+import cs_orgchart.photo.PhotoSource;
 import cs_orgchart.photo.PhotoState;
+import cs_orgchart.photo.PhotoValidator;
 import cs_orgchart.photo.PhotoSyncService;
 import cs_orgchart.photo.PhotoSyncService.PhotoRun;
 import cs_orgchart.photo.PhotoSyncService.Status;
@@ -283,6 +286,28 @@ class PhotoSyncServiceTest extends AdSyncTestSupport {
         assertThat(employee("mmint").isEnabled()).isFalse();
         assertThat(photos.findById(employee("mmint").getId())).isEmpty();
         assertThat(logRow(outcome.logId()).getPhotosRemoved()).isEqualTo(1);
+    }
+
+    @Test
+    void anUploadedPhotoIsNeverReadNorOverwrittenBySync() {
+        directory.setPhoto("mmint", VALID);
+        syncNow();
+        long id = employee("mmint").getId();
+        PhotoValidator.Result upload = new PhotoValidator(Integer.MAX_VALUE, 4096).validate(OTHER);
+        photos.save(EmployeePhoto.builder().employeeId(id).state(PhotoState.PRESENT).content(upload.content())
+                .contentType(upload.contentType()).sha256(upload.sha256()).checkedAt(java.time.Instant.now())
+                .source(PhotoSource.MANUAL).uploadedBy("someone").build());
+        directory.photoReads.clear();
+        touch("mmint", "20991231000000.0Z");
+
+        syncNow();
+        photoSync.run(null, SyncTrigger.MANUAL, true);
+
+        assertThat(directory.photoReads).doesNotContain("mmint");
+        EmployeePhoto kept = photos.findById(id).orElseThrow();
+        assertThat(kept.getSource()).isEqualTo(PhotoSource.MANUAL);
+        assertThat(kept.getSha256()).isEqualTo(upload.sha256());
+        assertThat(kept.getUploadedBy()).isEqualTo("someone");
     }
 
     @Test

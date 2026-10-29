@@ -57,7 +57,7 @@ class FlywayMigrationsTest {
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY installed_rank",
                 String.class);
-        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12");
+        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13");
     }
 
     @Test
@@ -198,6 +198,28 @@ class FlywayMigrationsTest {
                     .hasMessageContaining("ck_employee_photos_state");
         } finally {
             jdbc.update("DELETE FROM employees WHERE id IN (?, ?, ?)", a, b, c);
+        }
+    }
+
+    /** V13: rows of the photo sync are AD by default; an upload (MANUAL) is always a usable photo */
+    @Test
+    void anUploadedPhotoIsAlwaysPresentAndTheSourceIsKnown() {
+        long a = insertEmployee("upload-a");
+        long b = insertEmployee("upload-b");
+        try {
+            insertPhoto(a, "NONE", null, null);
+            assertThat(jdbc.queryForObject("SELECT source FROM employee_photos WHERE employee_id = ?", String.class, a))
+                    .isEqualTo("AD");
+            jdbc.update("INSERT INTO employee_photos (employee_id, state, content, sha256, checked_at, source,"
+                    + " uploaded_by) VALUES (?, 'PRESENT', ?, ?, now(), 'MANUAL', 'someone')", b, new byte[]{1},
+                    "f".repeat(64));
+
+            assertThatThrownBy(() -> jdbc.update("UPDATE employee_photos SET source = 'MANUAL' WHERE employee_id = ?",
+                    a)).hasMessageContaining("ck_employee_photos_manual");
+            assertThatThrownBy(() -> jdbc.update("UPDATE employee_photos SET source = 'CAMERA' WHERE employee_id = ?",
+                    b)).hasMessageContaining("ck_employee_photos_source");
+        } finally {
+            jdbc.update("DELETE FROM employees WHERE id IN (?, ?)", a, b);
         }
     }
 

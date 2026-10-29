@@ -65,4 +65,14 @@ public class EmployeePhoto {
 
     @Column(name = "checked_at", nullable = false)
     private Instant checkedAt;
+
+    /** AD (the photo sync) or MANUAL (uploaded on the site: the sync leaves it alone) */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source", nullable = false, length = 16)
+    @Builder.Default
+    private PhotoSource source = PhotoSource.AD;
+
+    /** Who uploaded a MANUAL photo (the sign-in name); null for AD */
+    @Column(name = "uploaded_by", length = 256)
+    private String uploadedBy;
 }

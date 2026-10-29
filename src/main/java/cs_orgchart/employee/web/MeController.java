@@ -1,7 +1,9 @@
 package cs_orgchart.employee.web;
 
 import cs_orgchart.access.AdminAccess;
+import cs_orgchart.employee.Employee;
 import cs_orgchart.employee.override.OverrideAdminService;
+import cs_orgchart.photo.PhotoUploadService;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -20,6 +22,8 @@ import java.util.Map;
  * <p>
  * {@code you} is the identifier the admin list (app_admins.login_name) is matched against (U1); {@code admin} and
  * {@code superAdmin} come from {@link AdminAccess}. Non-admins get admin=false and nothing else about admins.
+ * {@code employeeId}: the person of the site the sign-in belongs to (their own card offers "Change photo"), null when
+ * none; {@code photoUpload}: photos can be uploaded (EMPLOYEE_SOURCE=db).
  */
 @RestController
 public class MeController {
@@ -28,10 +32,12 @@ public class MeController {
 
     private final OverrideAdminService overrides;
     private final AdminAccess access;
+    private final PhotoUploadService photoUploads;
 
-    public MeController(OverrideAdminService overrides, AdminAccess access) {
+    public MeController(OverrideAdminService overrides, AdminAccess access, PhotoUploadService photoUploads) {
         this.overrides = overrides;
         this.access = access;
+        this.photoUploads = photoUploads;
     }
 
     @GetMapping("/api/me/roles")
@@ -51,6 +57,8 @@ public class MeController {
         me.put("admin", access.isAdmin(authentication));
         me.put("superAdmin", access.isSuperAdmin(authentication));
         me.put("editingEnabled", overrides.editingEnabled());
+        me.put("employeeId", photoUploads.signedIn(authentication).map(Employee::getId).orElse(null));
+        me.put("photoUpload", photoUploads.enabled());
         return me;
     }
 }

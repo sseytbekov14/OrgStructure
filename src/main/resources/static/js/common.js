@@ -694,6 +694,8 @@ function openEmployeeProfile(employee, logView = true) {
   if (!employee) return;
   const body = showProfile(renderProfile(employee), employee);
   if (typeof window.onProfileRendered === "function") window.onProfileRendered(employee, body);
+  // Change photo (photo-upload.js): own card, or any card for admins
+  if (typeof window.addPhotoUploadButton === "function") window.addPhotoUploadButton(employee, body);
 
   if (logView && employee.email) logInteraction(employee.email, "PROFILE_VIEW");
 }

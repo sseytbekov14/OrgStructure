@@ -40,7 +40,8 @@ import java.util.concurrent.ExecutorService;
  *   <li>candidates: enabled employees, also the managers outside Central Services (external: their card shows the
  *       photo too), without a photo row or whose ad_when_changed differs from the
  *       row's source_when_changed (force: everybody). Each one: read, validate, write its row in its own small
- *       transaction (PRESENT, NONE or INVALID). A failed read is counted and retried by the next run;</li>
+ *       transaction (PRESENT, NONE or INVALID). A failed read is counted and retried by the next run. Photos
+ *       uploaded on the site ({@link PhotoSource#MANUAL}) are never candidates and never overwritten;</li>
  *   <li>at most AD_PHOTOS_TIME_BUDGET per run: the rest is left for the next run;</li>
  *   <li>the counters into the ad_sync_log row of the run; {@link PhotosChanged} when photos were stored or removed.</li>
  * </ol>
@@ -79,7 +80,7 @@ public class PhotoSyncService {
     private static final String CANDIDATES = """
             SELECT e.id, e.dn, e.ad_guid, e.ad_when_changed, p.state, p.sha256
             FROM employees e LEFT JOIN employee_photos p ON p.employee_id = e.id
-            WHERE e.enabled
+            WHERE e.enabled AND COALESCE(p.source, 'AD') <> 'MANUAL'
               AND (? OR p.employee_id IS NULL OR p.source_when_changed IS DISTINCT FROM e.ad_when_changed)
             ORDER BY e.id""";
 
@@ -144,6 +145,23 @@ public class PhotoSyncService {
                 run(synced.logId(), synced.trigger(), false);
             } catch (RuntimeException e) {
                 log.error("AD photos: the photo phase after sync run {} failed", synced.logId(), e);
+            }
+        });
+    }
+
+    /**
+     * A run soon on the photo thread, not tied to an employee sync: after an uploaded photo was removed, so that the
+     * AD photo of that person shows again without waiting for the next sync. Nothing when the feature is off.
+     */
+    public void refreshSoon() {
+        if (!enabled()) {
+            return;
+        }
+        executor.execute(() -> {
+            try {
+                run(null, SyncTrigger.MANUAL, false);
+            } catch (RuntimeException e) {
+                log.error("AD photos: the photo phase after a removed upload failed", e);
             }
         });
     }
@@ -278,8 +296,15 @@ public class PhotoSyncService {
             }
         }
         EmployeePhoto photo = row.build();
-        transaction.executeWithoutResult(status -> photos.save(photo));
-        return change;
+        // A photo uploaded on the site while this run was reading AD stays: the upload wins
+        boolean uploaded = Boolean.TRUE.equals(transaction.execute(status -> {
+            if (photos.findById(candidate.id()).map(p -> p.getSource() == PhotoSource.MANUAL).orElse(false)) {
+                return true;
+            }
+            photos.save(photo);
+            return false;
+        }));
+        return uploaded ? Change.NONE : change;
     }
 
     /** The photos of employees that are disabled now: deleted (rows and bytes); how many had a photo */

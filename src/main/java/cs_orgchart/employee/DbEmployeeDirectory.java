@@ -13,6 +13,7 @@ import cs_orgchart.employee.override.OverlayChanged;
 import cs_orgchart.model.Employee;
 import cs_orgchart.photo.EmployeePhotoInfoRepository;
 import cs_orgchart.photo.PhotoProperties;
+import cs_orgchart.photo.PhotoSource;
 import cs_orgchart.photo.PhotoState;
 import cs_orgchart.photo.PhotosChanged;
 import cs_orgchart.service.OrgStreamService;
@@ -117,16 +118,20 @@ public class DbEmployeeDirectory {
     }
 
     /**
-     * The photo URLs of this build: with AD_PHOTOS_ENABLED the hashes of the stored photos (one query, never the
-     * bytes) in the PHOTO_SOURCE_PRIORITY order; otherwise the folder only, as before
+     * The photo URLs of this build from the hashes of the stored photos (one query, never the bytes): the uploaded
+     * ones always first; the AD ones with AD_PHOTOS_ENABLED, in the PHOTO_SOURCE_PRIORITY order; otherwise the folder,
+     * as before
      */
     private PhotoLinks photoLinks() {
+        Map<Long, String> ad = new HashMap<>();
+        Map<Long, String> uploaded = new HashMap<>();
+        adPhotos.findByState(PhotoState.PRESENT).forEach(p ->
+                (p.getSource() == PhotoSource.MANUAL ? uploaded : ad).put(p.getEmployeeId(), p.getSha256()));
         if (!photoSettings.isAdEnabled()) {
-            return PhotoLinks.folderOnly(photos.files());
+            return uploaded.isEmpty() ? PhotoLinks.folderOnly(photos.files())
+                    : PhotoLinks.of(photos.files(), Map.of(), uploaded, List.of(PhotoProperties.Source.FOLDER));
         }
-        Map<Long, String> hashes = new HashMap<>();
-        adPhotos.findByState(PhotoState.PRESENT).forEach(p -> hashes.put(p.getEmployeeId(), p.getSha256()));
-        return PhotoLinks.of(photos.files(), hashes, photoSettings.priority());
+        return PhotoLinks.of(photos.files(), ad, uploaded, photoSettings.priority());
     }
 
     /** Where AD alone puts the person (function and default group), with the dictionaries of the last build */

@@ -57,6 +57,19 @@ class PhotoLinksTest {
             case "FOLDER" -> assertThat(url).isEqualTo("/photos/ff@kz.example.jpg");
             default -> assertThat(url).isEqualTo(EmployeePhotos.DEFAULT);
         }
+        assertThat(links.isUploaded(7L)).isFalse();
+    }
+
+    @ParameterizedTest(name = "{0}: an uploaded photo wins")
+    @CsvSource({"'ad,folder'", "'folder,ad'", "'ad'", "'folder'"})
+    void anUploadedPhotoWinsWhateverThePriority(String order) {
+        String uploaded = "fedcba9876543210".repeat(4);
+        PhotoLinks links = PhotoLinks.of(FOLDER, AD, Map.of(7L, uploaded), priority(order));
+
+        assertThat(links.urlFor(7L, "ff@kz.example")).isEqualTo("/api/photos/7?v=fedcba98");
+        assertThat(links.isUploaded(7L)).isTrue();
+        assertThat(links.isUploaded(8L)).isFalse();
+        assertThat(links.isUploaded(null)).isFalse();
     }
 
     @Test

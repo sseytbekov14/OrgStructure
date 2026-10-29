@@ -133,7 +133,9 @@ all open pages within seconds (server-sent events) and written to the log with t
 | GET | `/api/me/roles` | everyone (signed in; open site: anonymous answer) |
 | GET | `/api/functions/{cs}/faq` | everyone who may see the site |
 | GET | `/api/people/{id}/external` | everyone who may see the site (managers outside Central Services only) |
-| GET | `/api/photos/{employeeId}` | everyone who may see the site (stored AD photo; `AD_PHOTOS_ENABLED=true`, db mode) |
+| GET | `/api/photos/{employeeId}` | everyone who may see the site (uploaded photo, or stored AD photo with `AD_PHOTOS_ENABLED=true`; db mode) |
+| PUT / DELETE | `/api/me/photo` (body `image/jpeg` or `image/png`) | everyone signed in, their own photo only (found by their e-mail / UPN) |
+| PUT / DELETE | `/api/manage/employees/{id}/photo` | admins |
 | GET | `/api/manage/overrides?cs=&q=` | admins |
 | PUT / DELETE | `/api/manage/overrides/{employeeId}?cs=` | admins |
 | GET / PUT | `/api/manage/functions/{cs}/heads` | admins |
@@ -153,8 +155,16 @@ all open pages within seconds (server-sent events) and written to the log with t
 **Employee photos from AD** (`AD_PHOTOS_ENABLED`, default off; db mode only): after every successful sync the
 `thumbnailPhoto` of new or changed employees is read one at a time on a background thread, validated (JPEG/PNG only,
 size limits checked before decoding) and re-encoded as a clean JPEG in `employee_photos`. The site shows the AD photo,
-then the folder photo (`PHOTO_SOURCE_PRIORITY=ad,folder` or `folder,ad`), then the initials. Hidden, disabled and
-external people never get a photo. See `.env.example` for the keys.
+then the folder photo (`PHOTO_SOURCE_PRIORITY=ad,folder` or `folder,ad`), then the initials. Hidden and disabled
+people never get a photo. See `.env.example` for the keys.
+
+**Uploaded photos** (db mode; independent of `AD_PHOTOS_ENABLED`): the camera button on the avatar of a profile card
+opens *Your photo* on the signed-in person's own card, and *Photo of …* on every card for admins. The browser turns the
+photo upright and scales it to 640 px; the server validates and re-encodes it like an AD photo (320 px) and stores it
+as `source = MANUAL` (`uploaded_by` = who). An uploaded photo is shown first, is published at once, and the AD sync
+never reads or overwrites it. *Remove photo* (the person or an admin) brings the AD photo back at once. Managers
+outside Central Services get no uploaded photo. Undo every upload: `DELETE FROM employee_photos WHERE source =
+'MANUAL'` (the next sync reads the AD photos again).
 
 ## UI conventions
 

@@ -65,4 +65,8 @@ public class Employee {
     /** The photo URL of the effective manager when they are outside Central Services (not in the directory) */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String pmPhotoUrl;
+
+    /** true: the photo shown was uploaded on the site (the photo dialog offers "Remove photo"); absent otherwise */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Boolean photoUploaded;
 }

@@ -170,6 +170,7 @@ public class EmployeeDtoAssembler {
                 .pmEmail(parentEmail)
                 .pmJobTitle(parent == null ? null : parent.getJobTitle())
                 .photoUrl(photoFiles.urlFor(employee.getId(), email))
+                .photoUploaded(photoFiles.isUploaded(employee.getId()) ? Boolean.TRUE : null)
                 .gradeOrder(GradeOrder.of(employee.getJobTitle()))
                 .areaOfDuties(membership == null ? null : membership.getAreaOfDuties())
                 .jobDescription(membership == null ? null : membership.getJobDescription())
