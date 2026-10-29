@@ -235,9 +235,11 @@ class GroupsAdminTest extends DbModeMvcSupport {
                         Map.of("groupName", "it pmo", "version", version)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.groupName").value("IT PMO"));
         assertThat(dtoGroup("Mike, Mint", "ITS")).isEqualTo("IT PMO");
+        // A name that is no group of the function is refused, never made through the edit
         mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), editor,
                         Map.of("groupName", "Other", "version", version + 1)))
-                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.errors.name.code").value("RESERVED"));
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.groupName.code").value("UNKNOWN_GROUP"));
     }
 
     // --- access ------------------------------------------------------------------------------------------------

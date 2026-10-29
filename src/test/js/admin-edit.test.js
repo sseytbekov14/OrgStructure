@@ -18,8 +18,18 @@ function member(extra = {}) {
   };
 }
 
+/** GET /api/manage/functions/{cs}/groups: the groups of the function as Manage groups lists them */
+function groupsOf(cs, names, inactive = []) {
+  return { body: { cs, heads: [], ungrouped: [], groups: [
+    ...names.map((name, i) => ({ id: i + 1, cs, name, active: true, members: [], memberCount: 0 })),
+    ...inactive.map((name, i) => ({ id: 100 + i, cs, name, active: false, members: [], memberCount: 0 }))] } };
+}
+
+const ITS_GROUPS = ['Service Desk', 'IT Operations', 'IT PMO', 'Workplace', 'Leads', 'Another team', 'Service Desk 2'];
+
 async function openEditor(routes = {}, employee = MIKE, memberRow = member()) {
-  const page = adminPage({ 'GET /api/manage/overrides': { body: [memberRow] }, ...routes });
+  const page = adminPage({ 'GET /api/manage/overrides': { body: [memberRow] },
+    'GET /api/manage/functions/ITS/groups': groupsOf('ITS', ITS_GROUPS), ...routes });
   page.ctx.sandbox.employee = employee;
   const editor = await page.ctx.run('openAdminEditor(employee)');
   await settle();
@@ -39,8 +49,67 @@ test('dialog titled with the person, the function shown, fields with labels, hel
   }
   assertEqual(input('groupName').value, 'Service Desk');
   assertTrue(dialog.textContent.includes('From Active Directory: IT Operations'), 'AD default as hint');
-  assertEqual(dialog.querySelector('#adminEdit-groupName-counter').textContent, '12 / 60');
+  assertTrue(!dialog.querySelector('#adminEdit-groupName-counter'), 'no character counter for a chosen group');
+  assertEqual(dialog.querySelector('#adminEdit-areaOfDuties-counter').textContent, '12 / 120');
   assertEqual(input('areaOfDuties').tagName, 'TEXTAREA');
+});
+
+// --- the Group select -----------------------------------------------------------------------------------------
+
+const optionsOf = (select) => [...select.querySelectorAll('option')].map((o) => [o.getAttribute('value'), o.textContent]);
+
+test('group: a select of the function\'s groups, "use the group from AD" first, de-duplicated and sorted', async () => {
+  const { input, requests } = await openEditor({
+    'GET /api/manage/functions/ITS/groups': groupsOf('ITS', ['Service Desk', 'it pmo', 'IT PMO', 'Analytics'], ['Old team'])
+  });
+  const select = input('groupName');
+  assertEqual(select.tagName, 'SELECT');
+  assertTrue(requests.some((r) => r.path === '/api/manage/functions/ITS/groups'), 'the groups of Manage groups');
+  assertEqual(optionsOf(select), [['', '— Use group from Active Directory —'], ['Analytics', 'Analytics'],
+    ['it pmo', 'it pmo'], ['Service Desk', 'Service Desk']], 'options (inactive groups left out)');
+  assertEqual(select.querySelector('option[selected]').getAttribute('value'), 'Service Desk', 'current preselected');
+});
+
+test('group: a current value that is no listed group is added, so the select keeps it', async () => {
+  const row = member({ override: { ...member().override, groupName: 'Legacy  team' } });
+  const { input, save } = await openEditor({}, MIKE, row);
+  const select = input('groupName');
+  assertTrue(optionsOf(select).some(([value]) => value === 'Legacy  team'), 'current value listed as stored');
+  assertEqual(select.value, 'Legacy  team');
+  assertTrue(save.disabled, 'nothing changed');
+});
+
+test('group: without an override the AD option is chosen; choosing a group and saving sends its name', async () => {
+  const row = member({ group: 'IT Operations', override: null });
+  const { input, save, writes, type } = await openEditor({ 'PUT /api/manage/overrides/5': { body: {} } }, MIKE, row);
+  assertEqual(input('groupName').value, '', 'AD option');
+  assertTrue(save.disabled);
+  type(input('groupName'), 'IT PMO');
+  input('groupName').dispatchEvent(new Event('change'));
+  assertTrue(!save.disabled, 'a chosen group can be saved');
+  save.click();
+  await settle();
+  assertEqual(writes()[0].body.groupName, 'IT PMO');
+});
+
+test('group: back to "use the group from AD" sends null (the group from Active Directory)', async () => {
+  const { input, save, writes, type, dialog } = await openEditor({ 'PUT /api/manage/overrides/5': { body: {} } });
+  type(input('groupName'), '');
+  save.click();
+  await settle();
+  assertEqual(writes()[0].body.groupName, null);
+  assertTrue(!dialog.isConnected, 'saved');
+});
+
+test('group: the "Reset to AD data" button stays next to the select', async () => {
+  const { dialog, button } = await openEditor();
+  assertTrue(button(dialog, 'Reset to AD data'), 'reset offered');
+});
+
+test('group: when the groups cannot be loaded only the current group can be kept', async () => {
+  const { input, dialog } = await openEditor({ 'GET /api/manage/functions/ITS/groups': { status: 500, body: {} } });
+  assertEqual(optionsOf(input('groupName')).map(([value]) => value), ['', 'Service Desk']);
+  assertTrue(dialog.textContent.includes('could not be loaded'), 'explained');
 });
 
 test('Save disabled until changed and valid; inline error with the shared message', async () => {

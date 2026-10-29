@@ -87,6 +87,7 @@ check('groups view with two heads (U3)', fn.run(`renderGroupsView([${JSON.string
 check('tree label (group of a child)', fn.run(`escapeHtml(slotLabel({ emp: { group: 'Other' } }, { emp: ${JSON.stringify(evil)} }))`));
 check('card facts (U6)', fn.run(`renderCardFacts(${JSON.stringify(evil)})`));
 check('external manager row (U6)', fn.run(`renderPersonRow(findManager(${JSON.stringify(evil)}))`));
+check('external manager card', fn.run(`renderExternalProfile(${JSON.stringify(evil)})`));
 check('search highlight', fn.run(`highlightText(${JSON.stringify(evil.areaOfDuties)}, 'duties')`));
 
 // start page search

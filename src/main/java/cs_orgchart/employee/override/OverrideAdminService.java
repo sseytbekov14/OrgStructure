@@ -121,6 +121,14 @@ public class OverrideAdminService {
         return members;
     }
 
+    /** The group of the function with this name (ignoring case and outer spaces), or null */
+    private FunctionGroup groupOfFunction(String cs, String name) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        return groups.findByCsAndNameIgnoreCase(cs, name.trim()).orElse(null);
+    }
+
     /** The name of the row's group object (U4: group_name is no longer read), or null */
     private String groupNameOf(EmployeeOverride row) {
         if (row == null || row.getGroupId() == null) {
@@ -159,7 +167,11 @@ public class OverrideAdminService {
         EmployeeOverride row = overlay.findByEmployeeIdAndCs(employeeId, cs).orElse(null);
         String storedGroup = groupNameOf(row);
         FieldRules.Errors errors = new FieldRules.Errors();
-        String groupName = keptOrChecked(errors, FieldRules.GROUP_NAME, request.groupName(), storedGroup);
+        // The group is empty (the group from AD) or a group of the function, chosen by its name as listed; a name
+        // that is not a group goes through the text rules first, then must name a group as well (never made here)
+        FunctionGroup group = groupOfFunction(cs, request.groupName());
+        String groupName = group != null ? group.getName()
+                : keptOrChecked(errors, FieldRules.GROUP_NAME, request.groupName(), storedGroup);
         String areaOfDuties = keptOrChecked(errors, FieldRules.AREA_OF_DUTIES, request.areaOfDuties(),
                 row == null ? null : row.getAreaOfDuties());
         String jobDescription = keptOrChecked(errors, FieldRules.JOB_DESCRIPTION, request.jobDescription(),
@@ -169,11 +181,20 @@ public class OverrideAdminService {
             // A group named HEAD would show a non-head as a head of the function
             errors.add("groupName", "RESERVED", "HEAD is reserved for the heads of the function: use the Function"
                     + " heads panel.");
+        } else if (groupChanged && groupName != null && group == null && !errors.has("groupName")) {
+            group = groupOfFunction(cs, groupName);
+            if (group == null) {
+                errors.add("groupName", "UNKNOWN_GROUP", "Choose one of the groups of " + cs + ". New groups are"
+                        + " created in Manage groups.");
+            } else {
+                groupName = group.getName();
+                groupChanged = !Objects.equals(groupName, storedGroup);
+            }
         }
         errors.throwIfAny();
-        // U4: the typed name is a group of the function (made when it does not exist yet, with the group rules)
-        FunctionGroup group = groupChanged && groupName != null
-                ? groupService.getObject().groupForEdit(cs, groupName, admin) : null;
+        if (!groupChanged || groupName == null) {
+            group = null;
+        }
 
         boolean created = row == null;
         if (created) {

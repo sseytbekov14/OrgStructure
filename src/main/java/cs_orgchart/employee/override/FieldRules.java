@@ -127,6 +127,11 @@ public final class FieldRules {
             return problems.isEmpty();
         }
 
+        /** A problem is recorded for the field */
+        public boolean has(String field) {
+            return problems.containsKey(field);
+        }
+
         public void throwIfAny() {
             if (!problems.isEmpty()) {
                 throw new FieldValidationException(problems);

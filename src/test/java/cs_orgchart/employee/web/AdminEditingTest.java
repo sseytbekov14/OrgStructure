@@ -216,6 +216,9 @@ class AdminEditingTest {
 
     @Test
     void newRowAddsThePersonToAnotherFunction() throws Exception {
+        // The edit chooses one of the function's groups: made in Manage groups first
+        mvc.perform(write(post("/api/manage/functions/QRM/groups"), admin, Map.of("name", "Project reviews")))
+                .andExpect(status().isCreated());
         mvc.perform(write(put("/api/manage/overrides/" + id("nnavy")).param("cs", "QRM"), admin,
                         Map.of("groupName", "Project reviews")))
                 .andExpect(status().isOk())

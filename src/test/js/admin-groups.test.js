@@ -76,6 +76,90 @@ test('menu: rename disabled for AD groups, delete only for empty groups, move le
   assertTrue(button !== null);
 });
 
+/** The "⋯" button and the menu of a group */
+function groupMenu(column, name) {
+  return { trigger: column(name).querySelector('.admin-group-menu-btn'), menu: column(name).querySelector('[role=menu]') };
+}
+
+function assertClosed({ trigger, menu }, message) {
+  assertTrue(menu.hidden, `${message}: menu hidden`);
+  assertEqual(trigger.getAttribute('aria-expanded'), 'false', `${message}: aria-expanded`);
+}
+
+test('menu: the trigger toggles it and the first enabled item gets the focus; ESC gives the focus back', async () => {
+  const { column, document } = await managePage();
+  const pmo = groupMenu(column, 'IT PMO');
+  pmo.trigger.click();
+  assertEqual(document.activeElement.textContent, 'Move left', 'first enabled item focused (Rename is off for AD groups)');
+  pmo.trigger.click();
+  assertClosed(pmo, 'second click');
+  pmo.trigger.click();
+  key(document.activeElement, 'Escape');
+  assertClosed(pmo, 'Escape');
+  assertEqual(document.activeElement, pmo.trigger, 'focus back on the trigger');
+});
+
+test('menu: a click outside closes it, a click inside (not on an item) keeps it open', async () => {
+  const { column, manage, document } = await managePage();
+  const pmo = groupMenu(column, 'IT PMO');
+  pmo.trigger.click();
+  pmo.menu.click();
+  assertTrue(!pmo.menu.hidden, 'click on the menu itself keeps it');
+  manage().querySelector('.field-help').click();
+  assertClosed(pmo, 'click outside');
+  pmo.trigger.click();
+  document.body.click();
+  assertClosed(pmo, 'click on the page body');
+});
+
+test('menu: choosing an action closes it and runs the action', async () => {
+  const { column, button, topDialog } = await managePage();
+  const empty = groupMenu(column, 'Empty team');
+  empty.trigger.click();
+  button(empty.menu, 'Rename').click();
+  await settle();
+  assertClosed(empty, 'action chosen');
+  assertEqual(topDialog().querySelector('.ui-dialog-title').textContent, 'Rename Empty team', 'the action ran');
+});
+
+test('menu: only one open at a time, opening another closes the first', async () => {
+  const { column, manage } = await managePage();
+  const pmo = groupMenu(column, 'IT PMO');
+  const ops = groupMenu(column, 'IT Operations');
+  pmo.trigger.click();
+  ops.trigger.click();
+  assertClosed(pmo, 'the other menu opened');
+  assertTrue(!ops.menu.hidden && ops.trigger.getAttribute('aria-expanded') === 'true', 'the new one is open');
+  assertEqual([...manage().querySelectorAll('[role=menu]')].filter((m) => !m.hidden).length, 1, 'one open');
+});
+
+test('menu: a resize or a scroll of the window closes it', async () => {
+  const { column, fireWindow } = await managePage();
+  const pmo = groupMenu(column, 'IT PMO');
+  pmo.trigger.click();
+  fireWindow('resize');
+  assertClosed(pmo, 'resize');
+  pmo.trigger.click();
+  fireWindow('scroll');
+  assertClosed(pmo, 'scroll');
+});
+
+test('menu: one document listener for all menus, also after re-rendering; the items have no listeners', async () => {
+  const { ctx, document, manage, column, windowListeners } = await managePage();
+  const clicks = document.listeners.click.length;
+  const keys = (document.listeners.keydown || []).length;
+  for (let i = 0; i < 3; i++) ctx.run('renderAdminGroups()');
+  assertEqual(document.listeners.click.length, clicks, 'no click listener added by re-rendering');
+  assertEqual((document.listeners.keydown || []).length, keys, 'no keydown listener added by re-rendering');
+  assertEqual(windowListeners.resize.length, 1, 'one resize listener');
+  assertEqual(windowListeners.scroll.length, 1, 'one scroll listener');
+  const parts = [...manage().querySelectorAll('.admin-group-menu-btn, [role=menu], [role=menuitem]')];
+  assertTrue(parts.every((el) => !Object.values(el.listeners).some((list) => list.length)), 'no per-menu listeners');
+  const pmo = groupMenu(column, 'IT PMO');
+  pmo.trigger.click();
+  assertTrue(!pmo.menu.hidden, 'the menus of the new render work');
+});
+
 test('move to group: POST with the person, toast with Undo, Undo puts them back where they were', async () => {
   const page = await managePage({
     'POST /api/manage/groups/2/members': { body: { groupId: 2, moved: [{ employeeId: 11, previousGroupId: null, previousGroupName: null }] } },

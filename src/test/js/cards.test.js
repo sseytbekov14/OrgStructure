@@ -52,13 +52,39 @@ test('profile: the external manager row opens the limited card', () => {
   assertTrue(internal.includes('data-person-index') && !internal.includes('data-external-id'), 'internal stays a profile link');
 });
 
-test('profile: the address is a mailto link with a copy button next to it', () => {
+test('profile: the address is plain text with a copy button; only the Email button is a mailto link', () => {
   const ctx = page();
   const html = String(ctx.run(`renderProfile(${JSON.stringify(BOSS)})`));
-  assertTrue(html.includes('href="mailto:kk@kz.example"'), 'mailto kept');
+  assertTrue(html.includes('<span class="profile-email">kk@kz.example</span>'), 'address as text');
+  assertEqual(html.split('href="mailto:').length - 1, 1, 'one mailto link');
+  assertTrue(/<a class="profile-btn profile-btn-primary" href="mailto:kk@kz\.example"[^>]*>.*Email<\/a>/.test(html), 'the Email button');
+  assertTrue(!/<a[^>]*class="profile-email"/.test(html), 'the e-mail row is no link');
   assertTrue(html.includes('data-copy-email="kk@kz.example"') && html.includes('aria-label="Copy email kk@kz.example"'), 'copy button');
   const none = String(ctx.run(`renderProfile(${JSON.stringify({ ...BOSS, email: '' })})`));
-  assertTrue(!none.includes('data-copy-email'), 'no copy button without an address');
+  assertTrue(!none.includes('data-copy-email') && !none.includes('mailto:'), 'no copy button and no mailto without an address');
+});
+
+test('profile: the e-mail card and City / Country share one info block', () => {
+  const ctx = page();
+  const html = String(ctx.run(`renderProfile(${JSON.stringify(BOSS)})`)).replace(/\s+/g, ' ');
+  assertTrue(/<div class="profile-info"> <div class="profile-contact">.*<\/div> <dl class="profile-facts">/.test(html), 'info block');
+  const css = readStatic('css/style.css');
+  assertTrue(/\.profile-facts \{[^}]*grid-template-columns: repeat\(auto-fit, minmax\(140px, 1fr\)\)/.test(css), 'equal columns');
+});
+
+test('the copy button shows "Copied" for a moment, then its label again', async () => {
+  const globals = domGlobals({ fetch: () => new Promise(() => {}), Headers: class { set() {} },
+    navigator: { clipboard: { writeText: () => Promise.resolve() } }, isSecureContext: true });
+  const ctx = context(['ui.js', 'common.js'], globals);
+  const button = globals.document.createElement('button');
+  button.dataset.copyEmail = 'kk@kz.example';
+  button.setAttribute('aria-label', 'Copy email kk@kz.example');
+  ctx.sandbox.button = button;
+  await ctx.run('copyEmailFrom(button)');
+  assertTrue(button.classList.contains('is-copied') && button.getAttribute('aria-label') === 'Copied', 'copied state');
+  globals.flushTimers();
+  assertTrue(!button.classList.contains('is-copied'), 'state cleared');
+  assertEqual(button.getAttribute('aria-label'), 'Copy email kk@kz.example');
 });
 
 test('the copy button copies the address and confirms it with a toast', async () => {
@@ -105,33 +131,56 @@ test('no copy button in the search results or the FAQ, and no "Direct reports" i
   }
 });
 
-test('the external dialog: name as title, badge, job, e-mail, city, country; nothing else', async () => {
-  const globals = domGlobals({
+const PAT = { name: 'Partner, Pat', email: 'pat@x.example', jobTitle: 'Managing Partner', city: 'London',
+  country: 'United Kingdom', phone: '+000' };
+
+/** common.js with the answer of GET /api/people/{id}/external; the profile dialog is a stub keeping its HTML */
+function externalPage(answer) {
+  const ctx = context(['common.js'], {
     fetch: (url) => Promise.resolve({ ok: url.endsWith('/api/people/99/external'), status: 200,
-      json: () => Promise.resolve({ name: 'Partner, Pat', email: 'pat@x.example', jobTitle: 'Managing Partner',
-        city: 'London', country: 'United Kingdom', phone: '+000' }) }),
-    Headers: class { set() {} }
+      json: () => Promise.resolve(answer) }),
+    toast: (message, type) => { ctx.toasts.push({ message, type }); }
   });
-  const ctx = context(['ui.js', 'common.js'], globals);
-  await ctx.run('openExternalPerson(99)');
-  const dialog = globals.document.querySelector('[role=dialog]');
-  assertEqual(dialog.querySelector('.ui-dialog-title').textContent, 'Partner, Pat');
-  assertTrue(dialog.textContent.includes('Outside Central Services'), 'badge');
-  assertEqual([...dialog.querySelectorAll('dt')].map((d) => d.textContent), ['Job title', 'Email', 'City', 'Country']);
-  assertTrue(!dialog.textContent.includes('+000'), 'never a phone');
-  assertTrue(!dialog.querySelector('.person-list') && !dialog.querySelector('[data-admin-edit]'), 'no counselees, no admin');
-  assertEqual(dialog.querySelector('dd a').getAttribute('href'), 'mailto:pat@x.example');
+  ctx.toasts = [];
+  return ctx;
+}
+
+test('the external card opens in the profile dialog: band with badge, job, e-mail card, city, country', async () => {
+  const ctx = externalPage(PAT);
+  const person = await ctx.run('openExternalPerson(99)');
+  assertEqual(person.name, 'Partner, Pat');
+  const html = String(ctx.elements.profileBody.innerHTML);
+  assertTrue(html.includes('class="profile-band"') && html.includes('id="profileName">Partner, Pat<'), 'band with the name');
+  assertTrue(html.includes('<div class="profile-title">Managing Partner</div>'), 'job title');
+  assertTrue(html.includes('<span class="profile-chip">Outside Central Services</span>'), 'badge in the header');
+  assertTrue(/class="avatar avatar-xl[^"]*"[^>]*>PP<\/span>/.test(html), 'initials (no photo for external people)');
+  assertTrue(html.includes('<span class="profile-email">pat@x.example</span>') && html.includes('data-copy-email="pat@x.example"'), 'e-mail card');
+  assertTrue(html.includes('<dt>City</dt><dd>London</dd>') && html.includes('<dt>Country</dt><dd>United Kingdom</dd>'), 'city and country');
+  assertEqual(html.split('href="mailto:').length - 1, 1, 'mailto on the Email button only');
+  assertTrue(html.includes('data-profile-close>Close</button>'), 'Close button');
 });
 
-test('the external dialog and the facts keep payloads as text', async () => {
-  const globals = domGlobals({
-    fetch: () => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve({ name: PAYLOAD, email: null,
-      jobTitle: PAYLOAD, city: PAYLOAD, country: PAYLOAD }) }),
-    Headers: class { set() {} }
-  });
-  const ctx = context(['ui.js', 'common.js'], globals);
-  await ctx.run('openExternalPerson(5)');
-  assertEqual(globals.document.querySelectorAll('img').length, 0, 'no element from a payload');
+test('the external card has no admin controls, reviews, counselees, reporting line or phone', async () => {
+  const ctx = externalPage(PAT);
+  await ctx.run('openExternalPerson(99)');
+  const html = String(ctx.elements.profileBody.innerHTML);
+  for (const absent of ['data-admin', 'Reviews', 'Counselees', 'Reports to', 'Show in chart', 'like-btn', '+000']) {
+    assertTrue(!html.includes(absent), `no ${absent}`);
+  }
+});
+
+test('an external card that cannot be loaded gives a message and opens nothing', async () => {
+  const ctx = externalPage(PAT);
+  assertEqual(await ctx.run('openExternalPerson(5)'), null);
+  assertEqual(ctx.toasts[0].message, "This person's card is not available.");
+  assertTrue(!String(ctx.elements.profileBody?.innerHTML || '').includes('profile-band'), 'nothing shown');
+});
+
+test('the external card and the facts keep payloads as text', () => {
+  const ctx = context(['common.js']);
+  const html = String(ctx.run(`renderExternalProfile(${JSON.stringify({ name: PAYLOAD, email: null, jobTitle: PAYLOAD, city: PAYLOAD, country: PAYLOAD })})`));
+  assertTrue(!html.includes('<img') && html.includes('&lt;img'), 'escaped');
+  assertTrue(html.includes('Email not specified') && !html.includes('mailto:'), 'no address: no mailto');
   const facts = String(context(['common.js']).run(`renderCardFacts({ city: ${JSON.stringify(PAYLOAD)}, country: 'x' })`));
   assertTrue(!facts.includes('<img') && facts.includes('&lt;img'), 'escaped');
 });

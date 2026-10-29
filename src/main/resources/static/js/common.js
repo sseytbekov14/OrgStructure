@@ -303,11 +303,25 @@ async function copyEmail(email) {
   return copied;
 }
 
+/** The copy button shows a check and "Copied" for a moment after a successful copy */
+async function copyEmailFrom(button) {
+  if (!(await copyEmail(button.dataset.copyEmail))) return;
+  const label = button.getAttribute("aria-label");
+  button.classList.add("is-copied");
+  button.setAttribute("aria-label", "Copied");
+  button.title = "Copied";
+  setTimeout(() => {
+    button.classList.remove("is-copied");
+    button.setAttribute("aria-label", label);
+    button.title = "Copy email";
+  }, 1500);
+}
+
 /* ---------- Managers outside Central Services (U6) ---------- */
 
 /**
- * The limited card of a manager outside Central Services: name, badge, job title, e-mail, city and country only;
- * no counselee list and no admin controls. Built with DOM APIs (ui.js dialog).
+ * The limited card of a manager outside Central Services, in the profile dialog: name, badge, job title, e-mail,
+ * city and country only; no counselee list, no reviews and no admin controls.
  */
 async function openExternalPerson(id) {
   let person = null;
@@ -319,35 +333,8 @@ async function openExternalPerson(id) {
     notify("This person's card is not available.", "error");
     return null;
   }
-  const facts = document.createElement("dl");
-  facts.className = "profile-facts external-facts";
-  const fact = (label, value, href) => {
-    if (!value) return;
-    const row = document.createElement("div");
-    row.className = "profile-fact";
-    const dt = document.createElement("dt");
-    dt.textContent = label;
-    const dd = document.createElement("dd");
-    if (href) {
-      const link = document.createElement("a");
-      link.href = href;
-      link.textContent = value;
-      dd.appendChild(link);
-    } else {
-      dd.textContent = value;
-    }
-    row.append(dt, dd);
-    facts.appendChild(row);
-  };
-  fact("Job title", person.jobTitle);
-  fact("Email", person.email, person.email ? `mailto:${person.email}` : null);
-  fact("City", person.city);
-  fact("Country", person.country);
-  const badge = document.createElement("span");
-  badge.className = "badge badge-neutral external-badge";
-  badge.textContent = "Outside Central Services";
-  return openDialog({ title: person.name || "Manager", body: [badge, facts], className: "external-person-dialog",
-    actions: [{ label: "Close", variant: "secondary" }] });
+  showProfile(renderExternalProfile(person), null);
+  return person;
 }
 
 /* ---------- Reactions ---------- */
@@ -466,37 +453,73 @@ function renderPersonRow(person, variant = "", hidden = false) {
   return `<button type="button" class="person-row ${variant}" data-person-index="${index}"${hiddenAttr}>${body}${ICONS.chevronRight}</button>`;
 }
 
+/** The blue band of a card: avatar, name, job title and chips */
+function renderProfileBand(person, chips) {
+  return `
+    <div class="profile-band">
+      ${renderAvatar(person, "xl")}
+      <div class="profile-id">
+        <h2 class="profile-name" id="profileName">${escapeHtml(person.name || "—")}</h2>
+        <div class="profile-title">${escapeHtml(person.jobTitle || "—")}</div>
+        ${chips.length ? `<div class="profile-chips">${chips.map((chip) => `<span class="profile-chip">${escapeHtml(chip)}</span>`).join("")}</div>` : ""}
+      </div>
+    </div>`;
+}
+
+/**
+ * The info cards of a card: the e-mail address as plain text with its copy button (only the Email button opens the
+ * mail program), then City and Country in a grid of equal columns
+ */
+function renderProfileInfo(person) {
+  const email = person.email || "";
+  return `
+    <div class="profile-info">
+      ${email ? `
+        <div class="profile-contact">
+          <span class="profile-contact-label">Email</span>
+          <span class="profile-email">${escapeHtml(email)}</span>
+          <button type="button" class="icon-btn profile-copy-email" data-copy-email="${escapeHtml(email)}" aria-label="Copy email ${escapeHtml(email)}" title="Copy email">${ICONS.copy}${ICONS.check}</button>
+        </div>` : '<div class="profile-contact profile-contact-empty">Email not specified</div>'}
+      ${person.city || person.country ? `
+        <dl class="profile-facts">
+          ${person.city ? `<div class="profile-fact"><dt>City</dt><dd>${escapeHtml(person.city)}</dd></div>` : ""}
+          ${person.country ? `<div class="profile-fact"><dt>Country</dt><dd>${escapeHtml(person.country)}</dd></div>` : ""}
+        </dl>` : ""}
+    </div>`;
+}
+
+function renderEmailButton(email) {
+  return email ? `<a class="profile-btn profile-btn-primary" href="mailto:${escapeHtml(email)}" data-mail="${escapeHtml(email)}">${ICONS.mail}Email</a>` : "";
+}
+
+/** The card of a manager outside Central Services: the profile's band and info cards, Email and Close only */
+function renderExternalProfile(person) {
+  return `
+    ${renderProfileBand({ name: person.name, jobTitle: person.jobTitle, photoUrl: person.photoUrl }, ["Outside Central Services"])}
+
+    <div class="profile-content">
+      ${renderProfileInfo(person)}
+
+      <div class="profile-actions">
+        ${renderEmailButton(person.email || "")}
+        <button type="button" class="profile-btn" data-profile-close>Close</button>
+      </div>
+    </div>`;
+}
+
 function renderProfile(employee) {
   const manager = findManager(employee);
   const reports = findDirectReports(employee);
   const email = employee.email || "";
-  const chips = [employee.cs, employee.group].filter(Boolean);
 
   return `
-    <div class="profile-band">
-      ${renderAvatar(employee, "xl")}
-      <div class="profile-id">
-        <h2 class="profile-name" id="profileName">${escapeHtml(employee.name || "—")}</h2>
-        <div class="profile-title">${escapeHtml(employee.jobTitle || "—")}</div>
-        ${chips.length ? `<div class="profile-chips">${chips.map((chip) => `<span class="profile-chip">${escapeHtml(chip)}</span>`).join("")}</div>` : ""}
-      </div>
-    </div>
+    ${renderProfileBand(employee, [employee.cs, employee.group].filter(Boolean))}
 
     <div class="profile-content">
-      ${email ? `
-        <div class="profile-contact">
-          <span class="profile-contact-label">Email</span>
-          <a class="profile-email" href="mailto:${escapeHtml(email)}" data-mail="${escapeHtml(email)}">${escapeHtml(email)}</a>
-          <button type="button" class="icon-btn profile-copy-email" data-copy-email="${escapeHtml(email)}" aria-label="Copy email ${escapeHtml(email)}" title="Copy email">${ICONS.copy}</button>
-        </div>` : '<div class="profile-contact profile-contact-empty">Email not specified</div>'}
-      ${employee.city || employee.country ? `
-        <dl class="profile-facts">
-          ${employee.city ? `<div class="profile-fact"><dt>City</dt><dd>${escapeHtml(employee.city)}</dd></div>` : ""}
-          ${employee.country ? `<div class="profile-fact"><dt>Country</dt><dd>${escapeHtml(employee.country)}</dd></div>` : ""}
-        </dl>` : ""}
+      ${renderProfileInfo(employee)}
 
       <div class="profile-actions">
-        ${email ? `<a class="profile-btn profile-btn-primary" href="mailto:${escapeHtml(email)}" data-mail="${escapeHtml(email)}">${ICONS.mail}Email</a>` : ""}
+        ${renderEmailButton(email)}
         ${employee.cs ? `<a class="profile-btn" href="${chartUrl(employee)}" data-show-in-chart>${ICONS.target}Show in chart</a>` : ""}
       </div>
 
@@ -552,7 +575,7 @@ function ensureProfileDialog() {
   dialog = document.getElementById("profileDialog");
 
   dialog.addEventListener("click", (event) => {
-    if (event.target === dialog || event.target.closest(".profile-close")) {
+    if (event.target === dialog || event.target.closest(".profile-close, [data-profile-close]")) {
       dialog.close();
       return;
     }
@@ -573,7 +596,7 @@ function ensureProfileDialog() {
 
     const copyEmailButton = event.target.closest("[data-copy-email]");
     if (copyEmailButton) {
-      copyEmail(copyEmailButton.dataset.copyEmail);
+      copyEmailFrom(copyEmailButton);
       return;
     }
 
@@ -615,19 +638,29 @@ function ensureProfileDialog() {
   return dialog;
 }
 
-function openEmployeeProfile(employee) {
-  if (!employee) return;
+/**
+ * Shows a card in the profile dialog (a native modal dialog: ESC, focus kept inside, focus returned on close).
+ * html comes from renderProfile / renderExternalProfile, which escape every value. employee: the person of the site
+ * shown (null for a manager outside Central Services).
+ */
+function showProfile(html, employee) {
   const dialog = ensureProfileDialog();
   profileEmployee = employee;
-  document.getElementById("profileBody").innerHTML = renderProfile(employee);
-  if (typeof window.onProfileRendered === "function") window.onProfileRendered(employee, document.getElementById("profileBody"));
-
+  const body = document.getElementById("profileBody");
+  body.innerHTML = html;
   if (!dialog.open) {
     profileReturnFocus = document.activeElement;
     dialog.showModal();
   }
   dialog.scrollTop = 0;
   dialog.querySelector(".profile-close").focus();
+  return body;
+}
+
+function openEmployeeProfile(employee) {
+  if (!employee) return;
+  const body = showProfile(renderProfile(employee), employee);
+  if (typeof window.onProfileRendered === "function") window.onProfileRendered(employee, body);
 
   if (employee.email) logInteraction(employee.email, "PROFILE_VIEW");
 }
@@ -648,7 +681,7 @@ function loadMe() {
   return Me.loading;
 }
 
-const ADMIN_SCRIPT = "/js/admin.js?v=3.0";
+const ADMIN_SCRIPT = "/js/admin.js?v=3.1";
 
 function addAdminLink() {
   const header = document.querySelector(".header-inner");
@@ -661,7 +694,7 @@ function addAdminLink() {
 }
 
 // The admin scripts in order (async=false keeps the order of dynamically added scripts)
-const ADMIN_SCRIPTS = ["/js/validation.js?v=3.0", ADMIN_SCRIPT, "/js/admin-groups.js?v=3.0", "/js/admin-faq.js?v=3.1"];
+const ADMIN_SCRIPTS = ["/js/validation.js?v=3.0", ADMIN_SCRIPT, "/js/admin-groups.js?v=3.1", "/js/admin-faq.js?v=3.1"];
 
 function loadAdminScript() {
   if (document.querySelector("script[data-admin-tools]")) return;

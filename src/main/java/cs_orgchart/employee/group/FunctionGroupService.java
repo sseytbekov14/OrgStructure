@@ -295,23 +295,6 @@ public class FunctionGroupService {
 
     // --- used by the overlay edit, the importer, the seeder and the registrar -----------------------------------
 
-    /** The group named so in the function, made (MANUAL, with the group rules) when there is none yet */
-    @Transactional
-    public FunctionGroup groupForEdit(String cs, String name, String admin) {
-        FunctionGroup existing = groups.findByCsAndNameIgnoreCase(cs, name.trim()).orElse(null);
-        if (existing != null) {
-            return existing;
-        }
-        String kind = COUNTRY_CODES.contains(name.trim().toUpperCase(Locale.ROOT)) ? FunctionGroup.COUNTRY
-                : FunctionGroup.TEAM;
-        String checked = checkedName(cs, name, kind, null);
-        FunctionGroup group = groups.saveAndFlush(FunctionGroup.builder().cs(cs).name(checked).kind(kind)
-                .source(FunctionGroup.MANUAL).sortOrder(groups.maxSortOrder(cs) + 10).createdBy(admin)
-                .updatedBy(admin).build());
-        log.info("Admin {} created group {} ({}) in {} through an edit", admin, group.getId(), kind, cs);
-        return group;
-    }
-
     /** The group named so, made as it is (no rules: names that exist already, e.g. from the Excel import) */
     @Transactional
     public FunctionGroup resolveOrCreate(String cs, String name, String source, String by) {

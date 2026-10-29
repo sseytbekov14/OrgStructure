@@ -66,7 +66,14 @@ test('the panel shows the sections of the API in order: guidelines, mailboxes, q
   assertEqual([...card.querySelectorAll('.faq-section-title')].map((h) => h.textContent),
     ['Request rules', 'Team mailboxes', 'Questions']);
   assertTrue(card.querySelector('.faq-mailbox-missing').textContent === 'Email to be added', 'missing address');
-  assertEqual(card.querySelector('.faq-mailbox-email').getAttribute('href'), 'mailto:it@kpmg.kz');
+  const address = card.querySelector('.faq-mailbox-email');
+  assertEqual(address.tagName, 'SPAN', 'the address is plain text');
+  assertEqual(address.textContent, 'it@kpmg.kz');
+  const mail = card.querySelectorAll('.faq-mailbox-mail');
+  assertEqual(mail.length, 1, 'a mail button for the mailbox with an address only');
+  assertEqual(mail[0].getAttribute('href'), 'mailto:it@kpmg.kz', 'mailto on the icon button');
+  assertEqual(mail[0].getAttribute('aria-label'), 'Email Service Desk (it@kpmg.kz)');
+  assertEqual(mail[0].title, 'Email it@kpmg.kz');
   assertEqual(card.querySelector('.faq-answer').textContent, 'Line one\nLine two');
   assertTrue(!card.querySelector('[data-faq-copy]'), 'no copy button any more');
 });

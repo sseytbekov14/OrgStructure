@@ -91,6 +91,68 @@ function renderAdminGroups() {
   if (focusKey) manage.querySelector(`[data-focus-key="${focusKey}"]`)?.focus();
 }
 
+/* ---------- The "⋯" menus of the groups ---------- */
+
+// One menu open at a time. The menus have no listeners of their own: one click and one keydown listener on the
+// document (installed once, so re-rendering the groups adds none) and resize / scroll of the window close them.
+// The action of each item is kept here, keyed by the item button (gone with the button on the next render).
+const groupMenuActions = new WeakMap();
+
+function groupMenuTrigger(menu) {
+  return menu.closest(".admin-group-menu-wrap")?.querySelector(".admin-group-menu-btn") || null;
+}
+
+/** Closes the open menu; returns its trigger button (null when none was open) */
+function closeGroupMenus() {
+  let trigger = null;
+  document.querySelectorAll(".admin-group-menu").forEach((menu) => {
+    if (menu.hidden) return;
+    menu.hidden = true;
+    trigger = groupMenuTrigger(menu);
+    trigger?.setAttribute("aria-expanded", "false");
+  });
+  return trigger;
+}
+
+function toggleGroupMenu(trigger) {
+  const menu = document.getElementById(trigger.getAttribute("aria-controls"));
+  const wasOpen = menu && !menu.hidden;
+  closeGroupMenus();
+  if (!menu || wasOpen) return;
+  menu.hidden = false;
+  trigger.setAttribute("aria-expanded", "true");
+  [...menu.querySelectorAll("button")].find((b) => !b.disabled)?.focus({ preventScroll: true });
+}
+
+document.addEventListener("click", (event) => {
+  const target = event.target;
+  const trigger = target?.closest?.(".admin-group-menu-btn");
+  if (trigger) {
+    toggleGroupMenu(trigger);
+    return;
+  }
+  const item = target?.closest?.(".admin-group-menu-item");
+  if (item) {
+    closeGroupMenus();
+    const action = groupMenuActions.get(item);
+    if (action && !item.disabled) action();
+    return;
+  }
+  if (!target?.closest?.(".admin-group-menu")) closeGroupMenus();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  const trigger = closeGroupMenus();
+  if (!trigger) return;
+  event.preventDefault();
+  trigger.focus();
+});
+
+window.addEventListener("resize", () => closeGroupMenus());
+// Capture: also the scrolling of the page's own containers
+window.addEventListener("scroll", () => closeGroupMenus(), { capture: true, passive: true });
+
 function groupKindLabel(group) {
   if (group.kind === "COUNTRY") return "Country";
   return group.source === "AUTO" ? "From AD" : "Custom";
@@ -108,26 +170,15 @@ function renderGroupColumn(group, index, count) {
     ["Delete", () => deleteGroup(group), group.memberCount > 0]
   ];
   const menu = uiEl("ul", { class: "admin-group-menu", id: menuId, role: "menu", hidden: true },
-    items.map(([label, action, disabled]) => uiEl("li", { role: "none" }, uiEl("button", {
-      type: "button", role: "menuitem", class: "admin-group-menu-item", text: label, disabled,
-      title: disabled && label === "Delete" ? "Only an empty group can be deleted" : disabled && label === "Rename"
-        ? "Groups from Active Directory keep their name" : null,
-      onclick: () => { closeMenu(); action(); }
-    }))));
-  function closeMenu() {
-    menu.hidden = true;
-    menuButton.setAttribute("aria-expanded", "false");
-  }
-  menuButton.addEventListener("click", () => {
-    const open = menu.hidden;
-    document.querySelectorAll(".admin-group-menu").forEach((m) => { m.hidden = true; });
-    menu.hidden = !open;
-    menuButton.setAttribute("aria-expanded", open ? "true" : "false");
-    if (open) menu.querySelector("button:not([disabled])")?.focus();
-  });
-  menu.addEventListener("keydown", (event) => {
-    if (event.key === "Escape") { event.preventDefault(); closeMenu(); menuButton.focus(); }
-  });
+    items.map(([label, action, disabled]) => {
+      const item = uiEl("button", {
+        type: "button", role: "menuitem", class: "admin-group-menu-item", text: label, disabled,
+        title: disabled && label === "Delete" ? "Only an empty group can be deleted" : disabled && label === "Rename"
+          ? "Groups from Active Directory keep their name" : null
+      });
+      groupMenuActions.set(item, action);
+      return uiEl("li", { role: "none" }, item);
+    }));
   return uiEl("section", { class: "admin-group-column", "aria-label": `Group ${group.name}`, "data-group-id": String(group.id) },
     uiEl("header", { class: "admin-group-header" },
       uiEl("h3", { class: "admin-group-name", text: group.name }),

@@ -21,7 +21,11 @@ function adminPage(routes = {}) {
     return Promise.resolve({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(JSON.parse(JSON.stringify(body))) });
   };
   class Headers { constructor() {} set() {} }
-  const globals = domGlobals({ fetch, Headers });
+  // The listeners of the window (resize, scroll), fired by fireWindow(type)
+  const windowListeners = {};
+  const globals = domGlobals({ fetch, Headers,
+    addEventListener: (type, fn) => { (windowListeners[type] = windowListeners[type] || []).push(fn); },
+    removeEventListener: (type, fn) => { windowListeners[type] = (windowListeners[type] || []).filter((f) => f !== fn); } });
   const chart = globals.document.createElement('div');
   chart.id = 'orgChart';
   globals.document.body.append(chart);
@@ -35,7 +39,9 @@ function adminPage(routes = {}) {
     topDialog: () => { const d = document.querySelectorAll('[role=dialog]'); return d[d.length - 1] || null; },
     button: (root, text) => [...root.querySelectorAll('button')].find((b) => b.textContent === text) || null,
     type: (input, value) => { input.value = value; input.dispatchEvent(new Event('input')); },
-    writes: () => requests.filter((r) => r.method !== 'GET')
+    writes: () => requests.filter((r) => r.method !== 'GET'),
+    windowListeners,
+    fireWindow: (type) => (windowListeners[type] || []).forEach((fn) => fn(new Event(type)))
   };
 }
 

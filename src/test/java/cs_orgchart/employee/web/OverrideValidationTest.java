@@ -11,6 +11,7 @@ import java.util.stream.LongStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -32,6 +33,71 @@ class OverrideValidationTest extends DbModeMvcSupport {
             body.put((String) pairs[i], pairs[i + 1]);
         }
         return body;
+    }
+
+    /** A group made in Manage groups (the edit only chooses existing groups) */
+    private void createGroup(String cs, String name) throws Exception {
+        mvc.perform(write(post("/api/manage/functions/" + cs + "/groups"), editor, Map.of("name", name)))
+                .andExpect(status().isCreated());
+    }
+
+    private long groupCount(String name) {
+        return jdbc.queryForObject("SELECT count(*) FROM function_groups WHERE lower(name) = lower(?)", Long.class,
+                name);
+    }
+
+    // --- the group is one of the function's groups ------------------------------------------------------------
+
+    @Test
+    void aGroupThatDoesNotExistIsRefusedAndNoGroupIsMade() throws Exception {
+        long version = version("mmint", "ITS");
+        mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), editor,
+                        body("groupName", "Brand new team", "version", version)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.groupName.code").value("UNKNOWN_GROUP"))
+                .andExpect(jsonPath("$.errors.groupName.message")
+                        .value("Choose one of the groups of ITS. New groups are created in Manage groups."));
+        assertThat(groupCount("Brand new team")).as("no group made by the edit").isZero();
+        assertThat(version("mmint", "ITS")).as("nothing stored").isEqualTo(version);
+    }
+
+    @Test
+    void aGroupOfAnotherFunctionIsRefused() throws Exception {
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM function_groups WHERE cs = 'ITS' AND name = 'IT PMO'",
+                Long.class)).as("IT PMO is a group of ITS").isOne();
+        mvc.perform(write(put("/api/manage/overrides/" + id("nnavy")).param("cs", "QRM"), editor,
+                        body("groupName", "IT PMO")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.groupName.code").value("UNKNOWN_GROUP"));
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM employee_overrides WHERE employee_id = ? AND cs = 'QRM'",
+                Long.class, id("nnavy"))).as("no row made").isZero();
+    }
+
+    @Test
+    void anExistingGroupIsChosenByItsListedNameAndEmptyMeansTheGroupFromAd() throws Exception {
+        createGroup("ITS", "Platform team");
+        mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), editor,
+                        body("groupName", " platform TEAM ", "version", version("mmint", "ITS"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.groupName").value("Platform team"));
+        mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), editor,
+                        body("groupName", "", "version", version("mmint", "ITS"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.groupName").doesNotExist());
+        assertThat(jdbc.queryForObject("SELECT group_id FROM employee_overrides WHERE employee_id = ? AND cs = 'ITS'",
+                Long.class, id("mmint"))).as("back to the group from AD").isNull();
+    }
+
+    /** A group whose name breaks the text rules (e.g. from the Excel import or AD) can still be chosen */
+    @Test
+    void aListedGroupIsAcceptedEvenWhenItsNameBreaksTheTextRules() throws Exception {
+        jdbc.update("INSERT INTO function_groups(cs, name, kind, source, sort_order, active, version, created_by,"
+                + " created_at, updated_by, updated_at) VALUES ('ITS', 'R&D  [legacy]', 'TEAM', 'MANUAL', 999, TRUE,"
+                + " 0, 'test', now(), 'test', now())");
+        mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), editor,
+                        body("groupName", "R&D  [legacy]", "version", version("mmint", "ITS"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.groupName").value("R&D  [legacy]"));
     }
 
     @Test
@@ -92,6 +158,7 @@ class OverrideValidationTest extends DbModeMvcSupport {
         String legacy = "x".repeat(300) + "  <old>";
         jdbc.update("UPDATE employee_overrides SET job_description = ? WHERE employee_id = ? AND cs = 'ITS'",
                 legacy, id("mmint"));
+        createGroup("ITS", "Workplace");
         mvc.perform(write(put("/api/manage/overrides/" + id("mmint")).param("cs", "ITS"), editor,
                         body("groupName", "Workplace", "jobDescription", legacy, "version", version("mmint", "ITS"))))
                 .andExpect(status().isOk())

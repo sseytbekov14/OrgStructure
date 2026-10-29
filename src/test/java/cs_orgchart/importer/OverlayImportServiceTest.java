@@ -340,7 +340,8 @@ class OverlayImportServiceTest {
         EmployeeOverride zinc = row("zzinc", "Finance");
         admin.upsert(id("zzinc"), "Finance", new OverrideRequest("Accounting General", "Edited", null,
                 zinc.getVersion()), "admin@corp.example");
-        admin.upsert(id("nnavy"), "QRM", new OverrideRequest("Reviews", null, null, null), "admin@corp.example");
+        // An admin row in another function (no group: the edit only chooses existing groups of QRM)
+        admin.upsert(id("nnavy"), "QRM", new OverrideRequest(null, "Reviews", null, null), "admin@corp.example");
 
         int removed = jdbc.update("DELETE FROM employee_overrides WHERE updated_by = 'excel-import'");
 

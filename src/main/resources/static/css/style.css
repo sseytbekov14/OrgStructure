@@ -1119,13 +1119,13 @@ a {
 .faq-mailbox-email {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-link);
-  text-decoration: none;
+  color: var(--color-text);
   overflow-wrap: anywhere;
 }
 
-.faq-mailbox-email:hover {
-  text-decoration: underline;
+/* The mail button on the right of a mailbox: the only mailto of the card */
+.faq-mailbox-mail {
+  color: var(--color-brand);
 }
 
 .faq-mailbox-missing {
@@ -2090,22 +2090,39 @@ a {
   padding: var(--space-6) var(--space-8) var(--space-8);
 }
 
-.profile-contact {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-4);
+/* Info cards of the profile: the e-mail card, then City / Country in a grid of equal columns, one label and value
+   style for all of them */
+.profile-info {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.profile-contact,
+.profile-fact {
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+/* Label above the address, the copy button on the right */
+.profile-contact {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: var(--space-2);
 }
 
 .profile-contact-empty {
+  display: block;
   color: var(--color-text-muted);
   border-style: dashed;
 }
 
-.profile-contact-label {
-  flex-shrink: 0;
+.profile-contact-label,
+.profile-fact dt {
+  grid-column: 1;
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-bold);
   letter-spacing: 0.07em;
@@ -2113,14 +2130,24 @@ a {
   color: var(--color-text-muted);
 }
 
-.profile-email {
-  flex: 1;
+/* Plain text: only the Email button opens the mail program */
+.profile-email,
+.profile-fact dd {
+  grid-column: 1;
   min-width: 0;
+  margin: 2px 0 0;
   font-size: var(--font-size-md);
   font-weight: var(--font-weight-semibold);
-  color: var(--color-link);
+  color: var(--color-text);
+  text-decoration: none;
   overflow-wrap: anywhere;
-  user-select: all;
+}
+
+.profile-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-2);
+  margin: 0;
 }
 
 .profile-actions {
@@ -2408,11 +2435,6 @@ button.person-row:hover {
 
   .profile-content {
     padding: var(--space-4) var(--space-4) var(--space-5);
-  }
-
-  .profile-contact {
-    flex-wrap: wrap;
-    gap: var(--space-1) var(--space-3);
   }
 
   .tree-zoom {
@@ -3269,24 +3291,6 @@ button.person-row:hover {
   overflow: hidden;
   overflow-wrap: anywhere;
 }
-.profile-facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-6);
-  margin: var(--space-3) 0 0;
-}
-.profile-fact dt {
-  color: var(--color-text-muted);
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-.profile-fact dd {
-  margin: 0;
-  color: var(--color-text);
-  overflow-wrap: anywhere;
-}
 .profile-text {
   white-space: pre-line;
   overflow-wrap: anywhere;
@@ -3296,12 +3300,6 @@ button.person-row:hover {
 }
 .person-row-badge {
   margin-left: auto;
-}
-.external-badge {
-  margin-bottom: var(--space-3);
-}
-.external-facts {
-  flex-direction: column;
 }
 .chart-skeleton {
   display: grid;
@@ -3340,10 +3338,20 @@ button.person-row:hover {
   opacity: 1;
 }
 
-/* Copy button next to the e-mail address of the profile card */
+/* Copy button on the right of the e-mail card: a check for a moment after copying */
 .profile-copy-email {
-  flex-shrink: 0;
-  margin-left: var(--space-1);
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+.profile-copy-email svg + svg,
+.profile-copy-email.is-copied svg:first-child {
+  display: none;
+}
+.profile-copy-email.is-copied svg + svg {
+  display: block;
+}
+.profile-copy-email.is-copied {
+  color: var(--color-success);
 }
 
 /* Admin page: the Login name picker (a combobox: the list of all people, typing filters it) */

@@ -94,8 +94,8 @@ async function hideFromSite(employee) {
 }
 
 const ADMIN_EDIT_FIELDS = [
-  { name: "groupName", multiline: false,
-    help: "2-60 characters. Leave empty to use the group from Active Directory." },
+  { name: "groupName", select: true,
+    help: "A group of this function. New groups are created in Manage groups." },
   { name: "areaOfDuties", multiline: true, rows: 2, help: "Shown on the card. Up to 120 characters." },
   { name: "jobDescription", multiline: true, rows: 3, help: "Shown on the card. Up to 200 characters." }
 ];
@@ -108,6 +108,35 @@ async function adminLoadMember(employee) {
   const member = (await res.json()).find((item) => item.employeeId === employee.id);
   if (!member) throw new Error(`${employee.name || "This person"} is no longer in ${employee.cs}.`);
   return member;
+}
+
+/** The names of the groups of the function (the groups of Manage groups), or null when they cannot be loaded */
+async function adminLoadGroupNames(cs) {
+  try {
+    const res = await apiFetch(`/api/manage/functions/${encodeURIComponent(cs)}/groups`);
+    if (!res.ok) return null;
+    return ((await res.json()).groups || []).filter((g) => g.active !== false).map((g) => g.name);
+  } catch (e) {
+    return null;
+  }
+}
+
+const ADMIN_GROUP_FROM_AD = "— Use group from Active Directory —";
+
+/**
+ * The options of the Group select: "use the group from AD" (empty value) first, then the groups of the function,
+ * de-duplicated (ignoring case) and sorted; the current value is added when it is not among them, so the select keeps
+ * it. The values are the group names exactly as stored (the server matches them to the group objects).
+ */
+function adminGroupOptions(names, current) {
+  const byKey = new Map();
+  [current, ...(names || [])].forEach((name) => {
+    const value = name == null ? "" : String(name);
+    const key = value.trim().toLowerCase();
+    if (key && !byKey.has(key)) byKey.set(key, value);
+  });
+  const sorted = [...byKey.values()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: "base" }));
+  return [{ value: "", label: ADMIN_GROUP_FROM_AD }, ...sorted.map((name) => ({ value: name, label: name }))];
 }
 
 /** What Active Directory gives for a field, shown under it */
@@ -130,8 +159,9 @@ function adminStoredValues(member) {
 
 async function openAdminEditor(employee) {
   let member;
+  let groupNames;
   try {
-    member = await adminLoadMember(employee);
+    [member, groupNames] = await Promise.all([adminLoadMember(employee), adminLoadGroupNames(employee.cs)]);
   } catch (e) {
     toast(e.message, "error");
     return null;
@@ -143,18 +173,26 @@ async function openAdminEditor(employee) {
   const fields = ADMIN_EDIT_FIELDS.map((field) => {
     const rule = FIELD_RULES[field.name];
     const id = `adminEdit-${field.name}`;
-    const input = field.multiline
-      ? uiEl("textarea", { class: "textarea", id, name: field.name, rows: field.rows, autocomplete: "off" })
-      : uiEl("input", { class: "input", id, name: field.name, type: "text", autocomplete: "off" });
-    input.value = (member.override && member.override[field.name]) || "";
-    const help = uiEl("p", { class: "field-help", id: `${id}-help`, text: field.help });
+    const value = (member.override && member.override[field.name]) || "";
+    // The group is chosen from the groups of the function (the server accepts only those), never typed
+    const input = field.select
+      ? uiEl("select", { class: "select", id, name: field.name },
+        adminGroupOptions(groupNames, value).map((option) => uiEl("option", { value: option.value, text: option.label,
+          selected: option.value === value })))
+      : field.multiline
+        ? uiEl("textarea", { class: "textarea", id, name: field.name, rows: field.rows, autocomplete: "off" })
+        : uiEl("input", { class: "input", id, name: field.name, type: "text", autocomplete: "off" });
+    input.value = value;
+    const help = uiEl("p", { class: "field-help", id: `${id}-help`, text: field.select && groupNames == null
+      ? "The groups of this function could not be loaded: only the current group can be kept." : field.help });
     const hint = uiEl("p", { class: "field-help admin-ad-hint", id: `${id}-ad`, text: adminAdHint(member, field.name) });
     const current = uiEl("p", { class: "field-help admin-current", id: `${id}-current`, hidden: true });
     const error = uiEl("p", { class: "field-error", id: `${id}-error`, "aria-live": "polite" });
-    const counter = uiEl("span", { class: "field-counter", id: `${id}-counter`, "aria-hidden": "true" });
+    const counter = field.select ? null : uiEl("span", { class: "field-counter", id: `${id}-counter`, "aria-hidden": "true" });
     input.setAttribute("aria-describedby", `${id}-help ${id}-ad ${id}-current ${id}-error`);
-    controls[field.name] = { rule, input, error, counter, current, touched: false };
+    controls[field.name] = { rule, input, error, counter, current, select: !!field.select, touched: false };
     input.addEventListener("input", () => { controls[field.name].touched = true; refresh(); });
+    input.addEventListener("change", () => { controls[field.name].touched = true; refresh(); });
     input.addEventListener("blur", () => { controls[field.name].touched = true; refresh(); });
     return uiEl("div", { class: "field" },
       uiEl("label", { class: "field-label", for: id, text: rule.label }), input,
@@ -176,18 +214,24 @@ async function openAdminEditor(employee) {
 
   // An untouched stored value is sent back as it is (the server keeps it without checking it again)
   const untouched = (k, c) => state.stored[k] != null && c.input.value === state.stored[k];
+  // A group of the list is sent as it is named (empty: the group from AD), a typed text normalized
+  const valueOf = (c) => (c.select ? c.input.value || null : normalizeField(c.input.value));
   const values = () => Object.fromEntries(Object.entries(controls)
-    .map(([k, c]) => [k, untouched(k, c) ? state.stored[k] : normalizeField(c.input.value)]));
-  const isDirty = () => Object.entries(controls).some(([k, c]) => !untouched(k, c) && normalizeField(c.input.value) !== state.saved[k]);
+    .map(([k, c]) => [k, untouched(k, c) ? state.stored[k] : valueOf(c)]));
+  const isDirty = () => Object.entries(controls).some(([k, c]) => !untouched(k, c) && valueOf(c) !== state.saved[k]);
+  // A chosen group is one of the list (checked by the server); the typed texts go through the shared rules
   const problems = () => Object.fromEntries(Object.entries(controls)
-    .map(([k, c]) => [k, untouched(k, c) ? null : checkField(c.rule, normalizeField(c.input.value))]).filter(([, p]) => p));
+    .map(([k, c]) => [k, untouched(k, c) || c.select ? null : checkField(c.rule, normalizeField(c.input.value))])
+    .filter(([, p]) => p));
 
   function refresh() {
     const found = problems();
     Object.entries(controls).forEach(([k, c]) => {
-      const length = fieldLength(c.input.value);
-      c.counter.textContent = `${length} / ${c.rule.max}`;
-      c.counter.classList.toggle("is-over", length > c.rule.max);
+      if (c.counter) {
+        const length = fieldLength(c.input.value);
+        c.counter.textContent = `${length} / ${c.rule.max}`;
+        c.counter.classList.toggle("is-over", length > c.rule.max);
+      }
       const problem = c.touched ? found[k] : null;
       if (!c.serverError || c.touched) c.error.textContent = problem ? problem.message : "";
       c.input.setAttribute("aria-invalid", problem ? "true" : "false");
@@ -285,9 +329,9 @@ async function openAdminEditor(employee) {
 
   form.addEventListener("submit", (event) => { event.preventDefault(); submit(); });
   save.addEventListener("click", submit);
-  // Enter submits from a one-line field only; in a textarea it is a line break
+  // Enter submits from a one-line field or the group select only; in a textarea it is a line break
   form.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" && event.target?.tagName === "INPUT") {
+    if (event.key === "Enter" && (event.target?.tagName === "INPUT" || event.target?.tagName === "SELECT")) {
       event.preventDefault();
       submit();
     }

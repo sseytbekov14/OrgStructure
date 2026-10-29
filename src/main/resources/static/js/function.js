@@ -96,14 +96,19 @@ function renderFaqSections(document_) {
         icon.appendChild(faqIcon(['M4 4h16v16H4z', 'm22 6-10 7L2 6']));
         const body = faqEl('span', 'faq-mailbox-body');
         body.appendChild(faqEl('span', 'faq-mailbox-label', item.label || ''));
+        box.append(icon, body);
+        // The address is plain text; only the mail button next to it opens the mail program
         if (isValidEmail(item.email)) {
-          const link = faqEl('a', 'faq-mailbox-email', item.email);
-          link.href = `mailto:${item.email}`;
-          body.appendChild(link);
+          body.appendChild(faqEl('span', 'faq-mailbox-email', item.email));
+          const mail = faqEl('a', 'icon-btn faq-mailbox-mail');
+          mail.href = `mailto:${item.email}`;
+          mail.setAttribute('aria-label', `Email ${item.label ? `${item.label} (${item.email})` : item.email}`);
+          mail.title = `Email ${item.email}`;
+          mail.appendChild(faqIcon(['M4 4h16v16H4z', 'm22 6-10 7L2 6'], 16));
+          box.appendChild(mail);
         } else {
           body.appendChild(faqEl('span', 'faq-mailbox-missing', 'Email to be added'));
         }
-        box.append(icon, body);
         boxes.appendChild(box);
       });
       block.appendChild(boxes);
