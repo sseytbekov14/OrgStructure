@@ -2334,7 +2334,10 @@ button.person-row:hover {
   gap: var(--space-2);
 }
 
+/* Equal widths side by side; when they do not fit (phones) each takes the whole row: a tidy list, never ragged */
 .like-btn {
+  flex: 1 1 0;
+  min-width: max-content;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -2358,6 +2361,7 @@ button.person-row:hover {
 }
 
 .like-btn-count {
+  margin-left: auto;
   min-width: 24px;
   padding: 1px var(--space-2);
   border-radius: var(--radius-pill);
@@ -2376,11 +2380,16 @@ button.person-row:hover {
   background: var(--color-success-soft);
 }
 
+/* Brand blue, not red: red reads as an error */
 .like-btn-exceeded:not(:disabled):hover,
 .like-btn-exceeded[aria-pressed="true"] {
-  border-color: var(--color-danger);
-  color: var(--color-danger);
-  background: var(--color-danger-soft);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+  background: var(--color-accent-soft);
+}
+
+.like-btn[aria-pressed="true"] .like-btn-count {
+  background: var(--color-surface);
 }
 
 .like-count-bump {
