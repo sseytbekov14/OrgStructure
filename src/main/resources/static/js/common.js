@@ -11,6 +11,7 @@ const ICONS = {
   target: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>',
   chevronRight: '<svg class="person-row-chevron" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>',
   close: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  arrowLeft: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M19 12H5m6-6-6 6 6 6"/></svg>',
   check: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
   star: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/></svg>'
 };
@@ -323,7 +324,7 @@ async function copyEmailFrom(button) {
  * The limited card of a manager outside Central Services, in the profile dialog: name, badge, job title, e-mail,
  * city and country only; no counselee list, no reviews and no admin controls.
  */
-async function openExternalPerson(id) {
+async function openExternalPerson(id, from = null) {
   let person = null;
   try {
     const res = await apiFetch(`/api/people/${encodeURIComponent(id)}/external`);
@@ -336,6 +337,8 @@ async function openExternalPerson(id) {
   // The photo URL comes with the people who report to them (pmPhotoUrl of the directory build)
   const report = OrgDirectory.employees.find((e) => e.pmExternal === true && e.pmId === id && e.pmPhotoUrl);
   person.photoUrl = report ? report.pmPhotoUrl : DEFAULT_PHOTO;
+  // Only now: a card that could not be loaded leaves the history as it was
+  if (from) profileHistory.push(from);
   showProfile(renderExternalProfile(person), null);
   return person;
 }
@@ -495,7 +498,14 @@ function renderEmailButton(email) {
   return email ? `<a class="profile-btn profile-btn-primary" href="mailto:${escapeHtml(email)}" data-mail="${escapeHtml(email)}">${ICONS.mail}Email</a>` : "";
 }
 
-/** The card of a manager outside Central Services: the profile's band and info cards, Email and Close only */
+/** Back to the card this one was opened from in the open dialog; nothing on the first card */
+function renderBackButton() {
+  const previous = profileHistory[profileHistory.length - 1];
+  if (!previous) return "";
+  return `<button type="button" class="profile-btn" data-profile-back aria-label="Back to ${escapeHtml(previous.name || "the previous profile")}">${ICONS.arrowLeft}Back</button>`;
+}
+
+/** The card of a manager outside Central Services: the profile's band and info cards, Back, Email and Close only */
 function renderExternalProfile(person) {
   return `
     ${renderProfileBand({ name: person.name, jobTitle: person.jobTitle, photoUrl: person.photoUrl }, ["Outside Central Services"])}
@@ -504,6 +514,7 @@ function renderExternalProfile(person) {
       ${renderProfileInfo(person)}
 
       <div class="profile-actions">
+        ${renderBackButton()}
         ${renderEmailButton(person.email || "")}
         <button type="button" class="profile-btn" data-profile-close>Close</button>
       </div>
@@ -522,6 +533,7 @@ function renderProfile(employee) {
       ${renderProfileInfo(employee)}
 
       <div class="profile-actions">
+        ${renderBackButton()}
         ${renderEmailButton(email)}
         ${employee.cs ? `<a class="profile-btn" href="${chartUrl(employee)}" data-show-in-chart>${ICONS.target}Show in chart</a>` : ""}
       </div>
@@ -564,6 +576,8 @@ function renderProfile(employee) {
 
 let profileEmployee = null;
 let profileReturnFocus = null;
+// The employees whose cards led to the current one in the open dialog (Back); emptied when it closes
+let profileHistory = [];
 
 function ensureProfileDialog() {
   let dialog = document.getElementById("profileDialog");
@@ -583,10 +597,22 @@ function ensureProfileDialog() {
       return;
     }
 
+    if (event.target.closest("[data-profile-back]")) {
+      const previous = profileHistory.pop();
+      // The current copy (same person, same function): the directory may have been rebuilt meanwhile
+      const fresh = previous && previous.id != null
+        ? OrgDirectory.employees.find((e) => e.id === previous.id && e.cs === previous.cs) : null;
+      if (previous) openEmployeeProfile(fresh || previous, false);
+      return;
+    }
+
     const personRow = event.target.closest("[data-person-index]");
     if (personRow) {
       const person = OrgDirectory.employees[Number(personRow.dataset.personIndex)];
-      if (person) openEmployeeProfile(person);
+      if (person) {
+        if (profileEmployee) profileHistory.push(profileEmployee);
+        openEmployeeProfile(person);
+      }
       return;
     }
 
@@ -605,7 +631,7 @@ function ensureProfileDialog() {
 
     const external = event.target.closest("[data-external-id]");
     if (external) {
-      openExternalPerson(Number(external.dataset.externalId));
+      openExternalPerson(Number(external.dataset.externalId), profileEmployee);
       return;
     }
 
@@ -632,6 +658,7 @@ function ensureProfileDialog() {
 
   dialog.addEventListener("close", () => {
     profileEmployee = null;
+    profileHistory = [];
     if (profileReturnFocus && document.contains(profileReturnFocus)) {
       profileReturnFocus.focus({ preventScroll: true });
     }
@@ -660,12 +687,13 @@ function showProfile(html, employee) {
   return body;
 }
 
-function openEmployeeProfile(employee) {
+/** logView: false for Back (the card was already viewed and counted) */
+function openEmployeeProfile(employee, logView = true) {
   if (!employee) return;
   const body = showProfile(renderProfile(employee), employee);
   if (typeof window.onProfileRendered === "function") window.onProfileRendered(employee, body);
 
-  if (employee.email) logInteraction(employee.email, "PROFILE_VIEW");
+  if (logView && employee.email) logInteraction(employee.email, "PROFILE_VIEW");
 }
 
 /* ---------- Admin tools (U1) ---------- */
