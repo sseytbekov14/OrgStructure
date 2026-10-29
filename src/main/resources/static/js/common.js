@@ -505,7 +505,10 @@ function renderBackButton() {
   return `<button type="button" class="profile-btn" data-profile-back aria-label="Back to ${escapeHtml(previous.name || "the previous profile")}">${ICONS.arrowLeft}Back</button>`;
 }
 
-/** The card of a manager outside Central Services: the profile's band and info cards, Back, Email and Close only */
+/**
+ * The card of a manager outside Central Services: the profile's band and info cards, Back and Email only (closed with
+ * the X of the dialog, as every card)
+ */
 function renderExternalProfile(person) {
   return `
     ${renderProfileBand({ name: person.name, jobTitle: person.jobTitle, photoUrl: person.photoUrl }, ["Outside Central Services"])}
@@ -516,7 +519,6 @@ function renderExternalProfile(person) {
       <div class="profile-actions">
         ${renderBackButton()}
         ${renderEmailButton(person.email || "")}
-        <button type="button" class="profile-btn" data-profile-close>Close</button>
       </div>
     </div>`;
 }

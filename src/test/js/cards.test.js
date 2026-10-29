@@ -157,7 +157,7 @@ test('the external card opens in the profile dialog: band with badge, job, e-mai
   assertTrue(html.includes('<span class="profile-email">pat@x.example</span>') && html.includes('data-copy-email="pat@x.example"'), 'e-mail card');
   assertTrue(html.includes('<dt>City</dt><dd>London</dd>') && html.includes('<dt>Country</dt><dd>United Kingdom</dd>'), 'city and country');
   assertEqual(html.split('href="mailto:').length - 1, 1, 'mailto on the Email button only');
-  assertTrue(html.includes('data-profile-close>Close</button>'), 'Close button');
+  assertTrue(!html.includes('>Close</button>'), 'no Close button: the X of the dialog closes it');
 });
 
 test('the external card has no admin controls, reviews, counselees, reporting line or phone', async () => {
