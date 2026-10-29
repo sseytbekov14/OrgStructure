@@ -10,6 +10,7 @@ import javax.imageio.stream.ImageInputStream;
 import javax.imageio.stream.ImageOutputStream;
 import java.awt.Color;
 import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -27,14 +28,18 @@ import java.util.concurrent.atomic.AtomicReference;
  *   <li>JPEG or PNG only, by the magic bytes (any declared type is ignored); not empty, at most maxBytes;</li>
  *   <li>the declared width and height are read from the header BEFORE decoding: above maxSide, or more than
  *       {@value #MAX_PIXELS} pixels, is refused without decoding (decompression bombs);</li>
- *   <li>decoded with ImageIO (a decoder warning such as a truncated file counts as a failure) and re-encoded as a new
- *       JPEG on a white background: EXIF, ICC profiles, comments and anything appended (polyglot files) are gone.</li>
+ *   <li>decoded with ImageIO (a decoder warning such as a truncated file counts as a failure), scaled down to at most
+ *       {@value #STORED_MAX_SIDE} px on the longest side and re-encoded as a new JPEG on a white background: EXIF, ICC
+ *       profiles, comments and anything appended (polyglot files) are gone.</li>
  * </ol>
  * Undecodable images (for example CMYK JPEGs) are {@link PhotoState#INVALID}. Thread-safe, no Spring.
  */
 public class PhotoValidator {
 
-    public static final long MAX_PIXELS = 1_000_000L;
+    /** Real AD photos are camera portraits of about 1000 x 1300 px; this still refuses decompression bombs */
+    public static final long MAX_PIXELS = 8_000_000L;
+    /** The longest side of a stored photo: the site shows photos at 88 px at most (3x for high-density screens) */
+    public static final int STORED_MAX_SIDE = 320;
     public static final String CONTENT_TYPE = "image/jpeg";
     static final float JPEG_QUALITY = 0.85f;
 
@@ -85,8 +90,9 @@ public class PhotoValidator {
             return Result.invalid(format.toUpperCase() + " cannot be decoded (" + e.getClass().getSimpleName() + ")");
         }
         try {
-            byte[] clean = encode(flatten(image));
-            return new Result(PhotoState.PRESENT, clean, CONTENT_TYPE, image.getWidth(), image.getHeight(),
+            BufferedImage stored = shrink(flatten(image));
+            byte[] clean = encode(stored);
+            return new Result(PhotoState.PRESENT, clean, CONTENT_TYPE, stored.getWidth(), stored.getHeight(),
                     sha256(clean), null);
         } catch (IOException | RuntimeException e) {
             return Result.invalid("cannot be re-encoded (" + e.getClass().getSimpleName() + ")");
@@ -149,6 +155,39 @@ public class PhotoValidator {
             g.dispose();
         }
         return rgb;
+    }
+
+    /**
+     * At most {@link #STORED_MAX_SIDE} on the longest side, the aspect ratio kept; halved step by step (one big bilinear
+     * step would skip most of the pixels and look grainy)
+     */
+    static BufferedImage shrink(BufferedImage rgb) {
+        int longest = Math.max(rgb.getWidth(), rgb.getHeight());
+        if (longest <= STORED_MAX_SIDE) {
+            return rgb;
+        }
+        double scale = (double) STORED_MAX_SIDE / longest;
+        int targetWidth = Math.max(1, (int) Math.round(rgb.getWidth() * scale));
+        int targetHeight = Math.max(1, (int) Math.round(rgb.getHeight() * scale));
+        BufferedImage current = rgb;
+        while (current.getWidth() != targetWidth || current.getHeight() != targetHeight) {
+            current = resized(current, Math.max(targetWidth, current.getWidth() / 2),
+                    Math.max(targetHeight, current.getHeight() / 2));
+        }
+        return current;
+    }
+
+    private static BufferedImage resized(BufferedImage rgb, int width, int height) {
+        BufferedImage out = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = out.createGraphics();
+        try {
+            g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g.drawImage(rgb, 0, 0, width, height, null);
+        } finally {
+            g.dispose();
+        }
+        return out;
     }
 
     /** A new JPEG without any metadata */

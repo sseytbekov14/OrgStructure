@@ -67,7 +67,7 @@ app:
     ad-enabled: ${AD_PHOTOS_ENABLED:false}
     source-priority: ${PHOTO_SOURCE_PRIORITY:ad,folder}
     max-bytes: ${AD_PHOTOS_MAX_BYTES:204800}
-    max-side: ${AD_PHOTOS_MAX_SIDE:1024}
+    max-side: ${AD_PHOTOS_MAX_SIDE:4096}
     time-budget: ${AD_PHOTOS_TIME_BUDGET:120s}
   data:
     excel-path: c:/Projects/OrgStructure/data/result_new.xlsx

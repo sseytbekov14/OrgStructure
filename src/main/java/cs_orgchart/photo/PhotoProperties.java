@@ -25,8 +25,11 @@ public class PhotoProperties {
     private String sourcePriority = "ad,folder";
     /** AD_PHOTOS_MAX_BYTES: larger thumbnailPhoto values are INVALID */
     private int maxBytes = 204_800;
-    /** AD_PHOTOS_MAX_SIDE: a declared width or height above it is INVALID (checked before decoding) */
-    private int maxSide = 1024;
+    /**
+     * AD_PHOTOS_MAX_SIDE: a declared width or height above it is INVALID (checked before decoding); valid photos are
+     * stored scaled down to {@link PhotoValidator#STORED_MAX_SIDE}
+     */
+    private int maxSide = 4096;
     /** AD_PHOTOS_TIME_BUDGET: the photo phase of one run stops after this long; the next run continues */
     private Duration timeBudget = Duration.ofSeconds(120);
 

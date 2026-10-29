@@ -127,11 +127,22 @@ class PhotoValidatorTest {
     void sidesAndPixelCountHaveLimits() throws IOException {
         byte[] wide = image("png", 1100, 10, BufferedImage.TYPE_INT_RGB);
         assertThat(validator.validate(wide).reason()).startsWith("declared size 1100x10");
-        // 1001 x 1000 pixels: each side within a 2000 px limit, the pixel count above one million
-        byte[] many = image("png", 1001, 1000, BufferedImage.TYPE_INT_RGB);
-        PhotoValidator.Result result = new PhotoValidator(Integer.MAX_VALUE, 2000).validate(many);
+        // 4001 x 2000 pixels: each side within a 5000 px limit, the pixel count above eight million
+        byte[] many = image("png", 4001, 2000, BufferedImage.TYPE_INT_RGB);
+        PhotoValidator.Result result = new PhotoValidator(Integer.MAX_VALUE, 5000).validate(many);
         assertThat(result.state()).isEqualTo(PhotoState.INVALID);
-        assertThat(result.reason()).contains("1000000 pixels");
+        assertThat(result.reason()).contains("8000000 pixels");
+    }
+
+    @Test
+    void largeAdPortraitsAreStoredScaledDown() throws IOException {
+        // The sizes seen in the real AD: portrait camera photos, one very tall
+        PhotoValidator real = new PhotoValidator(Integer.MAX_VALUE, 4096);
+        assertCleanJpeg(real.validate(image("jpeg", 960, 1280, BufferedImage.TYPE_INT_RGB)), 240, 320);
+        assertCleanJpeg(real.validate(image("jpeg", 898, 2027, BufferedImage.TYPE_INT_RGB)), 142, 320);
+        assertCleanJpeg(real.validate(image("png", 1176, 1176, BufferedImage.TYPE_INT_RGB)), 320, 320);
+        // Already small enough: the size is kept
+        assertCleanJpeg(real.validate(image("jpeg", 320, 200, BufferedImage.TYPE_INT_RGB)), 320, 200);
     }
 
     @Test
