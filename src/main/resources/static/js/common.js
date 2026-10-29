@@ -379,8 +379,8 @@ function renderReactions(email) {
 
   return `
     <div class="like-buttons">
-      ${button("SOLVED", "like-btn-solved", ICONS.check, "Delivered results", summary.solvedCount)}
-      ${button("EXCEEDED", "like-btn-exceeded", ICONS.star, "Above and beyond", summary.exceededCount)}
+      ${button("SOLVED", "like-btn-solved", ICONS.check, "Results delivered", summary.solvedCount)}
+      ${button("EXCEEDED", "like-btn-exceeded", ICONS.star, "Exceeded expectations", summary.exceededCount)}
     </div>`;
 }
 
@@ -540,7 +540,7 @@ function renderProfile(employee) {
             </section>` : ""}
           ${email ? `
             <section>
-              <h3 class="profile-heading">Reviews</h3>
+              <h3 class="profile-heading">Recognition</h3>
               ${renderReactions(email)}
             </section>` : ""}
         </div>
