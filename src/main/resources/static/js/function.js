@@ -2,8 +2,9 @@ const COUNTRY_CODES = ['UZ', 'AZ', 'GE', 'AM', 'KG', 'KZ', 'RU'];
 const TREE_BY_DEFAULT = ['ITS'];
 const VIEW_STORAGE_KEY = 'orgchart-view:';
 
-// Card sizes and gaps of the tree layout, in px (must match .tree-stage card sizes in style.css)
-const TREE_SIZE = { W: 220, H: 76, HW: 300, HH: 96, GX: 24, GY: 56, SG: 10, LH: 34 };
+// Card sizes and gaps of the tree layout, in px (must match .tree-stage card sizes in style.css). TD: how far below
+// the card edge the centre of the expand/collapse button sits, so that it never covers the bottom line of the card
+const TREE_SIZE = { W: 220, H: 90, HW: 300, HH: 96, GX: 24, GY: 56, SG: 10, LH: 34, TD: 10 };
 
 let currentCs = '';
 let employeeDirectory = [];
@@ -784,8 +785,10 @@ function layoutTree(animate = true) {
       toggle.setAttribute('aria-expanded', String(open));
       toggle.setAttribute('aria-label', `${open ? 'Collapse' : 'Expand'} ${count} people under ${node.emp.name}`);
       toggle.innerHTML = `<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="m18 15-6-6-6 6"/></svg>${open ? count : '+' + count}`;
-      const toggleFrom = from ? `translate(${parent.x + nodeWidth(parent) / 2}px,${parent.y + nodeHeight(parent)}px)` : null;
-      moveTreeEl(toggle, `translate(${node.x + nodeWidth(node) / 2}px,${node.y + nodeHeight(node)}px)`, toggleFrom, ' translate(-50%,-50%)');
+      const toggleFrom = from
+        ? `translate(${parent.x + nodeWidth(parent) / 2}px,${parent.y + nodeHeight(parent) + TREE_SIZE.TD}px)` : null;
+      moveTreeEl(toggle, `translate(${node.x + nodeWidth(node) / 2}px,${node.y + nodeHeight(node) + TREE_SIZE.TD}px)`,
+        toggleFrom, ' translate(-50%,-50%)');
     }
   });
 

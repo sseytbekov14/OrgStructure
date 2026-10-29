@@ -1882,10 +1882,10 @@ a {
   transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1), border-color 0.12s, background 0.12s, box-shadow 0.12s;
 }
 
-/* Sizes must match TREE_SIZE in function.js */
+/* Sizes must match TREE_SIZE in function.js. 90px: name, two lines of job title and the group chip (89px) fit */
 .tree-stage .emp-card {
   width: 220px;
-  height: 76px;
+  height: 90px;
 }
 
 .tree-stage .head-card {
