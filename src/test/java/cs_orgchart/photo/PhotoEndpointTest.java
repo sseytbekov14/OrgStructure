@@ -110,10 +110,12 @@ class PhotoEndpointTest extends DbModeMvcSupport {
     }
 
     @Test
-    void hiddenDisabledAndExternalPeopleAre404() throws Exception {
+    void hiddenAndDisabledPeopleAre404ManagersOutsideCentralServicesAreNot() throws Exception {
         long external = jdbc.queryForObject("SELECT id FROM employees WHERE is_external ORDER BY id LIMIT 1", Long.class);
         save(external, stored);
-        assertThat(photo(external).getStatus()).as("external").isEqualTo(404);
+        assertThat(photo(external).getStatus()).as("external").isEqualTo(200);
+        jdbc.update("UPDATE employees SET enabled = FALSE WHERE id = ?", external);
+        assertThat(photo(external).getStatus()).as("external, disabled").isEqualTo(404);
 
         jdbc.update("INSERT INTO employee_visibility (employee_id, hidden, hidden_by) VALUES (?, TRUE, 'test')",
                 id("mmint"));
@@ -197,8 +199,7 @@ class PhotoEndpointTest extends DbModeMvcSupport {
         MockHttpServletResponse report = mvc.perform(write(post("/api/admin/ad-sync").param("dryRun", "true"),
                 superAdmin, null)).andReturn().getResponse();
         assertThat(report.getStatus()).isEqualTo(200);
-        int servable = jdbc.queryForObject("SELECT count(*) FROM employees WHERE enabled AND NOT is_external",
-                Integer.class);
+        int servable = jdbc.queryForObject("SELECT count(*) FROM employees WHERE enabled", Integer.class);
         // mmint has a row (with no whenChanged of its own: it differs, so it counts too)
         assertThat(json.readTree(report.getContentAsString()).get("photoCandidates").asInt()).isEqualTo(servable);
         assertThat(count()).isEqualTo(1);

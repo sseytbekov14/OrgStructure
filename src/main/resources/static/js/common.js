@@ -161,7 +161,7 @@ function findManager(employee) {
     name: employee.pm,
     email: employee.pmEmail || "",
     jobTitle: employee.pmJobTitle || "",
-    photoUrl: DEFAULT_PHOTO,
+    photoUrl: employee.pmPhotoUrl || DEFAULT_PHOTO,
     external: true,
     // U6: outside Central Services, with a limited card (GET /api/people/{id}/external)
     externalId: employee.pmExternal === true && employee.pmId != null ? employee.pmId : null
@@ -333,6 +333,9 @@ async function openExternalPerson(id) {
     notify("This person's card is not available.", "error");
     return null;
   }
+  // The photo URL comes with the people who report to them (pmPhotoUrl of the directory build)
+  const report = OrgDirectory.employees.find((e) => e.pmExternal === true && e.pmId === id && e.pmPhotoUrl);
+  person.photoUrl = report ? report.pmPhotoUrl : DEFAULT_PHOTO;
   showProfile(renderExternalProfile(person), null);
   return person;
 }

@@ -25,8 +25,8 @@ import java.util.Set;
  *   <li>a person without overlay rows: once, in the function of their AD department (§5.5), default group;</li>
  *   <li>a person with overlay rows: once per row, with its function, group (HEAD for a head) and texts;</li>
  *   <li>parent: the manager override of the row, else the ORG_PARENT_SOURCE relation (pm_id or manager_id) with the
- *       other one as fallback; a disabled parent counts as none. External parents appear only in pm, pmEmail and
- *       pmJobTitle; parentId only points to a person on the site;</li>
+ *       other one as fallback; a disabled parent counts as none. External parents appear only in pm, pmEmail,
+ *       pmJobTitle and pmPhotoUrl; parentId only points to a person on the site;</li>
  *   <li>order: by function, the heads first by head_rank, then by grade, job title and name.</li>
  * </ul>
  */
@@ -159,6 +159,7 @@ public class EmployeeDtoAssembler {
                                            EmployeeOverride membership, Build build, PhotoLinks photoFiles) {
         String email = employee.getEmail() != null ? employee.getEmail() : employee.getUpn();
         Employee parent = visibleParent(employee, membership, build);
+        String parentEmail = parent == null ? null : Objects.requireNonNullElse(parent.getEmail(), parent.getUpn());
         return cs_orgchart.model.Employee.builder()
                 .name(employee.getDisplayName())
                 .cs(cs)
@@ -166,7 +167,7 @@ public class EmployeeDtoAssembler {
                 .jobTitle(employee.getJobTitle())
                 .email(email)
                 .pm(parent == null ? null : parent.getDisplayName())
-                .pmEmail(parent == null ? null : Objects.requireNonNullElse(parent.getEmail(), parent.getUpn()))
+                .pmEmail(parentEmail)
                 .pmJobTitle(parent == null ? null : parent.getJobTitle())
                 .photoUrl(photoFiles.urlFor(employee.getId(), email))
                 .gradeOrder(GradeOrder.of(employee.getJobTitle()))
@@ -180,6 +181,8 @@ public class EmployeeDtoAssembler {
                 .country(country(employee))
                 .pmId(parent == null ? null : parent.getId())
                 .pmExternal(parent == null ? null : parent.isExternal())
+                .pmPhotoUrl(parent != null && parent.isExternal()
+                        ? photoFiles.urlFor(parent.getId(), parentEmail) : null)
                 .build();
     }
 

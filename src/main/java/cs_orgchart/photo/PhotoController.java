@@ -20,7 +20,7 @@ import java.util.Arrays;
 /**
  * GET /api/photos/{employeeId}: the stored AD photo of one employee, as the other /api/** endpoints only for those who
  * may see the site (no security rule of its own). Always the re-encoded JPEG with nosniff, never anything else; 304 for
- * a matching If-None-Match. 404 when there is no PRESENT photo, the employee is hidden, disabled or external, or the
+ * a matching If-None-Match. 404 when there is no PRESENT photo, the employee is hidden or disabled, or the
  * AD photos are off (AD_PHOTOS_ENABLED, EMPLOYEE_SOURCE=db). One photo per request: there is no listing.
  */
 @RestController
@@ -70,10 +70,10 @@ public class PhotoController {
                 .body(photo.getContent());
     }
 
-    /** Enabled, not external, not hidden */
+    /** Enabled and not hidden; managers outside Central Services (external) too: their card shows the photo */
     private boolean servable(long employeeId) {
         Employee employee = employees.findById(employeeId).orElse(null);
-        return employee != null && employee.isEnabled() && !employee.isExternal()
+        return employee != null && employee.isEnabled()
                 && visibility.findById(employeeId).map(v -> !v.isHidden()).orElse(true);
     }
 

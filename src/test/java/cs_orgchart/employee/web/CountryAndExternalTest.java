@@ -46,6 +46,7 @@ class CountryAndExternalTest extends DbModeMvcSupport {
         for (cs_orgchart.model.Employee e : withExternal) {
             assertThat(e.getPmId()).isNotNull();
             assertThat(e.getParentId()).as("no node outside Central Services in the tree").isNull();
+            assertThat(e.getPmPhotoUrl()).as("the card of the manager shows a photo or the placeholder").isNotNull();
             assertThat(jdbc.queryForObject("SELECT is_external FROM employees WHERE id = ?", Boolean.class, e.getPmId()))
                     .isTrue();
         }
@@ -53,6 +54,7 @@ class CountryAndExternalTest extends DbModeMvcSupport {
                 .filter(e -> e.getParentId() != null).findFirst().orElseThrow();
         assertThat(internal.getPmId()).isEqualTo(internal.getParentId());
         assertThat(internal.getPmExternal()).isFalse();
+        assertThat(internal.getPmPhotoUrl()).as("the manager is in the directory with their own photoUrl").isNull();
     }
 
     @Test

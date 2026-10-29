@@ -99,8 +99,7 @@ class PhotoSyncServiceTest extends AdSyncTestSupport {
     }
 
     private int servable() {
-        Integer n = jdbc.queryForObject("SELECT count(*) FROM employees WHERE enabled AND NOT is_external",
-                Integer.class);
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM employees WHERE enabled", Integer.class);
         return n == null ? 0 : n;
     }
 
@@ -284,6 +283,24 @@ class PhotoSyncServiceTest extends AdSyncTestSupport {
         assertThat(employee("mmint").isEnabled()).isFalse();
         assertThat(photos.findById(employee("mmint").getId())).isEmpty();
         assertThat(logRow(outcome.logId()).getPhotosRemoved()).isEqualTo(1);
+    }
+
+    @Test
+    void managersOutsideCentralServicesGetTheirPhotoToo() {
+        syncNow();
+        String login = jdbc.queryForObject("SELECT login FROM employees WHERE is_external AND enabled ORDER BY id"
+                + " LIMIT 1", String.class);
+        long id = employee(login).getId();
+        assertThat(count("employee_photos WHERE employee_id = " + id)).as("checked as a candidate").isEqualTo(1);
+
+        directory.setPhoto(login, VALID);
+        photoSync.run(null, SyncTrigger.MANUAL, true);
+
+        assertThat(state(login)).isEqualTo(PhotoState.PRESENT);
+        // The people reporting to them carry the URL of that photo
+        assertThat(employeeDirectory.getAllEmployees()).filteredOn(e -> Long.valueOf(id).equals(e.getPmId()))
+                .isNotEmpty()
+                .allSatisfy(e -> assertThat(e.getPmPhotoUrl()).startsWith("/api/photos/" + id + "?v="));
     }
 
     @Test

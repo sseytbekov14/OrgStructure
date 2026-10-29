@@ -61,4 +61,8 @@ public class Employee {
     /** U6: the effective manager is outside Central Services (limited card, GET /api/people/{pmId}/external) */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Boolean pmExternal;
+
+    /** The photo URL of the effective manager when they are outside Central Services (not in the directory) */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String pmPhotoUrl;
 }

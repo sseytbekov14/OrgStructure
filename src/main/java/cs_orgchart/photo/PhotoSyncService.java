@@ -36,8 +36,9 @@ import java.util.concurrent.ExecutorService;
  *   <li>refused while the circuit breaker is suspended (invalid credentials); an AUTH failure here suspends it as
  *       for the employee sync;</li>
  *   <li>a session advisory lock of its own: two runs never overlap (the second one is BUSY);</li>
- *   <li>the stored photos of disabled and external employees are deleted;</li>
- *   <li>candidates: enabled, non-external employees without a photo row or whose ad_when_changed differs from the
+ *   <li>the stored photos of disabled employees are deleted;</li>
+ *   <li>candidates: enabled employees, also the managers outside Central Services (external: their card shows the
+ *       photo too), without a photo row or whose ad_when_changed differs from the
  *       row's source_when_changed (force: everybody). Each one: read, validate, write its row in its own small
  *       transaction (PRESENT, NONE or INVALID). A failed read is counted and retried by the next run;</li>
  *   <li>at most AD_PHOTOS_TIME_BUDGET per run: the rest is left for the next run;</li>
@@ -78,7 +79,7 @@ public class PhotoSyncService {
     private static final String CANDIDATES = """
             SELECT e.id, e.dn, e.ad_guid, e.ad_when_changed, p.state, p.sha256
             FROM employees e LEFT JOIN employee_photos p ON p.employee_id = e.id
-            WHERE e.enabled AND NOT e.is_external
+            WHERE e.enabled
               AND (? OR p.employee_id IS NULL OR p.source_when_changed IS DISTINCT FROM e.ad_when_changed)
             ORDER BY e.id""";
 
@@ -281,15 +282,15 @@ public class PhotoSyncService {
         return change;
     }
 
-    /** The photos of employees that are disabled or external now: deleted (rows and bytes); how many had a photo */
+    /** The photos of employees that are disabled now: deleted (rows and bytes); how many had a photo */
     private int purgeUnservable() {
         List<String> states = jdbc.queryForList("""
                 DELETE FROM employee_photos p USING employees e
-                WHERE e.id = p.employee_id AND (NOT e.enabled OR e.is_external)
+                WHERE e.id = p.employee_id AND NOT e.enabled
                 RETURNING p.state""", String.class);
         int purged = (int) states.stream().filter(PhotoState.PRESENT.name()::equals).count();
         if (!states.isEmpty()) {
-            log.info("AD photos: {} row(s) of disabled or external employees deleted ({} with a photo)",
+            log.info("AD photos: {} row(s) of disabled employees deleted ({} with a photo)",
                     states.size(), purged);
         }
         return purged;
