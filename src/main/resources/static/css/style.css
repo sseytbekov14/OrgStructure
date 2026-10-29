@@ -1081,7 +1081,7 @@ a {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
@@ -1094,8 +1094,8 @@ a {
 }
 
 .faq-mailbox-icon {
-  width: 28px;
-  height: 28px;
+  width: 36px;
+  height: 36px;
   display: grid;
   place-items: center;
   flex-shrink: 0;
@@ -1123,9 +1123,27 @@ a {
   overflow-wrap: anywhere;
 }
 
-/* The mail button on the right of a mailbox: the only mailto of the card */
-.faq-mailbox-mail {
-  color: var(--color-brand);
+/* The envelope as the mail link of a mailbox: the only mailto of the card */
+a.faq-mailbox-mail {
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color var(--motion-fast) var(--ease), color var(--motion-fast) var(--ease);
+}
+
+a.faq-mailbox-mail:hover {
+  background: var(--color-brand);
+  color: var(--color-on-brand);
+}
+
+a.faq-mailbox-mail:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: 2px;
+}
+
+/* No address yet: a muted envelope, visibly not a link */
+span.faq-mailbox-icon {
+  background: var(--color-surface-alt);
+  color: var(--color-text-muted);
 }
 
 .faq-mailbox-missing {

@@ -70,8 +70,13 @@ test('the panel shows the sections of the API in order: guidelines, mailboxes, q
   assertEqual(address.tagName, 'SPAN', 'the address is plain text');
   assertEqual(address.textContent, 'it@kpmg.kz');
   const mail = card.querySelectorAll('.faq-mailbox-mail');
-  assertEqual(mail.length, 1, 'a mail button for the mailbox with an address only');
-  assertEqual(mail[0].getAttribute('href'), 'mailto:it@kpmg.kz', 'mailto on the icon button');
+  assertEqual(mail.length, 1, 'a mail link for the mailbox with an address only');
+  assertEqual(mail[0].tagName, 'A', 'the envelope on the left is the link');
+  assertTrue(mail[0].classList.contains('faq-mailbox-icon'), 'no separate button: the envelope itself');
+  assertEqual(mail[0].getAttribute('href'), 'mailto:it@kpmg.kz', 'mailto on the envelope');
+  assertEqual(card.querySelectorAll('.faq-mailbox .icon-btn').length, 0, 'no mail button on the right any more');
+  assertEqual(card.querySelector('.faq-mailbox-missing').closest('.faq-mailbox').querySelector('.faq-mailbox-icon').tagName,
+    'SPAN', 'without an address the envelope is no link');
   assertEqual(mail[0].getAttribute('aria-label'), 'Email Service Desk (it@kpmg.kz)');
   assertEqual(mail[0].title, 'Email it@kpmg.kz');
   assertEqual(card.querySelector('.faq-answer').textContent, 'Line one\nLine two');

@@ -93,20 +93,21 @@ function renderFaqSections(document_) {
       const boxes = faqEl('div', 'faq-mailboxes');
       items.forEach((item) => {
         const box = faqEl('div', 'faq-mailbox');
-        const icon = faqEl('span', 'faq-mailbox-icon');
+        const valid = isValidEmail(item.email);
+        // The envelope on the left opens the mail program (the only mailto of the card); the address is plain text.
+        // Without an address it is just a picture.
+        const icon = faqEl(valid ? 'a' : 'span', valid ? 'faq-mailbox-icon faq-mailbox-mail' : 'faq-mailbox-icon');
         icon.appendChild(faqIcon(['M4 4h16v16H4z', 'm22 6-10 7L2 6']));
+        if (valid) {
+          icon.href = `mailto:${item.email}`;
+          icon.setAttribute('aria-label', `Email ${item.label ? `${item.label} (${item.email})` : item.email}`);
+          icon.title = `Email ${item.email}`;
+        }
         const body = faqEl('span', 'faq-mailbox-body');
         body.appendChild(faqEl('span', 'faq-mailbox-label', item.label || ''));
         box.append(icon, body);
-        // The address is plain text; only the mail button next to it opens the mail program
-        if (isValidEmail(item.email)) {
+        if (valid) {
           body.appendChild(faqEl('span', 'faq-mailbox-email', item.email));
-          const mail = faqEl('a', 'icon-btn faq-mailbox-mail');
-          mail.href = `mailto:${item.email}`;
-          mail.setAttribute('aria-label', `Email ${item.label ? `${item.label} (${item.email})` : item.email}`);
-          mail.title = `Email ${item.email}`;
-          mail.appendChild(faqIcon(['M4 4h16v16H4z', 'm22 6-10 7L2 6'], 16));
-          box.appendChild(mail);
         } else {
           body.appendChild(faqEl('span', 'faq-mailbox-missing', 'Email to be added'));
         }
