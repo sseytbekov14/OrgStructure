@@ -1023,11 +1023,38 @@ a {
   overflow: hidden;
 }
 
+/* One column by default; sections may come in any order and any number (the editor reorders and removes them) */
 .faq-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
-  gap: var(--space-6);
-  padding: var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
+  grid-auto-flow: row dense;
+  gap: var(--space-5) var(--space-8);
+  padding: var(--space-4) var(--space-5) var(--space-5);
+}
+
+/* With rules and mailboxes: the rules take the width, the mailboxes a narrow column of cards on the right (they do
+   not stretch over half a wide screen); questions always take the whole width */
+@media (min-width: 769px) {
+  .faq-grid:has(> .faq-section--guidelines):has(> .faq-section--mailboxes) {
+    grid-template-columns: minmax(0, 1fr) minmax(280px, 400px);
+  }
+
+  .faq-grid:has(> .faq-section--guidelines):has(> .faq-section--mailboxes) > .faq-section--guidelines {
+    grid-column: 1;
+  }
+
+  .faq-grid:has(> .faq-section--guidelines):has(> .faq-section--mailboxes) > .faq-section--mailboxes {
+    grid-column: 2;
+  }
+}
+
+.faq-section--questions {
+  grid-column: 1 / -1;
+}
+
+.faq-grid > .faq-section--questions:not(:first-child) {
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-divider);
 }
 
 .faq-section-title {
@@ -1072,25 +1099,23 @@ a {
   height: 11px;
 }
 
+/* Cards side by side when the section has the whole width, one under the other in the narrow column */
 .faq-mailboxes {
   display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--space-2);
 }
 
+/* Not a link itself (only the envelope is): no hover of its own */
 .faq-mailbox {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  min-width: 0;
   padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  transition: border-color var(--motion-fast) var(--ease), background-color var(--motion-fast) var(--ease);
-}
-
-.faq-mailbox:hover {
-  border-color: var(--color-brand);
-  background: var(--color-surface-alt);
 }
 
 .faq-mailbox-icon {
