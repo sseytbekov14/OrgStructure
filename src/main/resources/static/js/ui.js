@@ -267,13 +267,15 @@ function createCollapsible(options = {}) {
 
 /* ---------- Brand logo ---------- */
 
-// kpmg-logo.png: the blue KPMG logo (images/kpmg_blue.png, cropped to the logo); PNG first: no 404 on every page
-const BRAND_LOGO_FILES = ["/images/kpmg-logo.png", "/images/kpmg-logo.svg"];
+// The white KPMG logo: every logo slot (the site header, the header of the status cards) is on the brand blue
+const BRAND_LOGO_FILES = ["/images/kpmg_white.png"];
+// The favicon stays blue (images/kpmg_blue.png cropped to the logo): white would vanish on a light browser tab
+const BRAND_FAVICON_FILE = "/images/kpmg-logo.png";
 
 /**
- * Every .brand-logo--placeholder shows the official logo file once it is in /images/ (png, else svg), on a white
- * badge (.brand-logo--image: the blue logo stays readable on the blue header). The file is shown as it is (height from
- * CSS, width auto: aspect ratio kept); while it is missing the clearly marked placeholder stays.
+ * Every .brand-logo--placeholder shows the official logo file once it is in /images/, straight on the blue background.
+ * The file is shown as it is (height from CSS, width auto: aspect ratio kept); while it is missing the clearly marked
+ * placeholder stays.
  */
 function initBrandLogo() {
   const placeholders = [...document.querySelectorAll(".brand-logo--placeholder")];
@@ -287,7 +289,7 @@ function initBrandLogo() {
         holder.classList.add("brand-logo--image");
         holder.replaceChildren(uiEl("img", { src: BRAND_LOGO_FILES[index], alt: "KPMG" }));
       });
-      window.BRAND_FAVICON = BRAND_LOGO_FILES[index];
+      window.BRAND_FAVICON = BRAND_FAVICON_FILE;
       if (typeof window.recreateFaviconLink === "function") window.recreateFaviconLink();
     };
     probe.onerror = () => tryFile(index + 1);

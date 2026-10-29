@@ -169,8 +169,9 @@ external people never get a photo. See `.env.example` for the keys.
 - **Rules**: UI language English; no `alert()`, `confirm()` or `prompt()`; no `innerHTML` in new code (DOM APIs and
   `textContent`; `StoredXssTest` pins the reviewed HTML sinks of each script); no external fonts, CDNs or scripts;
   visible keyboard focus everywhere; layouts from 360 px up.
-- **Logo**: the header shows `/images/kpmg-logo.png` (the blue `kpmg_blue.png` cropped to the logo; `.svg` also works)
-  on a white badge; without the file a clearly marked placeholder.
+- **Logo**: the header and the status cards show the white `/images/kpmg_white.png` straight on the brand blue; the
+  favicon is the blue `/images/kpmg-logo.png` (`kpmg_blue.png` cropped to the logo); without the file a clearly marked
+  placeholder.
 - **Optional browser checks** (dev only, not part of the build): `e2e/` with its own `package.json` (Playwright with
   the installed Edge, axe-core): screenshots, axe, keyboard walk-through, performance. Start the app, then for example
   `cd e2e; npm install; $env:E2E_USER='dev'; $env:E2E_PASSWORD='<password>'; node axe.mjs`.
