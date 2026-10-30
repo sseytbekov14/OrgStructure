@@ -310,7 +310,7 @@ function renderColumn(title, employees, isCountry = false) {
   const headerClass = isCountry ? 'col-header country' : 'col-header kz';
   return `
     <div class="org-column" data-country="${isCountry ? 'true' : 'false'}">
-      <button class="${headerClass} col-header-btn" onclick="toggleColumn(this)" aria-expanded="true">
+      <button class="${headerClass} col-header-btn" data-toggle-column aria-expanded="true">
         <span class="col-title">${escapeHtml(title)}</span>
         <span class="col-count">${employees.length}</span>
         <svg class="col-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="16" height="16">
@@ -363,7 +363,7 @@ function renderGroupsView(employees) {
       <div class="head-section">
         <div class="head-cards" style="position: relative;">
           ${renderHeadCard(headEmps[0], headEmps.length > 1 ? 'main' : '')}
-          ${hasChildren ? `<button class="tree-toggle-btn" aria-expanded="true" onclick="toggleHeadSection(event, this)" aria-label="Toggle head section"></button>` : ''}
+          ${hasChildren ? `<button class="tree-toggle-btn" aria-expanded="true" data-toggle-head aria-label="Toggle head section"></button>` : ''}
         </div>
         ${headEmps.length > 1 ? `
         <div class="head-cards head-cards--additional" role="group" aria-label="Additional heads">
@@ -1108,6 +1108,18 @@ function bindChartEvents() {
       if (tree.expandedKeys.has(key)) tree.expandedKeys.delete(key);
       else tree.expandedKeys.add(key);
       layoutTree();
+      return;
+    }
+
+    // Groups view: no inline onclick (the CSP allows no inline scripts)
+    const column = event.target.closest('[data-toggle-column]');
+    if (column) {
+      window.toggleColumn(column);
+      return;
+    }
+    const head = event.target.closest('[data-toggle-head]');
+    if (head) {
+      window.toggleHeadSection(event, head);
       return;
     }
 

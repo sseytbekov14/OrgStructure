@@ -9,6 +9,12 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:OrgStructure}?ssl=false
 
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}
+
 app:
   data:
     excel-path: ${EXCEL_PATH:c:/Projects/OrgStructure/data/result_new.xlsx}

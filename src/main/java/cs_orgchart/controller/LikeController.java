@@ -15,7 +15,6 @@ import java.util.Map;
 @RequestMapping("/api/likes")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class LikeController {
 
     private final LikeService likeService;

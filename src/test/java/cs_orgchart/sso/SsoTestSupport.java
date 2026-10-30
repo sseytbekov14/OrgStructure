@@ -20,15 +20,14 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 /**
  * SSO as it is deployed (AUTH_SSO_ENABLED=true), against the made-up identity provider of {@link TestIdp}.
  * Every SSO test class extends this, so they share one application context. Admitted domain: corp.example;
- * admin@corp.example is SYSTEM_ADMIN, hr@corp.example is HR_EDITOR.
+ * admin@corp.example is SYSTEM_ADMIN.
  */
 @SpringBootTest(properties = {
         "auth.sso.enabled=true",
         "auth.sso.entity-id=" + TestIdp.ENTITY_ID,
         "auth.sso.acs-url=" + TestIdp.ACS_URL,
         "auth.sso.allowed-email-domains=Corp.Example",
-        "auth.roles.system-admin-emails=admin@corp.example",
-        "auth.roles.hr-editor-emails=hr@corp.example"
+        "auth.roles.system-admin-emails=admin@corp.example"
 })
 @AutoConfigureMockMvc
 @ActiveProfiles("test")

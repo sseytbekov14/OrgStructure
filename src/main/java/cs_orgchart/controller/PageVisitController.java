@@ -12,7 +12,6 @@ import java.util.Map;
 @RequestMapping("/api/page-visits")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class PageVisitController {
 
     private final PageVisitService pageVisitService;

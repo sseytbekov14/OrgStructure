@@ -1,64 +1,46 @@
-HELP.md
+# Build output (Maven; the Java extension of VS Code / Eclipse compiles to bin/)
 target/
-.mvn/wrapper/maven-wrapper.jar
+bin/
+build/
+*.jar
+*.war
+*.tar
 !**/src/main/**/target/
 !**/src/test/**/target/
+!**/src/main/**/build/
+!**/src/test/**/build/
 
-### STS ###
+# Employee data: personal data, never in git. The server and every developer keep their own copy.
+data/
+photos/*
+!photos/default.jpg
+
+# Secrets
+.env
+
+# IDE
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
 .apt_generated
+.apt_generated_tests
 .classpath
 .factorypath
 .project
 .settings
 .springBeans
 .sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
-*.iml
-*.ipr
-
-### NetBeans ###
 /nbproject/private/
 /nbbuild/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
-
-### VS Code ###
-.vscode/
-
-# Maven
-target/
-*.jar
-*.war
-
-# IntelliJ / VSCode
-.idea/
-*.iml
-.vscode/
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Spring Boot
-application-local.yaml
-
-# Excel data (optional - uncomment if you don't want to push data)
-data/employees.xlsx
-data/result.xlsx
-
-# Photos (optional - uncomment if you don't want to push photos)
-# photos/
-*.tar
-target/
-application-local.yaml
-.env
 
 # Optional browser checks (e2e/, dev only)
 e2e/node_modules/

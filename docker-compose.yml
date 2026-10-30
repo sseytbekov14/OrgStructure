@@ -3,12 +3,13 @@ services:
     image: postgres:15-alpine
     container_name: csorgchart_db
     restart: unless-stopped
+    # Only from this machine: the app reaches the database over the compose network
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       - POSTGRES_DB=OrgStructure
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
     volumes:
       - ./pgdata:/var/lib/postgresql/data
 
@@ -27,6 +28,6 @@ services:
       - APP_DATA_WATCH_INTERVAL_MS=60000
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/OrgStructure
       - SPRING_DATASOURCE_USERNAME=postgres
-      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD:-postgres}
     depends_on:
       - db

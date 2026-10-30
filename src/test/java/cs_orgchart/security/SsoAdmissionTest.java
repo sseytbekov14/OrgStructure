@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SsoAdmissionTest {
 
-    private final RoleLists roles = new RoleLists("admin@corp.example", "hr@corp.example");
+    private final RoleLists roles = new RoleLists("admin@corp.example");
 
     @Test
     void withoutDomains_everyoneEntraLetsThrough_isUser_evenWithoutAttributes() {
@@ -47,7 +47,7 @@ class SsoAdmissionTest {
         SsoAdmission admission = new SsoAdmission("", roles);
         assertThat(admission.decide(new SsoIdentity(null, "x@corp.example", "ADMIN@corp.example")).roles())
                 .containsExactly("USER", "SYSTEM_ADMIN");
-        assertThat(admission.decide(new SsoIdentity("hr@corp.example", null, null)).roles())
+        assertThat(admission.decide(new SsoIdentity("admin@corp.example", null, null)).roles())
                 .as("not by the NameID").containsExactly("USER");
     }
 

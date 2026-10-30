@@ -12,7 +12,6 @@ import java.util.Map;
 @RequestMapping("/api/interactions")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class EmployeeInteractionController {
 
     private final EmployeeInteractionService interactionService;

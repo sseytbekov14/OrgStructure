@@ -18,19 +18,25 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class LikeService {
 
+    /** The columns employee_email and visitor_id are varchar(255) */
+    static final int MAX_LENGTH = 255;
+
     private final EmployeeLikeRepository repository;
 
     public EmployeeLike addLike(String employeeEmail, String reactionType, String visitorId) {
-        if (employeeEmail == null || employeeEmail.isBlank()) {
-            throw new IllegalArgumentException("Employee email is required");
+        // Without a visitor id the duplicate check below never matches: one request could add any number of likes
+        if (employeeEmail == null || employeeEmail.isBlank() || visitorId == null || visitorId.isBlank()) {
+            throw new IllegalArgumentException("Employee email and visitor id are required");
+        }
+        if (employeeEmail.length() > MAX_LENGTH || visitorId.length() > MAX_LENGTH) {
+            throw new IllegalArgumentException("Employee email and visitor id are at most " + MAX_LENGTH + " characters");
         }
         if (!"SOLVED".equals(reactionType) && !"EXCEEDED".equals(reactionType)) {
             throw new IllegalArgumentException("Reaction type must be SOLVED or EXCEEDED");
         }
 
         String normalizedEmail = employeeEmail.trim().toLowerCase();
-        if (visitorId != null && !visitorId.isBlank()
-                && repository.existsByEmployeeEmailAndReactionTypeAndVisitorId(normalizedEmail, reactionType, visitorId)) {
+        if (repository.existsByEmployeeEmailAndReactionTypeAndVisitorId(normalizedEmail, reactionType, visitorId)) {
             throw new IllegalStateException("Visitor already sent this reaction");
         }
 

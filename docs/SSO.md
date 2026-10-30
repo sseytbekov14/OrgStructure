@@ -18,7 +18,7 @@
    - время и `InResponseTo`.
 5. Допуск. Кого пускать, решает Entra: назначенная приложению группа. OrgChart пускает каждого, кого пропустил Entra:
    - роль `USER` получают все;
-   - `SYSTEM_ADMIN_EMAILS` и `HR_EDITOR_EMAILS` добавляют `SYSTEM_ADMIN` и `HR_EDITOR`;
+   - `SYSTEM_ADMIN_EMAILS` добавляет `SYSTEM_ADMIN` (super admin);
    - необязательный фильтр `SAML_ALLOWED_EMAIL_DOMAINS` отсекает чужие домены;
    - людей OrgChart не хранит и не создаёт, claim `groups` не читает.
 6. Успешный вход: новая сессия и возврат на запрошенную страницу. В лог пишется `INFO SSO sign-in: roles=[USER] attributes=[…имена claims…]`.
@@ -43,7 +43,6 @@
 | `SAML_METADATA_URI` | App Federation Metadata Url | — | Читается **один раз при старте**; если не читается, старт отказывает. Без выхода в интернет — `file:/путь/federationmetadata.xml`. |
 | `SAML_ALLOWED_EMAIL_DOMAINS` | пусто (выкл.) | | Домены через запятую, регистр не важен. Домен берётся из claim e-mail, иначе из UPN. Не подходит или адреса нет — отказ (`DOMAIN_NOT_ALLOWED` / `NO_ADDRESS`). Поддомены не считаются. |
 | `SYSTEM_ADMIN_EMAILS` | пусто = никого | | Адреса через запятую. Сравниваются с e-mail или UPN; при пароле — с именем учётки. |
-| `HR_EDITOR_EMAILS` | пусто = никого | | Так же. |
 | `AUTH_SSO_DEBUG_ENDPOINT` | `false` | `true` только на время проверки | `GET /me` показывает человеку claims его собственного входа. Включён в prod — WARN при старте. |
 | `SESSION_TIMEOUT` | `8h` | | Формат Spring: `30m`, `8h`. |
 | `SERVER_FORWARD_HEADERS_STRATEGY` | `none` | `none` | Не менять, пока перед приложением нет HTTP reverse proxy (см. ниже). |
@@ -115,7 +114,6 @@ services:
       - SAML_METADATA_URI=${SAML_METADATA_URI}
       - SAML_ALLOWED_EMAIL_DOMAINS=${SAML_ALLOWED_EMAIL_DOMAINS:-}
       - SYSTEM_ADMIN_EMAILS=${SYSTEM_ADMIN_EMAILS:-}
-      - HR_EDITOR_EMAILS=${HR_EDITOR_EMAILS:-}
       - AUTH_SSO_DEBUG_ENDPOINT=${AUTH_SSO_DEBUG_ENDPOINT:-false}
       - SESSION_TIMEOUT=${SESSION_TIMEOUT:-8h}
     # Только если метаданные берутся из файла (SAML_METADATA_URI=file:/saml/federationmetadata.xml):
@@ -133,7 +131,6 @@ SAML_METADATA_URI=https://login.microsoftonline.com/<tenant-id>/federationmetada
 # SAML_METADATA_URI=file:/saml/federationmetadata.xml
 SAML_ALLOWED_EMAIL_DOMAINS=
 SYSTEM_ADMIN_EMAILS=
-HR_EDITOR_EMAILS=
 AUTH_SSO_DEBUG_ENDPOINT=false
 SESSION_TIMEOUT=8h
 # Форма пароля вместо открытого сайта (только с AUTH_SSO_ENABLED=false и AUTH_PASSWORD_ENABLED=true); одинарные кавычки обязательны из-за $
@@ -278,7 +275,7 @@ docker compose up -d --force-recreate     # docker restart не перечиты
 
 ### 8.2 Вместо открытого сайта — форма пароля (необязательно)
 
-`AUTH_SSO_ENABLED=false`, `AUTH_PASSWORD_ENABLED=true`, `AUTH_PASSWORD_USERS='admin:$2y$12$...'` (раздел 2). Появятся `/login` и `/logout`; войти смогут только эти учётки, роли — из `SYSTEM_ADMIN_EMAILS` / `HR_EDITOR_EMAILS` по имени учётки.
+`AUTH_SSO_ENABLED=false`, `AUTH_PASSWORD_ENABLED=true`, `AUTH_PASSWORD_USERS='admin:$2y$12$...'` (раздел 2). Появятся `/login` и `/logout`; войти смогут только эти учётки, super admin — по `SYSTEM_ADMIN_EMAILS` (имя учётки).
 
 ### 8.3 На старый образ
 

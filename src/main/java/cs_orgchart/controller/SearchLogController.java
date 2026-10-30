@@ -12,7 +12,6 @@ import java.util.Map;
 @RequestMapping("/api/search-logs")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class SearchLogController {
 
     private final SearchLogService searchLogService;

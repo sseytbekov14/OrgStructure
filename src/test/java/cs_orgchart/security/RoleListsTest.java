@@ -6,7 +6,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class RoleListsTest {
 
-    private final RoleLists lists = new RoleLists(" Admin@Corp.example , ops@corp.example", "hr@corp.example");
+    private final RoleLists lists = new RoleLists(" Admin@Corp.example , ops@corp.example");
 
     @Test
     void everyone_isUser() {
@@ -17,12 +17,12 @@ class RoleListsTest {
     @Test
     void theLists_matchAnyCase_andAnyOfTheNames() {
         assertThat(lists.rolesOf(null, "ADMIN@corp.example")).containsExactly("USER", "SYSTEM_ADMIN");
-        assertThat(lists.rolesOf("x@corp.example", " HR@corp.example ")).containsExactly("USER", "HR_EDITOR");
+        assertThat(lists.rolesOf("x@corp.example", " OPS@corp.example ")).containsExactly("USER", "SYSTEM_ADMIN");
     }
 
     @Test
     void emptyLists_giveNobodyMore() {
-        RoleLists empty = new RoleLists("", " ");
+        RoleLists empty = new RoleLists(" ");
         assertThat(empty.rolesOf("admin@corp.example")).containsExactly("USER");
     }
 

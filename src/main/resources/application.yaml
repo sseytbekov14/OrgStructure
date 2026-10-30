@@ -102,10 +102,9 @@ auth:
   # /logout; empty: on only with the password form
   logout:
     enabled: ${AUTH_LOGOUT_ENABLED:}
-  # Everyone signed in is USER; these addresses (e-mail or UPN, or the password account name) get more
+  # Everyone signed in is USER; these addresses (e-mail or UPN, or the password account name) are super admins
   roles:
     system-admin-emails: ${SYSTEM_ADMIN_EMAILS:}
-    hr-editor-emails: ${HR_EDITOR_EMAILS:}
 
 # Employees from Active Directory (docs/OrgChart_AD_Integration_Spec_v3.md, section 8). AD_SYNC_MODE empty: no AD
 # components at all. Nothing connects to AD at start: the first connection is made by the first sync.
@@ -139,11 +138,19 @@ ad:
     connect-timeout: ${AD_LDAP_CONNECT_TIMEOUT:10s}
     read-timeout: ${AD_LDAP_READ_TIMEOUT:180s}
 
+# OpenAPI description (/v3/api-docs) and Swagger UI (/swagger-ui.html): a map of every endpoint, the admin ones
+# included. Off unless SPRINGDOC_ENABLED=true; on by default only in the local profile.
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:false}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:false}
+
 management:
   endpoints:
     web:
       exposure:
-        include: "health,prometheus"
+        include: "health"
   endpoint:
     health:
       show-details: when_authorized

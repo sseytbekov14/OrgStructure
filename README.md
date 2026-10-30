@@ -1,67 +1,70 @@
 # CS OrgChart
 
-Интерактивная оргструктура Central Services для быстрого поиска сотрудников, функций и контактов по данным из Excel.
+Интерактивная оргструктура Central Services: функции, дерево сотрудников, поиск, карточки с контактами, FAQ функций и
+админка для правки данных поверх Active Directory.
 
 ## Что умеет приложение
 
-- Показывает список функций Central Services на главной странице.
-- Открывает отдельную страницу функции со структурой сотрудников.
-- Поддерживает поиск по имени, должности, группе и функции.
-- Подтягивает фотографии сотрудников из локальной папки.
-- Автоматически перечитывает Excel при изменении файла.
-- Отправляет событие обновления в браузер через Server-Sent Events (SSE).
+- Главная страница со всеми функциями Central Services и поиском по имени, должности, группе и функции.
+- Страница функции: дерево подчинения и вид по группам, руководители функции, руководители стран, FAQ.
+- Карточка сотрудника: контакты, руководитель (в том числе вне Central Services), подчинённые, фото, реакции.
+- Сотрудники берутся из Active Directory (синхронизация в PostgreSQL) или, для отката, из Excel-файла.
+- Админы правят группы, руководителей, тексты, FAQ и фото и скрывают людей; все открытые страницы получают изменения
+  сразу (Server-Sent Events).
+- Вход через Microsoft Entra ID (SAML 2.0).
 
 ## Стек
 
-- Java 21
-- Spring Boot 3.5.14
-- Spring Web
-- Spring Boot Actuator
-- Apache POI
-- Apache Commons IO
-- HTML, CSS, Vanilla JavaScript
+- Java 21, Spring Boot 3.5 (Web, Security, Data JPA, Actuator), Spring Security SAML 2.0 (OpenSAML)
+- PostgreSQL, Flyway (миграции в `src/main/resources/db/migration`)
+- Spring LDAP (синхронизация с AD по LDAPS), Apache POI (Excel)
+- HTML, CSS, Vanilla JavaScript без сборки и внешних CDN
 
 ## Структура проекта
 
 ```text
-CS_OrgChart/
-|-- data/
-|   `-- result.xlsx
-|-- photos/
-|   `-- default.jpg
-|-- src/
-|   |-- main/
-|   |   |-- java/cs_orgchart/
-|   |   |   |-- config/
-|   |   |   |-- controller/
-|   |   |   |-- model/
-|   |   |   `-- service/
-|   |   `-- resources/
-|   |       |-- application.yaml
-|   |       `-- static/
-|   |           |-- index.html
-|   |           |-- function.html
-|   |           |-- css/
-|   |           `-- js/
-|   `-- test/
-|-- pom.xml
-`-- mvnw.cmd
+src/main/java/cs_orgchart/
+|-- access/      админы сайта (app_admins), страница /admin.html
+|-- ad/          синхронизация с AD: клиент LDAP / mock, маппинг, планировщик, журнал, health
+|-- config/      Spring Security (SSO, CSP, CSRF), SAML, MVC, проверки при старте
+|-- controller/  API сотрудников, SSE-поток, реакции и аналитика
+|-- department/  словари отделов -> функции
+|-- employee/    справочник сотрудников (Excel или БД), группы, правки админов, скрытие
+|-- faq/         FAQ функций
+|-- importer/    разовый импорт правок из Excel
+|-- photo/       фото из AD и загруженные на сайте
+|-- security/    режимы входа, роли, допуск SSO
+`-- service/     чтение Excel, наблюдение за файлом, SSE, аналитика
+src/main/resources/
+|-- application.yaml, application-{local,stage,prod}.yml
+|-- db/migration/      схема БД (Flyway)
+|-- static/            index.html, function.html, js/, css/, images/
+`-- pages/admin.html   страница админа (отдаётся только админам)
+src/test/              тесты Java и JS (JS запускаются из JsTestsTest через Node)
+e2e/                   необязательные браузерные проверки (Playwright), не входят в сборку
+docs/                  SSO, спецификация интеграции с AD, аудит
 ```
 
 ## Запуск локально
 
-### Требования
-
-- Java 21
-
-### Команда запуска
+Нужны Java 21+, PostgreSQL и Node.js (для JS-тестов).
 
 ```powershell
 $env:SPRING_PROFILES_ACTIVE = "local"
 .\mvnw.cmd spring-boot:run
 ```
 
-После запуска приложение будет доступно по адресу `http://localhost:8080`. Профиль обязателен: без `SPRING_PROFILES_ACTIVE` (`prod`, `stage` или `local`) приложение не стартует. В `local` сайт открыт без входа.
+Приложение откроется на `http://localhost:8080`. Профиль обязателен: без `SPRING_PROFILES_ACTIVE` (`prod`, `stage` или
+`local`) приложение не стартует. В `local` сайт открыт без входа, Swagger UI доступен на `/swagger-ui.html`.
+
+Сотрудники для разработки без AD — синтетические из `mock/ad-employees.json`:
+
+```powershell
+$env:EMPLOYEE_SOURCE = "db"; $env:AD_SYNC_ENABLED = "true"; $env:AD_SYNC_MODE = "mock"; $env:AD_SYNC_ON_STARTUP = "true"
+```
+
+Тесты: `.\mvnw.cmd test`. Часть тестов работает с PostgreSQL из `DB_HOST` / `DB_NAME` и меняет данные, поэтому
+запускайте их на отдельной базе (`$env:DB_NAME = "orgchart_test"`), а не на рабочей dev-базе.
 
 ## Вход
 
@@ -188,86 +191,65 @@ outside Central Services get no uploaded photo. Undo every upload: `DELETE FROM 
 
 ## Конфигурация
 
-Основные пути задаются в `src/main/resources/application.yaml`:
+Все параметры задаются переменными окружения; полный список с пояснениями — в [.env.example](.env.example) и
+[docs/SSO.md](docs/SSO.md). Основные:
 
-```yaml
-server:
-  port: 8080
-
-app:
-  data:
-    excel-path: C:/Sultan/Projects/CS_OrgChart/data/result.xlsx
-    photos-path: C:/Sultan/Projects/CS_OrgChart/photos
-```
-
-Если Excel или фотографии лежат в другом месте, достаточно изменить эти пути.
-
-## Формат Excel
-
-Приложение читает первый лист `.xlsx` и ожидает такие колонки:
-
-| Колонка | Описание |
+| Переменная | Назначение |
 |---|---|
-| A | `name` - ФИО сотрудника |
-| B | `cs` - функция Central Services |
-| C | `group` - группа или команда |
-| D | `jobTitle` - должность |
-| E | `email` - корпоративная почта |
-| F | `pm` - руководитель |
-| G | `pmEmail` - почта руководителя |
-| H | `pmJobTitle` - должность руководителя |
+| `SPRING_PROFILES_ACTIVE` | `prod`, `stage` или `local` (обязательно) |
+| `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD` | PostgreSQL (в `prod`/`stage` с SSL) |
+| `EMPLOYEE_SOURCE` | `db` — сотрудники из AD (через БД), `excel` — из файла (откат) |
+| `AD_SYNC_ENABLED`, `AD_SYNC_MODE`, `AD_LDAP_*` | синхронизация с AD ([docs/OrgChart_AD_Integration_Spec_v3.md](docs/OrgChart_AD_Integration_Spec_v3.md)) |
+| `SYSTEM_ADMIN_EMAILS` | super admins (через запятую) |
+| `APP_DATA_EXCEL_PATH`, `APP_DATA_PHOTOS_PATH` | Excel-файл и папка фото (в `local`: `EXCEL_PATH`, `PHOTOS_PATH`) |
+| `SPRINGDOC_ENABLED` | Swagger UI и `/v3/api-docs`; по умолчанию включены только в `local` |
 
-Строки без `name`, `cs` или `email` пропускаются.
+## Данные сотрудников и git
 
-## Фотографии
+Excel-файл и фотографии — персональные данные, в git их нет (`data/` и `photos/*` в `.gitignore`, кроме
+`photos/default.jpg`). Сервер и каждый разработчик держат свою копию в папках из `APP_DATA_EXCEL_PATH` /
+`APP_DATA_PHOTOS_PATH`.
 
-- Фотографии хранятся в папке `photos/`.
-- Имя файла должно совпадать с email сотрудника.
-- Формат файла: `.jpg`
-- Если фото не найдено, используется `photos/default.jpg`.
+## Excel (режим `EMPLOYEE_SOURCE=excel`)
 
-Пример:
+Приложение читает лист `NEW` (если его нет — первый лист) `.xlsx`, колонки по заголовкам первой строки: `Name`, `CS`,
+`Group`, `Job Title`, `E-mail`, `PM`, `PM Email`, `PM Job Title`, `Area of Duties`, `Job Description` (регистр не важен). Строки без `name`, `cs` или `email` пропускаются. Файл
+перечитывается при изменении (`FileWatcherService`), открытые страницы получают событие `org-updated`.
 
-```text
-photos/
-|-- employee@company.com.jpg
-`-- default.jpg
-```
+Фото из папки: имя файла — e-mail сотрудника или его часть до `@` (`.jpg`, `.jpeg`, `.png`, `.webp`); без фото — `photos/default.jpg`. В режиме
+`db` первыми идут загруженные на сайте фото и фото из AD (см. выше).
+
+## Сборка и деплой
+
+- `build-tar.cmd` (или `build-tar.ps1`) собирает JAR, Docker-образ и `csorgchart_offline.tar` для сервера без
+  интернета; на сервере `docker load -i csorgchart_offline.tar` и `docker compose up -d`.
+- `docker-compose.yml`: приложение и PostgreSQL; пароль БД — `POSTGRES_PASSWORD` из `.env`, порт БД открыт только на
+  `127.0.0.1`.
+- CI (`.gitlab-ci.yml`): тесты на своём PostgreSQL, OWASP dependency-check, сборка образа.
 
 ## API
 
-### Сотрудники и функции
+Все `/api/**` — только для тех, кто может открыть сайт (с SSO — после входа); без сессии ответ 401 JSON. Каждая запись
+требует CSRF-токен: cookie `XSRF-TOKEN` возвращается в заголовке `X-XSRF-TOKEN`. Админские методы — в таблице раздела
+*Admin guide* выше.
 
-- `GET /api/functions` - список функций.
-- `GET /api/employees` - все сотрудники.
-- `GET /api/employees?cs=People` - сотрудники выбранной функции.
-- `GET /api/search?q=finance` - поиск сотрудников.
+| Метод | Путь | Что делает |
+|---|---|---|
+| GET | `/api/functions` | список функций |
+| GET | `/api/employees[?cs=&country=]` | сотрудники (все, функции, страны) |
+| GET | `/api/search?q=[&cs=&country=]` | поиск |
+| GET | `/api/org/stream` | SSE: `org-updated` при изменении данных |
+| GET | `/api/likes/summary[/{email}]` | реакции |
+| POST / DELETE | `/api/likes` | поставить / снять реакцию (`employeeEmail`, `reactionType` = `SOLVED` / `EXCEEDED`, `visitorId`) |
+| POST | `/api/page-visits`, `/api/interactions`, `/api/search-logs` | аналитика |
+| GET | `/actuator/health` | состояние (подробности — только super admin) |
 
-### Поток обновлений
+Описание всех методов в формате OpenAPI: `/v3/api-docs` (включается `SPRINGDOC_ENABLED=true`, в `local` включено).
 
-- `GET /api/org/stream` - SSE-подписка на изменения оргструктуры.
+## Безопасность
 
-При изменении Excel сервер:
-
-1. перечитывает данные;
-2. увеличивает версию;
-3. отправляет клиентам событие `org-updated`.
-
-## Автообновление данных
-
-`FileWatcherService` следит за файлом Excel через Apache Commons IO `FileAlterationMonitor`.
-
-- По умолчанию проверка идёт каждые `1000` мс.
-- После изменения файла данные перечитываются без перезапуска приложения.
-- На фронтенд отправляется уведомление, чтобы клиент увидел актуальную структуру.
-
-## Полезно знать
-
-- Главная страница: `/`
-- Страница функции: `/function.html`
-- Фото сотрудников доступны по пути `/photos/...`
-- Для `index.html`, `function.html` и `favicon.svg` отключено кеширование
-
-## Текущее состояние
-
-README отражает текущую реализацию в репозитории: локальный запуск через Maven Wrapper, Excel-файл `data/result.xlsx`, фото из папки `photos/` и обновление структуры через SSE. Инструкции по Docker не добавлены, потому что в текущем репозитории `Dockerfile` и `docker-compose.yml` отсутствуют.
+- Content Security Policy без инлайн-скриптов для всех страниц сайта (`script-src 'self'`): не используйте `onclick=`
+  и `<script>` без `src`, это проверяет `HardeningTest`. Исключение — страницы, которые пишет сам Spring (`/login`,
+  отправка запроса в Entra).
+- Нет CORS: API работает только с того же адреса.
+- Аудит и рекомендации: [docs/AUDIT_2026-10-30.md](docs/AUDIT_2026-10-30.md).

@@ -26,6 +26,9 @@ import org.springframework.security.provisioning.InMemoryUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
+import org.springframework.security.web.header.HeaderWriter;
+import org.springframework.security.web.header.writers.ContentSecurityPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.security.web.savedrequest.HttpSessionRequestCache;
 import org.springframework.security.web.savedrequest.RequestCache;
@@ -33,6 +36,8 @@ import org.springframework.security.web.servlet.util.matcher.PathPatternRequestM
 import org.springframework.security.web.util.matcher.AndRequestMatcher;
 import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 
 import java.security.SecureRandom;
 import java.util.ArrayList;
@@ -53,6 +58,16 @@ public class SecurityConfig {
 
     static final String LOCAL_ACCOUNT = "dev";
 
+    private static final String CSP = "default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"
+            + " object-src 'none'; base-uri 'self'; frame-ancestors 'none'; script-src 'self'";
+    /** The site's own pages: scripts from its own files only, so an injected script never runs */
+    static final String SCRIPTS_SELF_ONLY = CSP + ";";
+    /** The pages Spring writes itself, with an inline script: the password form, the SAML POST binding */
+    static final String SCRIPTS_INLINE = CSP + " 'unsafe-inline';";
+    private static final RequestMatcher SPRING_PAGES = new OrRequestMatcher(
+            PathPatternRequestMatcher.withDefaults().matcher("/login"),
+            PathPatternRequestMatcher.withDefaults().matcher(SamlConfig.SIGN_ON_PATH));
+
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http, Environment env, AuthMode authMode,
                                            RoleLists roleLists, ObjectProvider<SsoSignIn> ssoSignIn) throws Exception {
@@ -71,18 +86,16 @@ public class SecurityConfig {
                 .xssProtection(xss -> {})
                 .referrerPolicy(referrer ->
                     referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
-                .contentSecurityPolicy(csp ->
-                    csp.policyDirectives("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;"))
+                .addHeaderWriter(contentSecurityPolicy(SCRIPTS_SELF_ONLY, new NegatedRequestMatcher(SPRING_PAGES)))
+                .addHeaderWriter(contentSecurityPolicy(SCRIPTS_INLINE, SPRING_PAGES))
             )
             .authorizeHttpRequests(auth -> {
                 auth
                 .requestMatchers("/actuator/health").permitAll()
-                .requestMatchers("/actuator/prometheus").hasRole("MONITORING_SYSTEM")
                 .requestMatchers("/actuator/**").denyAll()
                 .requestMatchers("/css/**", "/js/**", "/images/**", "/favicon.svg", "/error").permitAll()
                 .requestMatchers(SsoSignIn.ACCESS_NOT_GRANTED_PATH, SsoSignIn.SIGN_IN_FAILED_PATH,
                     SsoSignIn.SIGNED_OUT_PATH).permitAll()
-                .requestMatchers("/api/admin/upload-excel").hasAnyRole(RoleLists.HR_EDITOR, RoleLists.SYSTEM_ADMIN)
                 .requestMatchers("/api/admin/**").hasRole(RoleLists.SYSTEM_ADMIN);
                 if (authMode.open()) {
                     // Open site (SSO off, no password form): everyone, as before SSO
@@ -142,6 +155,10 @@ public class SecurityConfig {
         CsrfTokenRequestAttributeHandler handler = new CsrfTokenRequestAttributeHandler();
         handler.setCsrfRequestAttributeName(null);
         return handler;
+    }
+
+    private static HeaderWriter contentSecurityPolicy(String policy, RequestMatcher requests) {
+        return new DelegatingRequestMatcherHeaderWriter(requests, new ContentSecurityPolicyHeaderWriter(policy));
     }
 
     /**

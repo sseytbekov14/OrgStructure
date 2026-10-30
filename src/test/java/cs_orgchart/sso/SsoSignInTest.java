@@ -48,10 +48,10 @@ class SsoSignInTest extends SsoTestSupport {
                 .extracting(Object::toString).containsExactly("ROLE_USER", "ROLE_SYSTEM_ADMIN");
 
         // The UPN (claim "name") is on the list, the e-mail claim is another address of the same person
-        Map<String, String> claims = new LinkedHashMap<>(TestIdp.Person.of("hr.alias@corp.example").claims());
-        claims.put(TestIdp.NAME_CLAIM, "hr@corp.example");
-        assertThat(authentication(signIn("/", new TestIdp.Person("hr.alias@corp.example", claims))).getAuthorities())
-                .extracting(Object::toString).containsExactly("ROLE_USER", "ROLE_HR_EDITOR");
+        Map<String, String> claims = new LinkedHashMap<>(TestIdp.Person.of("admin.alias@corp.example").claims());
+        claims.put(TestIdp.NAME_CLAIM, "admin@corp.example");
+        assertThat(authentication(signIn("/", new TestIdp.Person("admin.alias@corp.example", claims))).getAuthorities())
+                .extracting(Object::toString).containsExactly("ROLE_USER", "ROLE_SYSTEM_ADMIN");
     }
 
     @Test

@@ -14,24 +14,20 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * The roles of a signed-in person: everyone is USER; SYSTEM_ADMIN_EMAILS and HR_EDITOR_EMAILS (addresses separated
- * by commas, any case; empty: nobody) add SYSTEM_ADMIN and HR_EDITOR. Checked against the e-mail address and the
- * UPN of an SSO sign-in, or the account name of the password form.
+ * The roles of a signed-in person: everyone is USER; SYSTEM_ADMIN_EMAILS (addresses separated by commas, any case;
+ * empty: nobody) adds SYSTEM_ADMIN. Checked against the e-mail address and the UPN of an SSO sign-in, or the account
+ * name of the password form.
  */
 @Component
 public class RoleLists {
 
     public static final String USER = "USER";
-    public static final String HR_EDITOR = "HR_EDITOR";
     public static final String SYSTEM_ADMIN = "SYSTEM_ADMIN";
 
     private final Set<String> systemAdmins;
-    private final Set<String> hrEditors;
 
-    public RoleLists(@Value("${auth.roles.system-admin-emails:}") String systemAdmins,
-                     @Value("${auth.roles.hr-editor-emails:}") String hrEditors) {
+    public RoleLists(@Value("${auth.roles.system-admin-emails:}") String systemAdmins) {
         this.systemAdmins = list(systemAdmins);
-        this.hrEditors = list(hrEditors);
     }
 
     /** The roles (without the ROLE_ prefix) of a person known by any of these names; nulls are skipped. */
@@ -40,9 +36,6 @@ public class RoleLists {
                 .map(name -> name.trim().toLowerCase(Locale.ROOT)).filter(name -> !name.isEmpty())
                 .collect(Collectors.toSet());
         List<String> roles = new ArrayList<>(List.of(USER));
-        if (keys.stream().anyMatch(hrEditors::contains)) {
-            roles.add(HR_EDITOR);
-        }
         if (keys.stream().anyMatch(systemAdmins::contains)) {
             roles.add(SYSTEM_ADMIN);
         }
