@@ -9,6 +9,7 @@ import cs_orgchart.employee.EmployeeRepository;
 import cs_orgchart.employee.group.GroupViews.CreateGroupRequest;
 import cs_orgchart.employee.group.GroupViews.GroupView;
 import cs_orgchart.employee.group.GroupViews.GroupsView;
+import cs_orgchart.employee.group.GroupViews.MemberOrderRequest;
 import cs_orgchart.employee.group.GroupViews.MemberRef;
 import cs_orgchart.employee.group.GroupViews.MembersRequest;
 import cs_orgchart.employee.group.GroupViews.MembersResult;
@@ -26,6 +27,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -36,6 +38,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Predicate;
 
 /**
  * Groups of a function (U4): list, create, rename / reorder / (de)activate, delete when empty, add or move people,
@@ -51,10 +54,12 @@ public class FunctionGroupService {
     /** The country codes that are columns of their own (as COUNTRY_CODES of function.js) */
     public static final Set<String> COUNTRY_CODES = Set.of("KZ", "UZ", "AZ", "GE", "AM", "KG", "RU");
     static final int MAX_MEMBERS_PER_REQUEST = 50;
+    private static final int POSITION_STEP = 10;
     private static final Set<String> RESERVED_TEAM_NAMES = Set.of("head", "other");
 
     private final FunctionGroupRepository groups;
     private final EmployeeOverrideRepository overlay;
+    private final GroupMemberOrderRepository memberOrder;
     private final EmployeeRepository employees;
     private final EmployeeDirectory directory;
     private final ObjectProvider<DbEmployeeDirectory> dbDirectory;
@@ -62,11 +67,12 @@ public class FunctionGroupService {
     private final ApplicationEventPublisher events;
 
     public FunctionGroupService(FunctionGroupRepository groups, EmployeeOverrideRepository overlay,
-                                EmployeeRepository employees, EmployeeDirectory directory,
+                                GroupMemberOrderRepository memberOrder, EmployeeRepository employees, EmployeeDirectory directory,
                                 ObjectProvider<DbEmployeeDirectory> dbDirectory, AdminGuards guards,
                                 ApplicationEventPublisher events) {
         this.groups = groups;
         this.overlay = overlay;
+        this.memberOrder = memberOrder;
         this.employees = employees;
         this.directory = directory;
         this.dbDirectory = dbDirectory;
@@ -291,6 +297,74 @@ public class FunctionGroupService {
         overlay.saveAndFlush(row);
         log.info("Admin {} took employee {} out of group {} in {}", admin, employeeId, id, group.getCs());
         events.publishEvent(new OverlayChanged(group.getCs()));
+    }
+
+    /** The order of the people inside the group, replaced as a whole (last admin wins) */
+    @Transactional
+    public void orderMembers(long id, MemberOrderRequest request, String admin) {
+        guards.requireEditing();
+        FunctionGroup group = requireGroup(id);
+        String name = key(group.getName());
+        saveOrder(group.getCs(), id, request, admin,
+                e -> e.getGroup() != null && key(e.getGroup()).equals(name));
+    }
+
+    /** The same for the people of the function without a group (the "Other" column) */
+    @Transactional
+    public void orderUngrouped(String cs, MemberOrderRequest request, String admin) {
+        guards.requireEditing();
+        guards.requireKnownFunction(cs);
+        saveOrder(cs, null, request, admin, e -> e.getGroup() == null);
+    }
+
+    /** Everybody listed must be there now, otherwise 409 and nothing changes: somebody moved them meanwhile */
+    private void saveOrder(String cs, Long groupId, MemberOrderRequest request, String admin,
+                           Predicate<cs_orgchart.model.Employee> member) {
+        List<Long> ids = request == null || request.employeeIds() == null ? List.of() : request.employeeIds();
+        if (ids.isEmpty() || ids.contains(null) || new HashSet<>(ids).size() != ids.size()) {
+            throw AdminEditException.badRequest("EMPLOYEES", "List every person once.");
+        }
+        Set<Long> members = new HashSet<>();
+        directory.getAllEmployees().stream().filter(e -> e.getId() != null && cs.equals(e.getCs())).filter(member)
+                .forEach(e -> members.add(e.getId()));
+        if (!members.containsAll(ids)) {
+            throw AdminEditException.conflict("CHANGED", "Changed by someone else: reload the groups.");
+        }
+        if (groupId == null) {
+            memberOrder.deleteUngrouped(cs);
+        } else {
+            memberOrder.deleteByGroupId(groupId);
+        }
+        memberOrder.deleteByCsAndEmployees(cs, ids);
+        Instant now = Instant.now();
+        List<GroupMemberOrder> rows = new ArrayList<>();
+        for (int i = 0; i < ids.size(); i++) {
+            rows.add(GroupMemberOrder.builder().cs(cs).employeeId(ids.get(i)).groupId(groupId)
+                    .position((i + 1) * POSITION_STEP).updatedBy(admin).updatedAt(now).build());
+        }
+        memberOrder.saveAllAndFlush(rows);
+        log.info("Admin {} ordered {} people in group {} in {}", admin, ids.size(), groupId, cs);
+        events.publishEvent(new OverlayChanged(cs));
+    }
+
+    /** Back to the automatic order of the group: by grade */
+    @Transactional
+    public void resetMemberOrder(long id, String admin) {
+        guards.requireEditing();
+        FunctionGroup group = requireGroup(id);
+        memberOrder.deleteByGroupId(id);
+        log.info("Admin {} reset the order of group {} in {}", admin, id, group.getCs());
+        events.publishEvent(new OverlayChanged(group.getCs()));
+    }
+
+    /** The same for the people of the function without a group */
+    @Transactional
+    public void resetUngroupedOrder(String cs, String admin) {
+        guards.requireEditing();
+        guards.requireKnownFunction(cs);
+        memberOrder.deleteUngrouped(cs);
+        log.info("Admin {} reset the order of the people without a group in {}", admin, cs);
+        events.publishEvent(new OverlayChanged(cs));
     }
 
     // --- used by the overlay edit, the importer, the seeder and the registrar -----------------------------------

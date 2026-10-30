@@ -364,8 +364,7 @@ class AdSyncServiceTest extends AdSyncTestSupport {
         assertThat(report.skippedByReason()).containsEntry(SkipReason.COUNTRY_NOT_ALLOWED, 1)
                 .containsEntry(SkipReason.BLANK_DISPLAY_NAME, 1).containsEntry(SkipReason.MISSING_REQUIRED, 0);
         assertThat(report.byCountry()).containsOnlyKeys("KZ", "UZ", "AZ", "GE", "AM", "KG");
-        assertThat(report.byFunction()).containsOnlyKeys("People", "Finance", "ITS", "Markets", "F&O", "OGC", "QRM",
-                "Tenders");
+        assertThat(report.byFunction()).containsOnlyKeys("People", "Finance", "ITS", "Markets", "F&O", "OGC", "QRM");
         assertThat(report.unmappedSegments()).isEmpty();
         assertThat(report.withoutManager()).isEqualTo(4);
         assertThat(report.withoutPm()).isEqualTo(4);

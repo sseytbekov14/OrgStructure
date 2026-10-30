@@ -64,10 +64,10 @@ class DbEmployeeDirectoryTest {
     /** The fields of /api/employees before Phase 5 (Excel) */
     static final Set<String> PREVIOUS_FIELDS = Set.of("name", "cs", "group", "jobTitle", "email", "pm", "pmEmail",
             "pmJobTitle", "photoUrl", "gradeOrder", "areaOfDuties", "jobDescription");
-    static final Set<String> NEW_FIELDS = Set.of("id", "parentId", "countryCode", "groupOrder", "city", "country",
+    static final Set<String> NEW_FIELDS = Set.of("id", "parentId", "countryCode", "groupOrder", "groupId",
+            "groupPosition", "city", "country",
             "pmId", "pmExternal", "pmPhotoUrl", "photoUploaded");
-    static final Set<String> SITE_FUNCTIONS = Set.of("People", "Finance", "ITS", "Markets", "F&O", "OGC", "QRM",
-            "Tenders");
+    static final Set<String> SITE_FUNCTIONS = Set.of("People", "Finance", "ITS", "Markets", "F&O", "OGC", "QRM");
 
     private static final Path ROOT = temp();
     private static final Path PHOTOS = ROOT.resolve("photos");

@@ -57,7 +57,7 @@ class FlywayMigrationsTest {
         List<String> versions = jdbc.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success AND version IS NOT NULL ORDER BY installed_rank",
                 String.class);
-        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13");
+        assertThat(versions).containsExactly("1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15");
     }
 
     @Test
@@ -68,7 +68,7 @@ class FlywayMigrationsTest {
         assertThat(tables).contains(
                 "employee_interactions", "employee_likes", "page_visits", "search_logs",
                 "employees", "ad_sync_log", "department_aliases", "department_general_nodes",
-                "department_function_map", "employee_overrides", "employee_photos");
+                "department_function_map", "employee_overrides", "employee_photos", "group_member_order");
     }
 
     @Test
@@ -394,7 +394,6 @@ class FlywayMigrationsTest {
         Map<String, String> map = keyValue(
                 "SELECT dept_level2 || ' / ' || coalesce(dept_level3, '*'), cs_name FROM department_function_map WHERE visible");
         assertThat(map).containsAllEntriesOf(Map.of(
-                "Facilities & Operations / Proposals & Tenders", "Tenders",
                 "Facilities & Operations / *", "F&O",
                 "Executives / *", "F&O",
                 "Procurement / *", "F&O",
@@ -405,7 +404,7 @@ class FlywayMigrationsTest {
                 "Markets / *", "Markets",
                 "QRM / *", "QRM"));
         assertThat(jdbc.queryForList("SELECT DISTINCT cs_name FROM department_function_map", String.class))
-                .containsExactlyInAnyOrder("People", "Finance", "ITS", "Markets", "F&O", "OGC", "QRM", "Tenders");
+                .containsExactlyInAnyOrder("People", "Finance", "ITS", "Markets", "F&O", "OGC", "QRM");
     }
 
     @Test

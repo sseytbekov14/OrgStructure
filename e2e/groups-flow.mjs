@@ -25,7 +25,7 @@ for (const width of (process.env.E2E_WIDTHS || '1440,390').split(',').map(Number
   await page.waitForTimeout(150);
   await page.screenshot({ path: shot(`menu-${width}`) });
   await page.keyboard.press('Escape');
-  await page.locator('.admin-group-member button', { hasText: 'Move to group' }).first().click();
+  await page.locator('.admin-group-add').first().click();
   await page.waitForSelector('.ui-dialog', { timeout: 5000 });
   await page.screenshot({ path: shot(`move-${width}`) });
   await page.keyboard.press('Escape');

@@ -64,8 +64,8 @@ test('menu: rename disabled for AD groups, delete only for empty groups, move le
   const { column, button } = await managePage();
   const items = (name) => Object.fromEntries([...column(name).querySelectorAll('[role=menuitem]')]
     .map((b) => [b.textContent, b.disabled]));
-  assertEqual(items('IT Operations'), { Rename: true, 'Move left': true, 'Move right': false, Delete: true });
-  assertEqual(items('Empty team'), { Rename: false, 'Move left': false, 'Move right': true, Delete: false });
+  assertEqual(items('IT Operations'), { Rename: true, 'Move left': true, 'Move right': false, 'Reset order (by grade)': true, Delete: true });
+  assertEqual(items('Empty team'), { Rename: false, 'Move left': false, 'Move right': true, 'Reset order (by grade)': true, Delete: false });
   const menuButton = column('IT PMO').querySelector('.admin-group-menu-btn');
   menuButton.click();
   assertEqual(menuButton.getAttribute('aria-expanded'), 'true');
@@ -160,19 +160,23 @@ test('menu: one document listener for all menus, also after re-rendering; the it
   assertTrue(!pmo.menu.hidden, 'the menus of the new render work');
 });
 
-test('move to group: POST with the person, toast with Undo, Undo puts them back where they were', async () => {
+test('moving between groups goes through Add people: POST with the person, toast with Undo, Undo puts them back', async () => {
   const page = await managePage({
     'POST /api/manage/groups/2/members': { body: { groupId: 2, moved: [{ employeeId: 11, previousGroupId: null, previousGroupName: null }] } },
     'DELETE /api/manage/groups/2/members/11': { status: 204, body: {} }
   });
   const { column, button, topDialog, writes, document } = page;
-  button(column('IT Operations'), 'Move to group…').click();
+  assertEqual(button(column('IT Operations'), 'Move to group…'), null, 'one way to move people: Add people');
+  button(column('IT PMO'), 'Add people').click();
   await settle();
   const dialog = topDialog();
-  assertEqual(dialog.querySelector('.ui-dialog-title').textContent, 'Move Romeo, Ruby');
-  const radios = [...dialog.querySelectorAll('input[type=radio]')];
-  assertEqual(radios.length, 2, 'the other active groups');
-  button(dialog, 'Move').click();
+  const row = [...dialog.querySelectorAll('.admin-add-row')].find((r) => r.textContent.includes('Romeo, Ruby'));
+  assertTrue(row.textContent.includes('IT Operations'), 'the current group is shown');
+  assertTrue(dialog.textContent.includes('moves here'), 'says that it moves');
+  const box = row.querySelector('input');
+  box.checked = true;
+  box.dispatchEvent(new (require('./support/mini-dom').Event)('change'));
+  button(dialog, 'Add').click();
   await settle();
   assertEqual(writes()[0].path, '/api/manage/groups/2/members');
   assertEqual(writes()[0].body, { employeeIds: [11] });

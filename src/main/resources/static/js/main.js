@@ -1,3 +1,4 @@
+const DEFAULT_FUNC_ICON = "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8";
 const FUNC_ICONS = {
   People: "M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75M9 7a4 4 0 1 0 0-8 4 4 0 0 0 0 8z",
   "F&O": "M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z",
@@ -5,7 +6,6 @@ const FUNC_ICONS = {
   Markets: "M18 20V10M12 20V4M6 20v-6",
   OGC: "M3 6l9-4 9 4v6c0 5.25-3.75 10.15-9 11.5C6.75 22.15 3 17.25 3 12V6z",
   QRM: "M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01",
-  Tenders: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6M16 13H8M16 17H8M10 9H8",
   ITS: "M20 16V7a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9m16 0H4m16 0 1.28 2.55a1 1 0 0 1-.9 1.45H3.62a1 1 0 0 1-.9-1.45L4 16"
 };
 
@@ -94,7 +94,7 @@ function renderFunctions(functions) {
   orbit.innerHTML = functions
     .map((cs, index) => {
       const count = allEmployees.filter((employee) => employee.cs === cs).length;
-      const iconPath = FUNC_ICONS[cs] || FUNC_ICONS.Tenders;
+      const iconPath = FUNC_ICONS[cs] || DEFAULT_FUNC_ICON;
       const { x, y } = positions[index];
 
       return `

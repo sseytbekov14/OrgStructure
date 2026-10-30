@@ -1,8 +1,9 @@
 /* Groups management of the function page (U4, admins with EMPLOYEE_SOURCE=db): a "Manage groups" toggle shows every
    group of the function (also empty ones) with a menu (rename, move left / right, delete when empty), a "New group"
-   tile, "Add people" (search, function members first, "All employees"), and on every card "Move to group…" and
-   "Remove from group". Moves show a toast with Undo. Loaded by common.js after admin.js, for admins only.
-   DOM APIs and textContent only. */
+   tile, "Add people" (search, function members first with their group, "All employees": it adds and it moves people
+   between groups), and on every card "Remove from group". Moves show a toast with Undo. People inside a group change places with the arrows of Manage
+   groups, with the small bar that appears on their card in Tree and Groups, or with Alt + arrow keys on a card.
+   Loaded by common.js after admin.js, for admins only. DOM APIs and textContent only. */
 
 const AdminGroups = { cs: null, members: [], data: null, managing: false };
 
@@ -14,6 +15,8 @@ const AdminGroups = { cs: null, members: [], data: null, managing: false };
     AdminGroups.cs = cs;
     AdminGroups.members = members || [];
     renderManageToggle();
+    initOrderBar();
+    reanchorOrderBar();
     if (AdminGroups.managing) await loadAdminGroups();
   };
 })();
@@ -81,7 +84,9 @@ function renderAdminGroups() {
     columns.push(uiEl("section", { class: "admin-group-column admin-group-column--none", "aria-label": "Without a group" },
       uiEl("header", { class: "admin-group-header" }, uiEl("h3", { class: "admin-group-name", text: "Without a group" }),
         uiEl("span", { class: "badge badge-neutral", text: String(data.ungrouped.length) })),
-      uiEl("ul", { class: "admin-group-members" }, data.ungrouped.map((m) => renderGroupMember(m, null)))));
+      uiEl("ul", { class: "admin-group-members" }, data.ungrouped.map((m, i) => renderGroupMember(m, null, i, data.ungrouped))),
+      data.ungrouped.length > 1 ? uiEl("button", { type: "button", class: "btn btn-ghost btn-sm", "data-focus-key": "reset-ungrouped",
+        onclick: () => resetGroupOrder("Without a group", ungroupedOrderUrl()) }, "Reset order (by grade)") : null));
   }
   columns.push(uiEl("button", { type: "button", class: "admin-group-new", "data-focus-key": "new-group",
     onclick: () => openNewGroupDialog() }, uiEl("span", { "aria-hidden": "true", text: "+" }), uiEl("span", { text: "New group" })));
@@ -149,9 +154,9 @@ document.addEventListener("keydown", (event) => {
   trigger.focus();
 });
 
-window.addEventListener("resize", () => closeGroupMenus());
+window.addEventListener("resize", () => { closeGroupMenus(); leaveOrderBar(); });
 // Capture: also the scrolling of the page's own containers
-window.addEventListener("scroll", () => closeGroupMenus(), { capture: true, passive: true });
+window.addEventListener("scroll", () => { closeGroupMenus(); leaveOrderBar(); }, { capture: true, passive: true });
 
 function groupKindLabel(group) {
   if (group.kind === "COUNTRY") return "Country";
@@ -167,6 +172,7 @@ function renderGroupColumn(group, index, count) {
     ["Rename", () => openRenameDialog(group), group.source === "AUTO"],
     ["Move left", () => moveGroup(group, index - 1), index === 0],
     ["Move right", () => moveGroup(group, index + 1), index === count - 1],
+    ["Reset order (by grade)", () => resetGroupOrder(group.name, groupOrderUrl(group.id)), group.members.length < 2],
     ["Delete", () => deleteGroup(group), group.memberCount > 0]
   ];
   const menu = uiEl("ul", { class: "admin-group-menu", id: menuId, role: "menu", hidden: true },
@@ -185,24 +191,33 @@ function renderGroupColumn(group, index, count) {
       uiEl("span", { class: "badge badge-neutral", text: groupKindLabel(group) }),
       uiEl("span", { class: "badge", text: String(group.memberCount), "aria-label": `${group.memberCount} people` }),
       uiEl("span", { class: "admin-group-menu-wrap" }, menuButton, menu)),
-    group.members.length ? uiEl("ul", { class: "admin-group-members" }, group.members.map((m) => renderGroupMember(m, group)))
+    group.members.length ? uiEl("ul", { class: "admin-group-members" }, group.members.map((m, i) => renderGroupMember(m, group, i, group.members)))
       : uiEl("p", { class: "field-help admin-group-empty", text: "No people yet." }),
     uiEl("button", { type: "button", class: "btn btn-secondary btn-sm admin-group-add", "data-focus-key": `add-${group.id}`,
       onclick: () => openAddPeopleDialog(group) }, "Add people"));
 }
 
-function renderGroupMember(member, group) {
+function memberOrderButton(direction, member, group, index, members) {
+  const up = direction === "up";
+  const label = `Move ${member.name || "this person"} ${direction}`;
+  const button = uiEl("button", { type: "button", class: "icon-btn admin-group-order-btn", "aria-label": label, title: label,
+    "data-focus-key": `order-${direction}-${member.employeeId}`, onclick: () => moveMemberInGroup(group ? groupOrderUrl(group.id) : ungroupedOrderUrl(), members, index, up ? -1 : 1) },
+  orderIcon(up ? ORDER_ICON_UP : ORDER_ICON_DOWN));
+  button.disabled = up ? index === 0 : index === members.length - 1;
+  return button;
+}
+
+function renderGroupMember(member, group, index, members) {
   const byAd = member.source === "AD";
   return uiEl("li", { class: "admin-group-member", "data-employee-id": String(member.employeeId) },
+    members.length > 1 ? uiEl("span", { class: "admin-group-order" }, memberOrderButton("up", member, group, index, members),
+      memberOrderButton("down", member, group, index, members)) : null,
     uiEl("span", { class: "admin-heads-person" },
       uiEl("span", { class: "admin-heads-name", text: member.name || "—" }),
       member.jobTitle ? uiEl("span", { class: "admin-heads-title", text: member.jobTitle }) : null,
       member.countryCode ? uiEl("span", { class: "chip", text: member.countryCode }) : null,
       group ? uiEl("span", { class: "badge badge-neutral", text: byAd ? "AD" : "Manual" }) : null),
     uiEl("span", { class: "admin-heads-buttons" },
-      uiEl("button", { type: "button", class: "btn btn-ghost btn-sm", text: "Move to group…",
-        "aria-label": `Move ${member.name} to another group`, "data-focus-key": `move-${member.employeeId}`,
-        onclick: () => openMoveDialog(member, group) }),
       group ? uiEl("button", { type: "button", class: "btn btn-ghost btn-sm", text: "Remove from group",
         "aria-label": `Remove ${member.name} from ${group.name}`, disabled: byAd,
         title: byAd ? "Belongs here by Active Directory: move them to another group" : null,
@@ -300,6 +315,215 @@ async function adminGroupsChanged() {
   if (typeof window.refreshOrgChart === "function") await window.refreshOrgChart();
 }
 
+/* ---------- The order inside a group ---------- */
+
+const ORDER_ICON_UP = "m18 15-6-6-6 6";
+const ORDER_ICON_DOWN = "m6 9 6 6 6-6";
+
+/** A chevron as an SVG element (no HTML strings) */
+function orderIcon(path) {
+  const ns = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(ns, "svg");
+  Object.entries({ viewBox: "0 0 24 24", width: "16", height: "16", fill: "none", stroke: "currentColor",
+    "stroke-width": "2.5", "aria-hidden": "true" }).forEach(([name, value]) => svg.setAttribute(name, value));
+  const line = document.createElementNS(ns, "path");
+  line.setAttribute("d", path);
+  svg.appendChild(line);
+  return svg;
+}
+
+/** The ids of the group after one person moved right before or right after another */
+function movedOrder(ids, id, targetId, before) {
+  const rest = ids.filter((other) => other !== id);
+  rest.splice(rest.indexOf(targetId) + (before ? 0 : 1), 0, id);
+  return rest;
+}
+
+function groupOrderUrl(groupId) {
+  return `/api/manage/groups/${groupId}/order`;
+}
+
+/** The people of the function without a group */
+function ungroupedOrderUrl() {
+  return `/api/manage/functions/${encodeURIComponent(AdminGroups.cs)}/order`;
+}
+
+/** Manage groups: the arrows of a member */
+async function moveMemberInGroup(url, members, index, step) {
+  const ids = members.map((m) => m.employeeId);
+  const target = ids[index + step];
+  if (target == null) return;
+  const res = await adminJson(url, "PUT", { employeeIds: movedOrder(ids, ids[index], target, step < 0) });
+  if (!res.ok) { toast(await adminError(res), "error"); return; }
+  await adminGroupsChanged();
+}
+
+async function resetGroupOrder(name, url) {
+  const res = await apiFetch(url, { method: "DELETE" });
+  if (!res.ok) { toast(await adminError(res), "error"); return; }
+  toast(`${name}: back to the order by grade`, "success");
+  await adminGroupsChanged();
+}
+
+// One bar for the whole page, kept outside the chart: the cards are buttons (no buttons inside them) and the tree
+// cards move and zoom. It sits on the card under the mouse or the keyboard focus. While the mouse is on the bar it
+// stays there and keeps moving the same person (their card is outlined): the next click goes on with that person,
+// however far the card has moved from the pointer.
+const OrderBar = { el: null, up: null, down: null, status: null, empId: null, card: null, saving: false };
+
+function orderEmployee(card) {
+  return card ? employeeDirectory[Number(card.dataset.empId)] : null;
+}
+
+function orderCardOf(empId) {
+  const emp = employeeDirectory.find((e) => e.id === empId);
+  return emp ? document.querySelector(`#orgChart .emp-card[data-emp-id="${emp._id}"]`) : null;
+}
+
+function initOrderBar() {
+  if (OrderBar.el) return;
+  OrderBar.up = uiEl("button", { type: "button", class: "order-bar-btn", onclick: () => moveOnCard(-1) }, orderIcon(ORDER_ICON_UP));
+  OrderBar.down = uiEl("button", { type: "button", class: "order-bar-btn", onclick: () => moveOnCard(1) }, orderIcon(ORDER_ICON_DOWN));
+  OrderBar.el = uiEl("div", { class: "order-bar", role: "group", "aria-label": "Order in the group", hidden: true },
+    OrderBar.up, OrderBar.down);
+  OrderBar.status = uiEl("p", { class: "visually-hidden", "aria-live": "polite" });
+  document.body.append(OrderBar.el, OrderBar.status);
+  OrderBar.el.addEventListener("mouseleave", (event) => {
+    if (!OrderBar.card?.contains(event.relatedTarget)) hideOrderBar();
+  });
+
+  const chart = document.getElementById("orgChart");
+  const cardOf = (event) => event.target?.closest?.(".emp-card") || null;
+  // mousemove, not mouseover: scrolling hides the bar, and the next small movement on the same card brings it back
+  chart.addEventListener("mousemove", (event) => {
+    const card = cardOf(event);
+    if (card && card !== OrderBar.card) showOrderBar(card);
+  });
+  chart.addEventListener("mouseout", (event) => {
+    const to = event.relatedTarget;
+    if (cardOf(event) && !OrderBar.el.contains(to) && !OrderBar.card?.contains(to)) hideOrderBar();
+  });
+  chart.addEventListener("focusin", (event) => {
+    const card = cardOf(event);
+    if (card) showOrderBar(card);
+  });
+  chart.addEventListener("focusout", (event) => {
+    if (cardOf(event) && !OrderBar.el.contains(event.relatedTarget)) hideOrderBar();
+  });
+  chart.addEventListener("keydown", (event) => {
+    const emp = orderEmployee(cardOf(event));
+    if (!emp || !event.altKey) return;
+    const place = orderSiblings(emp);
+    const keys = place?.horizontal ? ["ArrowLeft", "ArrowRight"] : ["ArrowUp", "ArrowDown"];
+    const step = keys.indexOf(event.key);
+    if (step < 0 || !place) return;
+    event.preventDefault();
+    moveOnCard(step === 0 ? -1 : 1, cardOf(event));
+  });
+  // The cards move away under the bar when the tree is panned or zoomed (scrolling and resizing: see the menus)
+  chart.addEventListener("wheel", leaveOrderBar, { passive: true });
+  chart.addEventListener("pointerdown", hideOrderBar);
+}
+
+/** The page moved: the bar goes, unless the mouse is on it (redrawing the chart scrolls too) */
+function leaveOrderBar() {
+  if (!OrderBar.el?.matches(":hover")) hideOrderBar();
+}
+
+function hideOrderBar() {
+  if (!OrderBar.el || OrderBar.saving) return;
+  OrderBar.el.hidden = true;
+  OrderBar.card?.classList.remove("emp-card--ordering");
+  OrderBar.card = null;
+  OrderBar.empId = null;
+}
+
+/** The bar for this card: labels, the ends of the list. False when the person has nobody to swap with */
+function updateOrderBar(card) {
+  const emp = orderEmployee(card);
+  const place = emp ? orderSiblings(emp) : null;
+  if (!OrderBar.el || !place || place.list.length < 2) return false;
+  const index = place.list.findIndex((other) => other.id === emp.id);
+  const [before, after] = place.horizontal ? ["left", "right"] : ["up", "down"];
+  const name = emp.name || "this person";
+  [[OrderBar.up, before, index === 0], [OrderBar.down, after, index === place.list.length - 1]].forEach(([button, word, end]) => {
+    const label = `Move ${name} ${word}`;
+    button.setAttribute("aria-label", label);
+    button.title = `${label} (Alt + arrow key)`;
+    button.disabled = end;
+  });
+  OrderBar.el.classList.toggle("order-bar--horizontal", place.horizontal);
+  OrderBar.el.hidden = false;
+  if (OrderBar.card !== card) OrderBar.card?.classList.remove("emp-card--ordering");
+  card.classList.add("emp-card--ordering");
+  OrderBar.card = card;
+  OrderBar.empId = emp.id;
+  return true;
+}
+
+function showOrderBar(card) {
+  if (!updateOrderBar(card)) { hideOrderBar(); return; }
+  const rect = card.getBoundingClientRect();
+  const bar = OrderBar.el.getBoundingClientRect();
+  OrderBar.el.style.left = `${Math.max(4, rect.right - bar.width - 6)}px`;
+  OrderBar.el.style.top = `${Math.max(4, rect.top + (rect.height - bar.height) / 2)}px`;
+}
+
+/** After the chart was drawn again: the bar stays with the same person (and under the mouse, when it is there) */
+function reanchorOrderBar() {
+  if (!OrderBar.el || OrderBar.empId == null) return;
+  const card = orderCardOf(OrderBar.empId);
+  OrderBar.card = card;
+  if (!card) hideOrderBar();
+  else if (OrderBar.el.matches(":hover")) updateOrderBar(card);
+  else showOrderBar(card);
+}
+
+/**
+ * The person of the bar (with the keyboard: of the focused card) one place up or down: the whole group is saved in
+ * its new order
+ */
+async function moveOnCard(step, focused = null) {
+  const emp = orderEmployee(focused || OrderBar.card);
+  const place = emp ? orderSiblings(emp) : null;
+  if (!place || OrderBar.saving) return;
+  const index = place.list.findIndex((other) => other.id === emp.id);
+  const target = place.list[index + step];
+  if (!target) return;
+  const group = orderGroupOf(emp);
+  const ids = groupMembersInOrder(group).map((member) => member.id);
+  OrderBar.saving = true;
+  OrderBar.up.disabled = true;
+  OrderBar.down.disabled = true;
+  let res;
+  try {
+    res = await adminJson(group === OTHER_GROUP ? ungroupedOrderUrl() : groupOrderUrl(group), "PUT",
+      { employeeIds: movedOrder(ids, emp.id, target.id, step < 0) });
+    if (res.ok && typeof window.refreshOrgChart === "function") await window.refreshOrgChart();
+  } finally {
+    OrderBar.saving = false;
+  }
+  if (!res.ok) {
+    toast(await adminError(res), "error");
+    hideOrderBar();
+    return;
+  }
+  const card = orderCardOf(emp.id);
+  if (!card) { hideOrderBar(); return; }
+  if (focused) {
+    card.focus({ preventScroll: true });
+    showOrderBar(card);
+  } else {
+    updateOrderBar(card);
+  }
+  card.classList.add("emp-card--moved");
+  setTimeout(() => card.classList.remove("emp-card--moved"), 900);
+  const moved = orderSiblings(employeeDirectory.find((e) => e.id === emp.id));
+  if (moved) {
+    OrderBar.status.textContent = `${emp.name}: place ${moved.list.findIndex((other) => other.id === emp.id) + 1} of ${moved.list.length}`;
+  }
+}
+
 /* ---------- Moves ---------- */
 
 /** POST the people to the group; the toast offers Undo (back to the previous group, or to the AD default group) */
@@ -327,34 +551,6 @@ async function undoMove(group, moved) {
   }
   toast("Move undone", "info");
   await adminGroupsChanged();
-}
-
-function openMoveDialog(member, current) {
-  const groups = (AdminGroups.data?.groups || []).filter((g) => g.active && (!current || g.id !== current.id));
-  if (!groups.length) { toast("There is no other group: create one first.", "info"); return; }
-  const name = `adminMoveTarget-${member.employeeId}`;
-  const options = groups.map((g, i) => {
-    const id = `${name}-${g.id}`;
-    return uiEl("div", { class: "admin-radio" },
-      uiEl("input", { type: "radio", id, name, value: String(g.id), checked: i === 0 }),
-      uiEl("label", { for: id, text: `${g.name} (${g.memberCount})` }));
-  });
-  openDialog({
-    title: `Move ${member.name}`,
-    body: [uiEl("p", { text: current ? `Now in ${current.name}.` : "Now without a group." }),
-      uiEl("fieldset", { class: "admin-radios" }, uiEl("legend", { class: "field-label", text: "To group" }), options)],
-    actions: [
-      { label: "Cancel", variant: "secondary" },
-      { label: "Move", variant: "primary", onClick: async (event, handle) => {
-        const chosen = handle.element.querySelector(`input[name="${name}"]:checked`) ||
-          [...handle.element.querySelectorAll("input[type=radio]")].find((r) => r.checked);
-        const target = groups.find((g) => String(g.id) === chosen?.value);
-        if (!target) return false;
-        await moveToGroup(target, [member.employeeId], `${member.name} moved to ${target.name}`);
-        return true;
-      } }
-    ]
-  });
 }
 
 async function removeFromGroup(member, group) {
@@ -412,6 +608,7 @@ function openAddPeopleDialog(group) {
     title: `Add people to ${group.name}`,
     wide: true,
     body: [
+      uiEl("p", { class: "field-help", text: "Whoever is in another group moves here." }),
       uiEl("div", { class: "field" }, uiEl("label", { class: "field-label", for: searchId, text: "Find people" }), search),
       uiEl("label", { class: "admin-heads-all", for: allId }, all, uiEl("span", { text: "All employees" })),
       list, summary],
@@ -442,5 +639,6 @@ if (window.lastFunctionRender) {
     AdminGroups.cs = window.lastFunctionRender.cs;
     AdminGroups.members = window.lastFunctionRender.members || [];
     renderManageToggle();
+    initOrderBar();
   });
 }

@@ -40,7 +40,9 @@ class FrontendFunctionKeysTest {
         String seed = Files.readString(Path.of("src/main/resources/db/migration/V10__function_faq.sql"),
                 StandardCharsets.UTF_8);
         Set<String> seeded = Pattern.compile("INSERT INTO function_faq \\(cs, content, updated_by\\) VALUES \\('([^']+)'")
-                .matcher(seed).results().map(m -> m.group(1)).collect(Collectors.toSet());
+                .matcher(seed).results().map(m -> m.group(1)).filter(cs -> !"Tenders".equals(cs))
+                .collect(Collectors.toSet());
+        // Tenders is seeded by V10 and merged into F&O by V15
         assertThat(seeded).containsExactlyInAnyOrderElementsOf(CS_NAMES);
         assertThat(read("function.js")).doesNotContain("FUNCTION_FAQ");
     }

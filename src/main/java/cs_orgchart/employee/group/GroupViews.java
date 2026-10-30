@@ -42,6 +42,14 @@ public final class GroupViews {
     public record MembersRequest(List<Long> employeeIds) {
     }
 
+    /**
+     * PUT /api/manage/groups/{id}/order, and /api/manage/functions/{cs}/order for the people without a group: the
+     * people in their new order (the first is on top). Everybody listed must be there; who is not listed follows, by
+     * grade.
+     */
+    public record MemberOrderRequest(List<Long> employeeIds) {
+    }
+
     /** Where a moved person was before (previousGroupId null: the AD default group), for Undo */
     public record Moved(Long employeeId, Long previousGroupId, String previousGroupName) {
     }

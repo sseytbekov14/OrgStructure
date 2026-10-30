@@ -29,7 +29,7 @@ public class EmployeeOverride {
     @Column(name = "employee_id", nullable = false)
     private Long employeeId;
 
-    /** Site function name (F&amp;O, Tenders, ...) */
+    /** Site function name (F&amp;O, ITS, ...) */
     @Column(name = "cs", nullable = false, length = 256)
     private String cs;
 

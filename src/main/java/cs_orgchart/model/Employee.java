@@ -46,6 +46,14 @@ public class Employee {
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private Integer groupOrder;
 
+    /** Id of the group of this row; null: no group object (heads, people without a group) */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Long groupId;
+
+    /** Position inside the group (or the Other column) set by an admin; null: by grade, after those with a position */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private Integer groupPosition;
+
     /** U6: AD l */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private String city;

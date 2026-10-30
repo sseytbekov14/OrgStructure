@@ -4,6 +4,7 @@ import cs_orgchart.ad.mapper.FunctionResolver;
 import cs_orgchart.ad.mapper.NormalizedDepartment;
 import cs_orgchart.employee.EmployeeSourceProperties.ParentSource;
 import cs_orgchart.employee.group.FunctionGroup;
+import cs_orgchart.employee.group.GroupMemberOrder;
 import cs_orgchart.employee.override.EmployeeOverride;
 import lombok.extern.slf4j.Slf4j;
 
@@ -62,7 +63,17 @@ public class EmployeeDtoAssembler {
 
     /** What one build knows besides the employees: groups by id and by (function, name), hidden people */
     private record Build(Map<Long, Employee> byId, Map<Long, FunctionGroup> groupsById,
-                         Map<String, FunctionGroup> groupsByName, Set<Long> hidden) {
+                         Map<String, FunctionGroup> groupsByName, Set<Long> hidden,
+                         Map<GroupMemberOrder.Key, GroupMemberOrder> positions) {
+
+        /** The position set by an admin, if it is for the group the person is in now (no group: the Other column) */
+        Integer position(String cs, String group, FunctionGroup groupObject, Employee employee) {
+            GroupMemberOrder order = positions.get(new GroupMemberOrder.Key(cs, employee.getId()));
+            Long groupId = groupObject == null ? null : groupObject.getId();
+            boolean inGroupOrOther = groupObject != null || group == null;
+            return order != null && inGroupOrOther && Objects.equals(order.getGroupId(), groupId)
+                    ? order.getPosition() : null;
+        }
 
         FunctionGroup groupNamed(String cs, String name) {
             return name == null ? null : groupsByName.get(nameKey(cs, name));
@@ -93,6 +104,13 @@ public class EmployeeDtoAssembler {
     public List<cs_orgchart.model.Employee> assemble(List<Employee> employees, List<EmployeeOverride> overlay,
                                                      List<FunctionGroup> groups, Set<Long> hidden,
                                                      PhotoLinks photoFiles) {
+        return assemble(employees, overlay, groups, hidden, photoFiles, List.of());
+    }
+
+    /** With the order admins gave the people inside their groups: inside a group it goes before the grade */
+    public List<cs_orgchart.model.Employee> assemble(List<Employee> employees, List<EmployeeOverride> overlay,
+                                                     List<FunctionGroup> groups, Set<Long> hidden,
+                                                     PhotoLinks photoFiles, List<GroupMemberOrder> memberOrder) {
         Map<Long, Employee> byId = new HashMap<>();
         employees.forEach(e -> byId.put(e.getId(), e));
         Map<Long, List<EmployeeOverride>> overlayByEmployee = new HashMap<>();
@@ -103,7 +121,9 @@ public class EmployeeDtoAssembler {
             groupsById.put(g.getId(), g);
             groupsByName.put(nameKey(g.getCs(), g.getName()), g);
         });
-        Build build = new Build(byId, groupsById, groupsByName, hidden);
+        Map<GroupMemberOrder.Key, GroupMemberOrder> positions = new HashMap<>();
+        memberOrder.forEach(o -> positions.put(new GroupMemberOrder.Key(o.getCs(), o.getEmployeeId()), o));
+        Build build = new Build(byId, groupsById, groupsByName, hidden, positions);
 
         List<Row> rows = new ArrayList<>();
         int withoutFunction = 0;
@@ -148,6 +168,7 @@ public class EmployeeDtoAssembler {
         rows.sort(Comparator.comparing((Row r) -> r.dto().getCs(), Comparator.nullsLast(String::compareTo))
                 .thenComparing(r -> r.headRank() == null)
                 .thenComparing(Row::headRank, Comparator.nullsLast(Short::compareTo))
+                .thenComparing(r -> r.dto().getGroupPosition(), Comparator.nullsLast(Integer::compareTo))
                 .thenComparingInt(r -> r.dto().getGradeOrder())
                 .thenComparing(r -> r.dto().getJobTitle(), Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
                 .thenComparing(r -> r.dto().getName(), Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER))
@@ -178,6 +199,8 @@ public class EmployeeDtoAssembler {
                 .parentId(parent != null && !parent.isExternal() ? parent.getId() : null)
                 .countryCode(employee.getCountryCode())
                 .groupOrder(groupObject == null ? null : groupObject.getSortOrder())
+                .groupId(groupObject == null ? null : groupObject.getId())
+                .groupPosition(build.position(cs, group, groupObject, employee))
                 .city(employee.getCity())
                 .country(country(employee))
                 .pmId(parent == null ? null : parent.getId())

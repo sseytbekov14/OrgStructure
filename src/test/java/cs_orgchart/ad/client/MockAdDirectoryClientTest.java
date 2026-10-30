@@ -99,7 +99,7 @@ class MockAdDirectoryClientTest {
     }
 
     @Test
-    void departmentsAreRealValuesThatNormalizeToAllTwentyNodesAndEightFunctions() {
+    void departmentsAreRealValuesThatNormalizeToAllTwentyNodesAndSevenFunctions() {
         Set<String> real = DepartmentsCsv.rows().stream()
                 .map(DepartmentsCsv.Row::department).collect(Collectors.toSet());
         DepartmentNormalizer.Run run = normalizer.newRun();
@@ -111,7 +111,7 @@ class MockAdDirectoryClientTest {
         assertThat(run.unmappedCount()).isZero();
         assertThat(employees.stream().map(e -> resolver.resolve(normalizer.normalize(e.department())).csName())
                 .collect(Collectors.toSet()))
-                .containsExactlyInAnyOrder("People", "Finance", "ITS", "Markets", "F&O", "OGC", "QRM", "Tenders");
+                .containsExactlyInAnyOrder("People", "Finance", "ITS", "Markets", "F&O", "OGC", "QRM");
     }
 
     @Test
@@ -175,7 +175,7 @@ class MockAdDirectoryClientTest {
 
     @Test
     void overridesReferToMockEmployeesAndSiteFunctions() throws IOException {
-        Set<String> functions = Set.of("People", "Finance", "ITS", "Markets", "F&O", "OGC", "QRM", "Tenders");
+        Set<String> functions = Set.of("People", "Finance", "ITS", "Markets", "F&O", "OGC", "QRM");
 
         assertThat(overrides()).isNotEmpty().allSatisfy(o -> {
             assertThat(byUpn).containsKey(o.upn());
@@ -192,7 +192,7 @@ class MockAdDirectoryClientTest {
                 .collect(Collectors.groupingBy(Override::cs,
                         Collectors.mapping(Override::headRank, Collectors.toList())));
 
-        assertThat(ranks).hasSize(8);
+        assertThat(ranks).hasSize(7);
         ranks.forEach((cs, list) -> assertThat(list).as(cs).contains(1).doesNotHaveDuplicates());
         assertThat(ranks.values()).filteredOn(list -> list.size() > 1).hasSizeGreaterThanOrEqualTo(2);
     }

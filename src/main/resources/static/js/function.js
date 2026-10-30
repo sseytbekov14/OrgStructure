@@ -255,6 +255,62 @@ function compareEmployeesByHierarchy(left, right) {
   return (left?.name || '').localeCompare(right?.name || '');
 }
 
+/**
+ * The group of a person for the order inside groups: its id, OTHER_GROUP for the people without a group (the Other
+ * column), null for those without a place in one (heads, Excel rows without ids).
+ */
+const OTHER_GROUP = 'other';
+function orderGroupOf(emp) {
+  if (emp?.id == null) return null;
+  if (emp.groupId != null) return emp.groupId;
+  return emp.group?.trim() ? null : OTHER_GROUP;
+}
+
+/**
+ * The order admins gave the people inside a group: items of one group change places among themselves only, by
+ * groupPosition (who has none keeps their place after those who have one); everything else stays where it is, so
+ * lists that mix groups keep the grade order between the groups.
+ */
+function inGroupOrder(items, empOf = item => item) {
+  const slots = new Map();
+  items.forEach((item, index) => {
+    const group = orderGroupOf(empOf(item));
+    if (group == null) return;
+    if (!slots.has(group)) slots.set(group, []);
+    slots.get(group).push(index);
+  });
+  const ordered = [...items];
+  const position = item => empOf(item)?.groupPosition ?? Infinity;
+  slots.forEach(indexes => {
+    const group = indexes.map((index, rank) => ({ item: items[index], rank }))
+      .sort((a, b) => (position(a.item) - position(b.item)) || (a.rank - b.rank));
+    indexes.forEach((index, i) => { ordered[index] = group[i].item; });
+  });
+  return ordered;
+}
+
+/** Everybody in the group of this function, in the order shown */
+function groupMembersInOrder(group) {
+  return inGroupOrder(employeeDirectory.filter(emp => orderGroupOf(emp) === group).sort(compareEmployeesByHierarchy));
+}
+
+/**
+ * The people an admin can swap this person with, as they stand on the page. Groups: the column. Tree: the colleagues
+ * of the group under the same manager, in the same stack (people with counselees stand side by side: horizontal).
+ */
+function orderSiblings(emp) {
+  const group = orderGroupOf(emp);
+  if (group == null) return null;
+  if (currentView !== 'tree') return { list: groupMembersInOrder(group), horizontal: false };
+  const node = tree.nodes?.find(candidate => candidate.id === emp._id);
+  if (!node?.parent) return null;
+  const leaf = !node.children.length;
+  const list = node.parent.children
+    .filter(child => orderGroupOf(child.emp) === group && !child.children.length === leaf)
+    .map(child => child.emp);
+  return { list, horizontal: !leaf };
+}
+
 function employeeKey(emp) {
   return normalizeKey(emp?.email) || normalizeKey(emp?.name);
 }
@@ -352,8 +408,9 @@ function renderGroupsView(employees) {
 
   // From the database (with ids) the heads already come in head_rank order
   if (!employees.some(e => e.id != null)) headEmps.sort(compareEmployeesByHierarchy);
-  Object.values(kzGroups).forEach(group => group.sort(compareEmployeesByHierarchy));
-  Object.values(ctryGroups).forEach(group => group.sort(compareEmployeesByHierarchy));
+  [kzGroups, ctryGroups].forEach(groups => Object.keys(groups).forEach(key => {
+    groups[key] = inGroupOrder(groups[key].sort(compareEmployeesByHierarchy));
+  }));
 
   let html = '';
 
@@ -564,6 +621,7 @@ function buildTree(employees) {
 
   const sortChildren = node => {
     node.children.sort((a, b) => headOrder(a) - headOrder(b) || compareEmployeesByHierarchy(a.emp, b.emp));
+    node.children = inGroupOrder(node.children, child => child.emp);
     node.children.forEach(sortChildren);
   };
   roots.forEach(sortChildren);

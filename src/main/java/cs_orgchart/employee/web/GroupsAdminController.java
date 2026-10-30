@@ -4,6 +4,7 @@ import cs_orgchart.employee.group.FunctionGroupService;
 import cs_orgchart.employee.group.GroupViews.CreateGroupRequest;
 import cs_orgchart.employee.group.GroupViews.GroupView;
 import cs_orgchart.employee.group.GroupViews.GroupsView;
+import cs_orgchart.employee.group.GroupViews.MemberOrderRequest;
 import cs_orgchart.employee.group.GroupViews.MembersRequest;
 import cs_orgchart.employee.group.GroupViews.MembersResult;
 import cs_orgchart.employee.group.GroupViews.UpdateGroupRequest;
@@ -56,6 +57,36 @@ public class GroupsAdminController {
     public ResponseEntity<Void> delete(@PathVariable long id, @RequestParam(required = false) Long version,
                                        Authentication admin) {
         service.delete(id, version, admin.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/api/manage/functions/{cs}/order")
+    @PreAuthorize("@adminAccess.isAdmin(authentication)")
+    public ResponseEntity<Void> orderUngrouped(@PathVariable String cs, @RequestBody MemberOrderRequest request,
+                                               Authentication admin) {
+        service.orderUngrouped(cs, request, admin.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/api/manage/functions/{cs}/order")
+    @PreAuthorize("@adminAccess.isAdmin(authentication)")
+    public ResponseEntity<Void> resetUngroupedOrder(@PathVariable String cs, Authentication admin) {
+        service.resetUngroupedOrder(cs, admin.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/api/manage/groups/{id}/order")
+    @PreAuthorize("@adminAccess.isAdmin(authentication)")
+    public ResponseEntity<Void> orderMembers(@PathVariable long id, @RequestBody MemberOrderRequest request,
+                                             Authentication admin) {
+        service.orderMembers(id, request, admin.getName());
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/api/manage/groups/{id}/order")
+    @PreAuthorize("@adminAccess.isAdmin(authentication)")
+    public ResponseEntity<Void> resetMemberOrder(@PathVariable long id, Authentication admin) {
+        service.resetMemberOrder(id, admin.getName());
         return ResponseEntity.noContent().build();
     }
 

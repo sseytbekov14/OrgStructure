@@ -75,9 +75,18 @@ class FaqSeedParityTest {
             Map.Entry<String, JsonNode> entry = it.next();
             expected.put(entry.getKey(), documentOf(entry.getValue()));
         }
+        // V15 merged Tenders into F&O (see below): every other function still holds its seed
+        FaqDocument tenders = expected.remove("Tenders");
+        FaqDocument fo = expected.remove("F&O");
         Map<String, FaqDocument> seeded = seeded();
         assertThat(seeded.keySet()).containsExactlyElementsOf(expected.keySet());
         expected.forEach((cs, document) -> assertThat(seeded.get(cs)).as(cs).isEqualTo(document));
+
+        assertThat(jdbc.queryForObject("SELECT count(*) FROM function_faq WHERE cs = 'Tenders'", Integer.class)).isZero();
+        String merged = jdbc.queryForObject("SELECT content::text FROM function_faq WHERE cs = 'F&O'", String.class);
+        List<Section> sections = new ArrayList<>(fo.sections());
+        tenders.sections().forEach(s -> sections.add(new Section(s.kind(), "Tenders: " + s.title(), s.items())));
+        assertThat(json.readValue(merged, FaqDocument.class)).isEqualTo(new FaqDocument(sections));
     }
 
     @Test

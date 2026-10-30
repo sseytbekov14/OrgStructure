@@ -8,6 +8,7 @@ import cs_orgchart.service.OrgStreamService;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import cs_orgchart.employee.group.FunctionGroupRepository;
+import cs_orgchart.employee.group.GroupMemberOrderRepository;
 import cs_orgchart.employee.visibility.EmployeeVisibilityRepository;
 import cs_orgchart.photo.EmployeePhotoInfoRepository;
 import cs_orgchart.photo.PhotoProperties;
@@ -34,8 +35,10 @@ public class EmployeeDirectoryConfig {
                                                    EmployeeSourceProperties source, FunctionGroupRepository groups,
                                                    EmployeeVisibilityRepository visibility,
                                                    PhotoProperties photoSettings,
-                                                   EmployeePhotoInfoRepository adPhotos) {
+                                                   EmployeePhotoInfoRepository adPhotos,
+                                                   GroupMemberOrderRepository memberOrder) {
         return new DbEmployeeDirectory(employees, overlay, aliases, generalNodes, functionMap, photos, directory,
-                orgStream, transactions, source.orgParentSource(), groups, visibility, photoSettings, adPhotos);
+                orgStream, transactions, source.orgParentSource(), groups, visibility, photoSettings, adPhotos,
+                memberOrder);
     }
 }

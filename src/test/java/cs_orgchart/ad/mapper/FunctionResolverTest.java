@@ -20,8 +20,8 @@ class FunctionResolverTest {
 
     @ParameterizedTest(name = "{0} -> {1}")
     @CsvSource(delimiter = '|', textBlock = """
-            CS/F&O/Facilities & Operations/Proposals & Tenders     | Tenders
-            Central services/Facilities & Operations/F&O/Tenders   | Tenders
+            CS/F&O/Facilities & Operations/Proposals & Tenders     | F&O
+            Central services/Facilities & Operations/F&O/Tenders   | F&O
             CS / F&O                                               | F&O
             Central services/F&O/F&O/F&O General                   | F&O
             CS / Administration Office                             | F&O
@@ -45,8 +45,8 @@ class FunctionResolverTest {
 
     @Test
     void exactLevelThreeRowWinsOverTheAnyRow() {
-        assertThat(resolver.resolve("Facilities & Operations", "Proposals & Tenders").csName()).isEqualTo("Tenders");
-        assertThat(resolver.resolve("facilities & operations", "PROPOSALS & TENDERS").csName()).isEqualTo("Tenders");
+        assertThat(resolver.resolve("Facilities & Operations", "Proposals & Tenders").csName()).isEqualTo("F&O");
+        assertThat(resolver.resolve("facilities & operations", "PROPOSALS & TENDERS").csName()).isEqualTo("F&O");
         assertThat(resolver.resolve("Facilities & Operations", "F&O General").csName()).isEqualTo("F&O");
         assertThat(resolver.resolve("Facilities & Operations", null).csName()).isEqualTo("F&O");
     }
@@ -78,7 +78,7 @@ class FunctionResolverTest {
         }
 
         // The functions of spec §2.4 (the counts there are those of the export and change with every refresh)
-        assertThat(headcount).containsOnlyKeys("People", "Finance", "ITS", "Markets", "QRM", "OGC", "F&O", "Tenders");
+        assertThat(headcount).containsOnlyKeys("People", "Finance", "ITS", "Markets", "QRM", "OGC", "F&O");
         assertThat(headcount.values()).allSatisfy(count -> assertThat(count).isPositive());
     }
 

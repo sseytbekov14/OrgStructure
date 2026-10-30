@@ -114,8 +114,13 @@ all open pages within seconds (server-sent events) and written to the log with t
   anybody). A hidden person cannot be a head.
 - **Groups**: *Manage groups* on a function page. Groups from Active Directory (the department) are registered
   automatically and keep their name; admins create groups, rename them, move them left/right and delete empty ones.
-  *Add people* / *Move to group…* move a person (one group per function, Undo in the message); *Remove from group*
+  *Add people* puts people into the group, also from another group or, with *All employees*, from another function (one group per function, Undo in the message); *Remove from group*
   returns a person to the group from Active Directory (refused when that is the group they are in).
+- **Order inside a group**: people are shown by grade; an admin can change that per group. Hover a card in *Tree* or
+  *Groups* and use the arrows of the small bar (or Alt + arrow keys on a focused card), or the arrows in *Manage groups*
+  (also for the people without a group). The whole group then keeps that order: newcomers follow at the end, by grade.
+  *Reset order (by grade)* goes back. The AD sync never changes this. In *Tree* only colleagues under the same manager
+  stand next to each other; their order is the same as in *Groups*.
 - **Hide / restore**: *Hide from site* on a card. The person disappears from the tree, groups and search for everyone;
   the people reporting to them are shown under the next manager. Restore them on the Admin page, *Hidden people*.
   The AD sync never changes this.
@@ -144,6 +149,7 @@ all open pages within seconds (server-sent events) and written to the log with t
 | GET / PUT | `/api/manage/functions/{cs}/heads` | admins |
 | GET / POST | `/api/manage/functions/{cs}/groups` | admins |
 | PUT / DELETE | `/api/manage/groups/{id}` | admins |
+| PUT / DELETE | `/api/manage/groups/{id}/order`, `/api/manage/functions/{cs}/order` (people without a group) | admins |
 | POST | `/api/manage/groups/{id}/members` | admins |
 | DELETE | `/api/manage/groups/{id}/members/{employeeId}` | admins |
 | POST / DELETE | `/api/manage/employees/{id}/hide` | admins |

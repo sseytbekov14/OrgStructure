@@ -7,6 +7,7 @@ import cs_orgchart.department.DepartmentFunctionMapRepository;
 import cs_orgchart.department.DepartmentGeneralNodeRepository;
 import cs_orgchart.department.JpaDepartmentDictionaries;
 import cs_orgchart.employee.group.FunctionGroupRepository;
+import cs_orgchart.employee.group.GroupMemberOrderRepository;
 import cs_orgchart.employee.override.EmployeeOverrideRepository;
 import cs_orgchart.employee.visibility.EmployeeVisibilityRepository;
 import cs_orgchart.employee.override.OverlayChanged;
@@ -52,6 +53,7 @@ public class DbEmployeeDirectory {
     private final EmployeeDtoAssembler assembler;
     private final FunctionGroupRepository groups;
     private final EmployeeVisibilityRepository visibility;
+    private final GroupMemberOrderRepository memberOrder;
     private final PhotoProperties photoSettings;
     private final EmployeePhotoInfoRepository adPhotos;
 
@@ -61,7 +63,9 @@ public class DbEmployeeDirectory {
                                EmployeeDirectory directory, OrgStreamService orgStream,
                                PlatformTransactionManager transactions, EmployeeSourceProperties.ParentSource parentSource,
                                FunctionGroupRepository groups, EmployeeVisibilityRepository visibility,
-                               PhotoProperties photoSettings, EmployeePhotoInfoRepository adPhotos) {
+                               PhotoProperties photoSettings, EmployeePhotoInfoRepository adPhotos,
+                               GroupMemberOrderRepository memberOrder) {
+        this.memberOrder = memberOrder;
         this.photoSettings = photoSettings;
         this.adPhotos = adPhotos;
         // A wrong PHOTO_SOURCE_PRIORITY stops the start here
@@ -148,7 +152,7 @@ public class DbEmployeeDirectory {
         List<Employee> assembled = readOnly.execute(status -> {
             dictionaries.reload();
             return assembler.assemble(employees.findAll(), overlay.findAll(), groups.findAll(),
-                    new HashSet<>(visibility.findHiddenEmployeeIds()), photoLinks());
+                    new HashSet<>(visibility.findHiddenEmployeeIds()), photoLinks(), memberOrder.findAll());
         });
         List<Employee> rows = assembled == null ? List.of() : assembled;
         directory.replace(rows);

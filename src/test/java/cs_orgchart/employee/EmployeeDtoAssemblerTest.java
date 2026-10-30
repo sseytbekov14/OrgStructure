@@ -81,7 +81,7 @@ class EmployeeDtoAssemblerTest {
 
         assertThat(row.getName()).isEqualTo("Person, tenders");
         assertThat(row.getEmail()).isEqualTo("tenders.mail@kz.example");
-        assertThat(row.getCs()).isEqualTo("Tenders");
+        assertThat(row.getCs()).isEqualTo("F&O");
         assertThat(row.getGroup()).as("default group: level 3").isEqualTo("Proposals & Tenders");
         assertThat(row.getJobTitle()).isEqualTo("Tenders Manager");
         assertThat(row.getGradeOrder()).isEqualTo(4);
@@ -182,12 +182,12 @@ class EmployeeDtoAssemblerTest {
     @Test
     void defaultGroupOnlyForTheAdFunction() {
         Employee e = person("twice", "Specialist", "Facilities & Operations", "Proposals & Tenders");
-        membership(e, "Tenders");
+        membership(e, "F&O");
         membership(e, "People");
 
         List<cs_orgchart.model.Employee> rows = assemble();
 
-        assertThat(only(rows, "Person, twice", "Tenders").getGroup()).isEqualTo("Proposals & Tenders");
+        assertThat(only(rows, "Person, twice", "F&O").getGroup()).isEqualTo("Proposals & Tenders");
         assertThat(only(rows, "Person, twice", "People").getGroup()).isNull();
     }
 

@@ -46,7 +46,6 @@ public final class SpecDepartmentDictionaries implements DepartmentDictionaries 
             "Executives", "Administration Office");
 
     private static final List<FunctionMapping> FUNCTION_MAP = List.of(
-            new FunctionMapping("Facilities & Operations", "Proposals & Tenders", "Tenders", true),
             new FunctionMapping("Facilities & Operations", null, "F&O", true),
             new FunctionMapping("Executives", null, "F&O", true),
             new FunctionMapping("Procurement", null, "F&O", true),
